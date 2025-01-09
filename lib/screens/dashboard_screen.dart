@@ -6,13 +6,34 @@ import 'package:manage_center/widgets/custom_bottom_navigation.dart';
 //ДОБАВИТЬ ПО НАЖАТИЮ НА СТАТУСЫ ЧТОБЫ СТАНРОВИЛАСЬ ФИЛЬТРАЦИЯ
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
-
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  _DashboardScreenState createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  String _filterQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: Duration(milliseconds: 300),
+      vsync: this,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _filterBoilers(String query) {
+    setState(() {
+      _filterQuery = query;
+    });
+  }
   int _currentIndex = 0;
 
   @override

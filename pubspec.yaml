@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   provider: ^6.0.5  # для простого управления состоянием
   intl: ^0.18.0     # для работы с датами
 
@@ -54,11 +56,10 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
+  generate: true
   uses-material-design: true
+  assets:
+    - assets/l10n/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

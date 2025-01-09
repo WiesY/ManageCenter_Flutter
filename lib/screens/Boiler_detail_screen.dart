@@ -56,9 +56,30 @@ class BoilerState {
 }
 
 class BoilerDetailScreen extends StatefulWidget {
+  final String boilerNumber;
+
+  const BoilerDetailScreen({Key? key, required this.boilerNumber}) : super(key: key);
+
   @override
   _BoilerDetailScreenState createState() => _BoilerDetailScreenState();
 }
+
+class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
+  bool _isLoading = true;
+  Map<String, dynamic> _boilerData = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBoilerData();
+  }
+
+  Future<void> _loadBoilerData() async {
+    // Add data loading logic here
+    setState(() {
+      _isLoading = false;
+    });
+  }
 
 class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
   DateTime selectedDate = DateTime.now();
