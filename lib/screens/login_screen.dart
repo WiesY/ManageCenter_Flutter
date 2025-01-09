@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/screens/dashboard_screen.dart';
 
 void main() {
@@ -73,8 +75,22 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _rememberMe = true;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  @override
+Widget build(BuildContext context) {
+  return BlocListener<AuthBloc, AuthState>(
+    listener: (context, state) {
+      if (state is AuthSuccess) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+        );
+      } else if (state is AuthFailure) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(state.error)),
+        );
+      }
+    },
+    child: Scaffold(
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: Padding(
@@ -220,15 +236,20 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                  onPressed: () {
-    if (_validateForm()) {
-      context.read<AppBloc>().add(LoginEvent(
-        username: _loginController.text,
-        password: _passwordController.text,
-        rememberMe: _rememberMe,
-      ));
-      context.go('/dashboard');
-    }
-  },
+  if (_validateForm()) {
+    context.read<AuthBloc>().add(LoginEvent(
+      username: _loginController.text,
+      password: _passwordController.text,
+      rememberMe: _rememberMe,
+    ));
+    
+    // После успешной авторизации переходим на главный экран
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const DashboardScreen()),
+    );
+  }
+},
                   child: const Text(
                     'Войти',
                     style: TextStyle(
@@ -242,6 +263,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
