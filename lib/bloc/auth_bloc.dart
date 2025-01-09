@@ -33,8 +33,20 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthLoading());
       try {
         // Здесь будет логика авторизации
-        await Future.delayed(const Duration(seconds: 1)); // Имитация запроса
-        emit(AuthSuccess());
+        if (event.username.isEmpty || event.password.isEmpty) {
+          emit(AuthFailure('Заполните все поля'));
+          return;
+        }
+        
+        // Имитация запроса
+        await Future.delayed(const Duration(seconds: 1));
+        
+        // Простая проверка (замените на реальную)
+        if (event.username == 'admin' && event.password == 'admin') {
+          emit(AuthSuccess());
+        } else {
+          emit(AuthFailure('Неверный логин или пароль'));
+        }
       } catch (e) {
         emit(AuthFailure(e.toString()));
       }

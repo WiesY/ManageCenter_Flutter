@@ -74,17 +74,29 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _rememberMe = true;
 
-  @override
-  @override
+@override
 Widget build(BuildContext context) {
   return BlocListener<AuthBloc, AuthState>(
     listener: (context, state) {
-      if (state is AuthSuccess) {
+      if (state is AuthLoading) {
+        // Показать индикатор загрузки
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(child: CircularProgressIndicator()),
+        );
+      } else if (state is AuthSuccess) {
+        // Закрыть диалог загрузки если он открыт
+        Navigator.of(context).pop();
+        // Перейти на главный экран
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const DashboardScreen()),
         );
       } else if (state is AuthFailure) {
+        // Закрыть диалог загрузки если он открыт
+        Navigator.of(context).pop();
+        // Показать ошибку
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(state.error)),
         );
@@ -236,20 +248,26 @@ Widget build(BuildContext context) {
                     ),
                   ),
                  onPressed: () {
-  if (_validateForm()) {
+  if (_loginController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
     context.read<AuthBloc>().add(LoginEvent(
       username: _loginController.text,
       password: _passwordController.text,
       rememberMe: _rememberMe,
     ));
-    
-    // После успешной авторизации переходим на главный экран
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const DashboardScreen()),
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Заполните все поля')),
     );
   }
 },
+    
+//     // После успешной авторизации переходим на главный экран
+//     Navigator.pushReplacement(
+//       context,
+//       MaterialPageRoute(builder: (context) => const DashboardScreen()),
+//     );
+//   }
+// },
                   child: const Text(
                     'Войти',
                     style: TextStyle(
