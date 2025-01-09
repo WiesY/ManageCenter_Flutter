@@ -20,19 +20,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Диспетчерская'),
-        backgroundColor: Colors.white,
-        elevation: 0,
+        title: const Text('Dashboard'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              // Настройки
-            },
+            icon: const Icon(Icons.logout),
+            onPressed: () => showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Выйти из аккаунта?'),
+                content: const Text('Вы уверены, что хотите выйти?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Отмена'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      context.read<AuthBloc>().add(LogoutEvent());
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        SlideRightRoute(page: const LoginScreen()),
+                        (route) => false,
+                      );
+                    },
+                    child: const Text('Выйти'),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
-      body: Column(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // Implement refresh logic
+        },
+        child: Column(
+          children: [
+            SearchBar(
+              // Implement search functionality
+            ),
+            Expanded(
+              child: BlocBuilder<AuthBloc, AuthState>(
+                builder: (context, state) {
+                  if (state is AuthLoading) {
+                    return const SkeletonLoading();
+                  }
+                  return ListView.builder(
+                    // Your list implementation
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
         children: [
           // Статус котельных
           Container(
