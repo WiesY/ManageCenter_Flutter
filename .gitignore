@@ -25,3 +25,17 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+.flutter-versions
+.idea/
+.vscode/
+*.iml
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Linux
+*.lock
