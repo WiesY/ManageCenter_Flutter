@@ -39,6 +39,34 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  
+  bool _validateForm() {
+    if (_formKey.currentState?.validate() ?? false) {
+      return true;
+    }
+    return false;
+  }
+
+  Future<bool> _onWillPop() async {
+    return await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Выйти из приложения?'),
+        content: const Text('Вы уверены, что хотите выйти?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Выйти'),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
   final _loginController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
@@ -192,13 +220,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                  onPressed: () {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(
-      builder: (context) => const DashboardScreen(),
-    ),
-  );
-},
+    if (_validateForm()) {
+      context.read<AppBloc>().add(LoginEvent(
+        username: _loginController.text,
+        password: _passwordController.text,
+        rememberMe: _rememberMe,
+      ));
+      context.go('/dashboard');
+    }
+  },
                   child: const Text(
                     'Войти',
                     style: TextStyle(
