@@ -30,6 +30,13 @@ class MyApp extends StatelessWidget {
             brightness: Brightness.light,
           ),
         ),
+        darkTheme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.blue,
+            brightness: Brightness.dark,
+          ),
+        ),
         home: const LoginScreen(),
       ),
     );

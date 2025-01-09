@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:manage_center/screens/Boiler_detail_screen.dart';
+import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/widgets/custom_bottom_navigation.dart';
 
 
@@ -14,6 +15,32 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
+  
+  void _showLogoutDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Выход'),
+      content: const Text('Вы действительно хотите выйти?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Отмена'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+            );
+          },
+          child: const Text('Выйти'),
+        ),
+      ],
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -24,12 +51,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              // Настройки
-            },
-          ),
+IconButton(
+    icon: const Icon(Icons.logout),
+    onPressed: () => _showLogoutDialog(context),
+  ),
         ],
       ),
       body: Column(
