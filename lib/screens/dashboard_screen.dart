@@ -15,6 +15,59 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
+  String? _selectedFilter;
+
+  List<Widget> _filterBoilers(List<Widget> boilers, String? filter) {
+  if (filter == null) return boilers;
+  
+  return boilers.where((boiler) {
+    if (boiler is Material) {
+      final inkWell = (boiler as Material).child as InkWell;
+      final container = inkWell.child as Container;
+      final column = container.child as Column;
+      
+      switch (filter) {
+        case 'Норма':
+          return boiler.color == Colors.green;
+        case 'Авария':
+          return boiler.color == Colors.red;
+        case 'Внимание':
+          return boiler.color == Colors.orange;
+        case 'Отключено':
+          return boiler.color == Colors.grey;
+        default:
+          return true;
+      }
+    }
+    return false;
+  }).toList();
+}
+
+Map<String, int> _countBoilersByStatus(List<List<Widget>> allBoilers) {
+    Map<String, int> counts = {
+      'Норма': 0,
+      'Авария': 0,
+      'Внимание': 0,
+      'Отключено': 0,
+    };
+
+    for (var boilerList in allBoilers) {
+      for (var boiler in boilerList) {
+        if (boiler is Material) {
+          if (boiler.color == Colors.green) {
+            counts['Норма'] = counts['Норма']! + 1;
+          } else if (boiler.color == Colors.red) {
+            counts['Авария'] = counts['Авария']! + 1;
+          } else if (boiler.color == Colors.orange) {
+            counts['Внимание'] = counts['Внимание']! + 1;
+          } else if (boiler.color == Colors.grey) {
+            counts['Отключено'] = counts['Отключено']! + 1;
+          }
+        }
+      }
+    }
+    return counts;
+  }
   
   void _showLogoutDialog(BuildContext context) {
   showDialog(
@@ -43,108 +96,135 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Диспетчерская'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-IconButton(
-    icon: const Icon(Icons.logout),
-    onPressed: () => _showLogoutDialog(context),
-  ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Статус котельных
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatusIndicator('Норма', 63, Colors.green),
-                _buildStatusIndicator('Авария', 8, Colors.red),
-                _buildStatusIndicator('Внимание', 0, Colors.orange),
-                _buildStatusIndicator('Отключено', 1, Colors.grey),
-              ],
-            ),
-          ),
-          // Список районов с котельными
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _buildDistrictSection(
-                  'Эксплуатационный Район - 1',
-                  [
-                    _buildBoilerButton('1', 'normal'),
-                    _buildBoilerButton('2', 'normal'),
-                    _buildBoilerButton('3', 'normal', 'MA'),
-                    _buildBoilerButton('4', 'normal', 'MA'),
-                    _buildBoilerButton('5', 'normal', 'MA'),
-                    _buildBoilerButton('6', 'normal', 'MA'),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                _buildDistrictSection(
-                  'Экс. Район - 1 (ЦТП)',
-                  [
-                    _buildBoilerButton('67', 'normal', 'A'),
-                    _buildBoilerButton('70', 'normal', 'A'),
-                    _buildBoilerButton('72', 'warning', 'A'),
-                    _buildBoilerButton('73', 'normal', 'A'),
-                  ],
-                ),
-                _buildDistrictSection(
-                  'Эксплуатационный Район - 2',
-                  [
-                    _buildBoilerButton('7', 'normal'),
-                    _buildBoilerButton('8', 'normal'),
-                    _buildBoilerButton('9', 'normal', 'MA'),
-                    _buildBoilerButton('10', 'normal', 'MA'),
-                    _buildBoilerButton('11', 'error', 'MA'),
-                    _buildBoilerButton('12', 'normal', 'MA'),
-                  ],
-                ),
-                _buildDistrictSection(
-                  'Эксплуатационный Район - 3',
-                  [
-                    _buildBoilerButton('7', 'normal'),
-                    _buildBoilerButton('8', 'normal'),
-                    _buildBoilerButton('9', 'normal', 'MA'),
-                    _buildBoilerButton('10', 'normal', 'MA'),
-                    _buildBoilerButton('11', 'normal', 'MA'),
-                    _buildBoilerButton('12', 'normal', 'MA'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: CustomBottomNavigation(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-      ),
-    );
-  }
+ @override
+Widget build(BuildContext context) {
+  // Создаем списки котельных для каждого района
+  final List<List<Widget>> allBoilersList = [
+    // ЭР-1
+    [
+      _buildBoilerButton('1', 'normal'),
+      _buildBoilerButton('2', 'normal'),
+      _buildBoilerButton('3', 'normal', 'MA'),
+      _buildBoilerButton('4', 'normal', 'MA'),
+      _buildBoilerButton('5', 'warning', 'MA'),
+      _buildBoilerButton('6', 'normal', 'MA'),
+    ],
+    // ЭР-1 (ЦТП)
+    [
+      _buildBoilerButton('67', 'normal', 'A'),
+      _buildBoilerButton('70', 'normal', 'A'),
+      _buildBoilerButton('72', 'warning', 'A'),
+      _buildBoilerButton('73', 'warning', 'A'),
+    ],
+    // ЭР-2
+    [
+      _buildBoilerButton('7', 'normal'),
+      _buildBoilerButton('8', 'normal'),
+      _buildBoilerButton('9', 'normal', 'MA'),
+      _buildBoilerButton('10', 'normal', 'MA'),
+      _buildBoilerButton('11', 'error', 'MA'),
+      _buildBoilerButton('12', 'normal', 'MA'),
+    ],
+    // ЭР-3
+    [
+      _buildBoilerButton('7', 'normal'),
+      _buildBoilerButton('8', 'error'),
+      _buildBoilerButton('9', 'normal', 'MA'),
+      _buildBoilerButton('10', 'normal', 'MA'),
+      _buildBoilerButton('11', '', 'MA'),
+      _buildBoilerButton('12', 'normal', 'MA'),
+    ],
+  ];
 
-  Widget _buildStatusIndicator(String label, int count, Color color) {
-    return Column(
+  // Подсчитываем статистику
+  final boilerCounts = _countBoilersByStatus(allBoilersList);
+
+  return Scaffold(
+    backgroundColor: Colors.white,
+    appBar: AppBar(
+      title: const Text('Диспетчерская'),
+      backgroundColor: Colors.white,
+      elevation: 0,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.logout),
+          onPressed: () => _showLogoutDialog(context),
+        ),
+      ],
+    ),
+    body: Column(
+      children: [
+        // Статус котельных с реальными данными
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatusIndicator('Норма', boilerCounts['Норма']!, Colors.green),
+              _buildStatusIndicator('Авария', boilerCounts['Авария']!, Colors.red),
+              _buildStatusIndicator('Внимание', boilerCounts['Внимание']!, Colors.orange),
+              _buildStatusIndicator('Отключено', boilerCounts['Отключено']!, Colors.grey),
+            ],
+          ),
+        ),
+        // Список районов с котельными
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildDistrictSection(
+                'Эксплуатационный Район - 1',
+                allBoilersList[0],
+              ),
+              const SizedBox(height: 24),
+              _buildDistrictSection(
+                'Экс. Район - 1 (ЦТП)',
+                allBoilersList[1],
+              ),
+              _buildDistrictSection(
+                'Эксплуатационный Район - 2',
+                allBoilersList[2],
+              ),
+              _buildDistrictSection(
+                'Эксплуатационный Район - 3',
+                allBoilersList[3],
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+    bottomNavigationBar: CustomBottomNavigation(
+      currentIndex: _currentIndex,
+      onTap: (index) {
+        setState(() {
+          _currentIndex = index;
+        });
+      },
+    ),
+  );
+}
+
+ Widget _buildStatusIndicator(String label, int count, Color color) {
+  final isSelected = _selectedFilter == label;
+  
+  return GestureDetector(
+    onTap: () {
+      setState(() {
+        _selectedFilter = isSelected ? null : label;
+      });
+    },
+    child: Column(
       children: [
         Container(
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withOpacity(isSelected ? 0.3 : 0.1),
             shape: BoxShape.circle,
+            border: isSelected 
+              ? Border.all(color: color, width: 2)
+              : null,
           ),
           child: Center(
             child: Text(
@@ -161,15 +241,23 @@ IconButton(
         Text(
           label,
           style: TextStyle(
-            color: Colors.grey[600],
+            color: isSelected ? color : Colors.grey[600],
             fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildDistrictSection(String title, List<Widget> boilers) {
+  final filteredBoilers = _filterBoilers(boilers, _selectedFilter);
+  
+  if (filteredBoilers.isEmpty) {
+    return const SizedBox.shrink();
+  }
+
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -185,10 +273,10 @@ IconButton(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         crossAxisCount: 5,
-        mainAxisSpacing: 12, 
+        mainAxisSpacing: 12,
         crossAxisSpacing: 12,
         childAspectRatio: 1.1,
-        children: boilers,
+        children: filteredBoilers,
       ),
     ],
   );
