@@ -1,19 +1,23 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../services/api_service.dart';
+import '../services/storage_service.dart';
 
 // События
 abstract class AuthEvent {}
 
 class LoginEvent extends AuthEvent {
-  final String username;
+  final String login;
   final String password;
   final bool rememberMe;
 
   LoginEvent({
-    required this.username,
+    required this.login,
     required this.password,
     required this.rememberMe,
   });
 }
+
+class LogoutEvent extends AuthEvent {}
 
 // Состояния
 abstract class AuthState {}
@@ -28,28 +32,37 @@ class AuthFailure extends AuthState {
 
 // Bloc
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  AuthBloc() : super(AuthInitial()) {
+  final ApiService _apiService;
+  final StorageService _storageService;
+
+  AuthBloc({
+    required ApiService apiService,
+    required StorageService storageService,
+  }) : _apiService = apiService,
+       _storageService = storageService,
+       super(AuthInitial()) {
+    
     on<LoginEvent>((event, emit) async {
       emit(AuthLoading());
       try {
-        // Здесь будет логика авторизации
-        if (event.username.isEmpty || event.password.isEmpty) {
-          emit(AuthFailure('Заполните все поля'));
-          return;
+        final response = await _apiService.login(
+          event.login,
+          event.password,
+        );
+        
+        if (event.rememberMe) {
+          await _storageService.saveToken(response.token);
         }
         
-        // Имитация запроса
-        await Future.delayed(const Duration(seconds: 1));
-        
-        // Простая проверка (замените на реальную)
-        if (event.username == 'admin' && event.password == 'admin') {
-          emit(AuthSuccess());
-        } else {
-          emit(AuthFailure('Неверный логин или пароль'));
-        }
+        emit(AuthSuccess());
       } catch (e) {
         emit(AuthFailure(e.toString()));
       }
+    });
+
+    on<LogoutEvent>((event, emit) async {
+      await _storageService.deleteToken();
+      emit(AuthInitial());
     });
   }
 }

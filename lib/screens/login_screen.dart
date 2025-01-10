@@ -250,7 +250,7 @@ Widget build(BuildContext context) {
                  onPressed: () {
   if (_loginController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
     context.read<AuthBloc>().add(LoginEvent(
-      username: _loginController.text,
+      login: _loginController.text,
       password: _passwordController.text,
       rememberMe: _rememberMe,
     ));
