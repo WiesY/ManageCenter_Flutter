@@ -13,10 +13,19 @@ class UserInfo {
 
   factory UserInfo.fromJson(Map<String, dynamic> json) {
     return UserInfo(
-      id: json['id'] as int,
-      initials: json['initials'] as String,
-      role: json['role'] as int,
-      controlledBoilers: List<int>.from(json['controlledBoilers'] as List),
+      id: json['id'] ?? 0,
+      initials:
+          json['initials']?.toString() ?? '', // Преобразуем в String безопасно
+      role: json['role'] ?? 0,
+      controlledBoilers: (json['controlledBoilers'] as List<dynamic>?)
+              ?.map((e) => e as int)
+              .toList() ??
+          [],
     );
+  }
+
+  @override
+  String toString() {
+    return 'UserInfo(id: $id, initials: $initials, role: $role, controlledBoilers: $controlledBoilers)';
   }
 }

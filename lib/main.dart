@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/screens/login_screen.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/api_service.dart';
 import 'services/storage_service.dart';
@@ -8,7 +9,7 @@ import 'bloc/auth_bloc.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   final prefs = await SharedPreferences.getInstance();
   final storageService = StorageService(prefs);
   final apiService = ApiService();
@@ -31,8 +32,14 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
+    return MultiProvider(
       providers: [
+        Provider<StorageService>(
+          create: (_) => storageService,
+        ),
+        Provider<ApiService>(
+          create: (_) => apiService,
+        ),
         BlocProvider<AuthBloc>(
           create: (context) => AuthBloc(
             apiService: apiService,

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:manage_center/models/boiler_model.dart';
 import 'package:manage_center/models/user_info_model.dart';
 import '../models/token_model.dart';
 
@@ -37,7 +38,7 @@ class ApiService {
 
   Future<UserInfo> getUserInfo(String token) async {
     try {
-      print(token);
+      print('Getting user info with token: $token');
       final response = await http.get(
         Uri.parse('$baseUrl/User/Me'),
         headers: {
@@ -46,17 +47,58 @@ class ApiService {
         },
       );
 
+      print('Response status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
       switch (response.statusCode) {
         case 200:
           final data = json.decode(response.body);
-          return UserInfo.fromJson(data);
+          print(
+              'Decoded data: $data'); // Добавляем логирование декодированных данных
+          final userInfo = UserInfo.fromJson(data);
+          print(
+              'Created UserInfo object: $userInfo'); // Логируем созданный объект
+          return userInfo;
         case 401:
           throw Exception('Некорректный токен авторизации');
         default:
-          throw Exception('Ошибка сервера');
+          throw Exception('Ошибка сервера: ${response.statusCode}');
       }
     } catch (e) {
-      rethrow;
+      print('Error in getUserInfo: $e'); // Логируем ошибку
+      throw Exception('Ошибка при получении данных: $e');
+    }
+  }
+
+  Future<List<Boiler>> getBoilers(String token) async {
+    try {
+      print('Getting boilers with token: $token');
+      final response = await http.get(
+        Uri.parse('$baseUrl/Boilers'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      print('Response status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      switch (response.statusCode) {
+        case 200:
+          final List<dynamic> data = json.decode(response.body);
+          print('Decoded data: $data');
+          final boilers = data.map((json) => Boiler.fromJson(json)).toList();
+          print('Created Boiler objects: $boilers');
+          return boilers;
+        case 401:
+          throw Exception('Некорректный токен авторизации');
+        default:
+          throw Exception('Ошибка сервера: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in getBoilers: $e');
+      throw Exception('Ошибка при получении данных: $e');
     }
   }
 }
