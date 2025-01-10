@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/screens/dashboard_screen.dart';
+import 'package:manage_center/screens/operator_screen.dart';
 
 void main() {
   SystemChrome.setSystemUIOverlayStyle(
@@ -88,11 +89,15 @@ Widget build(BuildContext context) {
       } else if (state is AuthSuccess) {
         // Закрыть диалог загрузки если он открыт
         Navigator.of(context).pop();
-        // Перейти на главный экран
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const DashboardScreen()),
-        );
+       // Перенаправление в зависимости от роли
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => state.userInfo.role == 0
+              ? const OperatorScreen()
+              : const DashboardScreen(),
+        ),
+      );
       } else if (state is AuthFailure) {
         // Закрыть диалог загрузки если он открыт
         Navigator.of(context).pop();

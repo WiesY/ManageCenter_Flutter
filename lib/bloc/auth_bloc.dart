@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:manage_center/models/user_info_model.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 
@@ -24,7 +25,10 @@ abstract class AuthState {}
 
 class AuthInitial extends AuthState {}
 class AuthLoading extends AuthState {}
-class AuthSuccess extends AuthState {}
+class AuthSuccess extends AuthState {
+  final UserInfo userInfo;
+  AuthSuccess(this.userInfo);
+}
 class AuthFailure extends AuthState {
   final String error;
   AuthFailure(this.error);
@@ -45,16 +49,20 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<LoginEvent>((event, emit) async {
       emit(AuthLoading());
       try {
-        final response = await _apiService.login(
+        // Получаем токен
+        final tokenResponse = await _apiService.login(
           event.login,
           event.password,
         );
         
         if (event.rememberMe) {
-          await _storageService.saveToken(response.token);
+          await _storageService.saveToken(tokenResponse.token);
         }
+
+        // Получаем информацию о пользователе
+        final userInfo = await _apiService.getUserInfo(tokenResponse.token);
         
-        emit(AuthSuccess());
+        emit(AuthSuccess(userInfo));
       } catch (e) {
         emit(AuthFailure(e.toString()));
       }
@@ -65,4 +73,5 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthInitial());
     });
   }
+
 }
