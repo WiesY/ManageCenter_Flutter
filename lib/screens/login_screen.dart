@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/screens/dashboard_screen.dart';
-import 'package:manage_center/screens/operator_screen.dart';
+import 'package:manage_center/screens/operator_screens/operator_screen.dart';
 
 void main() {
   SystemChrome.setSystemUIOverlayStyle(
