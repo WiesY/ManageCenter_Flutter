@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:manage_center/models/user_info_model.dart';
 import '../models/token_model.dart';
+import '../models/boiler_model.dart';
 
 class ApiService {
   static const String baseUrl =
@@ -50,6 +51,30 @@ class ApiService {
         case 200:
           final data = json.decode(response.body);
           return UserInfo.fromJson(data);
+        case 401:
+          throw Exception('Некорректный токен авторизации');
+        default:
+          throw Exception('Ошибка сервера');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<Boiler>> getBoilers(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/Boilers'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      switch (response.statusCode) {
+        case 200:
+          final List<dynamic> data = json.decode(response.body);
+          return data.map((json) => Boiler.fromJson(json)).toList();
         case 401:
           throw Exception('Некорректный токен авторизации');
         default:
