@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:manage_center/screens/Boiler_detail_screen.dart';
 import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/widgets/custom_bottom_navigation.dart';
+import '../models/boiler_model.dart';
+import '../services/api_service.dart';
+import '../services/storage_service.dart';
 
 
 //ДОБАВИТЬ ПО НАЖАТИЮ НА СТАТУСЫ ЧТОБЫ СТАНРОВИЛАСЬ ФИЛЬТРАЦИЯ
@@ -14,6 +17,35 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  List<Boiler> _boilers = [];
+  bool _isLoading = true;
+
+  Future<void> _loadBoilers() async {
+    setState(() => _isLoading = true);
+    try {
+      final token = await StorageService().getToken();
+      if (token != null) {
+        final boilers = await ApiService().getBoilers(token);
+        setState(() {
+          _boilers = boilers;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      // Handle error
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBoilers();
+  }
+
+  int _countBoilersByStatus(String status) {
+    return _boilers.where((boiler) => boiler.status == status).length;
+  }
   int _currentIndex = 0;
   String? _selectedFilter;
 
@@ -169,28 +201,29 @@ Widget build(BuildContext context) {
         ),
         // Список районов с котельными
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _buildDistrictSection(
-                'Эксплуатационный Район - 1',
-                allBoilersList[0],
+          child: _isLoading 
+            ? const Center(child: CircularProgressIndicator())
+            : ListView.builder(
+                itemCount: boilersByDistrict.length,
+                itemBuilder: (context, index) {
+                  final district = boilersByDistrict.keys.elementAt(index);
+                  final districtBoilers = boilersByDistrict[district]!;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(district, style: Theme.of(context).textTheme.titleLarge),
+                      ),
+                      ...districtBoilers.map((boiler) => ListTile(
+                        title: Text(boiler.name),
+                        subtitle: Text(boiler.address),
+                        trailing: Text(boiler.status),
+                      )).toList(),
+                    ],
+                  );
+                },
               ),
-              const SizedBox(height: 24),
-              _buildDistrictSection(
-                'Экс. Район - 1 (ЦТП)',
-                allBoilersList[1],
-              ),
-              _buildDistrictSection(
-                'Эксплуатационный Район - 2',
-                allBoilersList[2],
-              ),
-              _buildDistrictSection(
-                'Эксплуатационный Район - 3',
-                allBoilersList[3],
-              ),
-            ],
-          ),
         ),
       ],
     ),
