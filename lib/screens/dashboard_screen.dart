@@ -254,9 +254,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 8, vertical: 12), // изменил отступы
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              mainAxisAlignment:
+                  MainAxisAlignment.spaceEvenly, // равномерное распределение
               children: [
                 _buildStatusIndicator(
                     'Норма', boilerCounts['Норма']!, Colors.green),
@@ -300,43 +302,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildStatusIndicator(String label, int count, Color color) {
     final isSelected = _selectedFilter == label;
 
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedFilter = isSelected ? null : label;
-        });
-      },
-      child: Column(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withOpacity(isSelected ? 0.3 : 0.1),
-              shape: BoxShape.circle,
-              border: isSelected ? Border.all(color: color, width: 2) : null,
-            ),
-            child: Center(
-              child: Text(
-                count.toString(),
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+    return Expanded(
+      // добавил Expanded
+      child: Padding(
+        // добавил отступы
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: GestureDetector(
+          onTap: () {
+            setState(() {
+              _selectedFilter = isSelected ? null : label;
+            });
+          },
+          child: Column(
+            children: [
+              Container(
+                width: 36, // фиксированная ширина
+                height: 36, // фиксированная высота
+                decoration: BoxDecoration(
+                  color: color.withOpacity(isSelected ? 0.3 : 0.1),
+                  shape: BoxShape.circle,
+                  border:
+                      isSelected ? Border.all(color: color, width: 2) : null,
+                ),
+                child: Center(
+                  child: Text(
+                    count.toString(),
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14, // уменьшил размер шрифта
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? color : Colors.grey[600],
+                  fontSize: 11, // уменьшил размер шрифта
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+                textAlign: TextAlign.center, // выравнивание по центру
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: isSelected ? color : Colors.grey[600],
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -363,11 +374,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: 5,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.1,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 1.0,
+          padding: EdgeInsets.zero,
           children: filteredBoilers,
-        ),
+        )
       ],
     );
   }
