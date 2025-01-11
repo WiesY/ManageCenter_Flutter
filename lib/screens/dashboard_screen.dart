@@ -105,24 +105,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Map<String, int> _countBoilersByStatus(List<BoilerWithLastData> boilers) {
     return {
-      'Данные получены': boilers
-          .where((b) =>
-              !b.boiler.isDisabled &&
-              b.lastData != null &&
-              _isCurrentHour(b.lastData!.submitDateTime))
-          .length,
-      'Задержка отправки': boilers
-          .where((b) =>
-              !b.boiler.isDisabled &&
-              b.lastData != null &&
-              _isWithinWarningPeriod(b.lastData!.submitDateTime))
-          .length,
-      'Пропуск отправки': boilers
-          .where((b) =>
-              !b.boiler.isDisabled &&
-              (b.lastData == null ||
-                  _isErrorPeriod(b.lastData!.submitDateTime)))
-          .length,
+      'Данные получены': boilers.where((b) {
+        if (b.boiler.isDisabled) return false;
+        if (b.lastData == null) return false;
+        return _isCurrentHour(b.lastData!.submitDateTime);
+      }).length,
+      'Задержка отправки': boilers.where((b) {
+        if (b.boiler.isDisabled) return false;
+        if (b.lastData == null) return false;
+        if (_isCurrentHour(b.lastData!.submitDateTime)) return false;
+        return _isWithinWarningPeriod(b.lastData!.submitDateTime);
+      }).length,
+      'Пропуск отправки': boilers.where((b) {
+        if (b.boiler.isDisabled) return false;
+        if (b.lastData == null) return true;
+        if (_isCurrentHour(b.lastData!.submitDateTime)) return false;
+        return !_isWithinWarningPeriod(b.lastData!.submitDateTime);
+      }).length,
       'Котельная отключена': boilers.where((b) => b.boiler.isDisabled).length,
     };
   }
@@ -138,13 +137,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isWithinWarningPeriod(DateTime submitTime) {
     final now = DateTime.now();
     final difference = now.difference(submitTime);
-    return difference.inMinutes <= 10;
+    return difference.inMinutes <= 20;
   }
 
   bool _isErrorPeriod(DateTime submitTime) {
     final now = DateTime.now();
     final difference = now.difference(submitTime);
-    return difference.inMinutes > 10;
+    return difference.inMinutes > 20;
   }
 
   List<Widget> _filterBoilers(
@@ -384,13 +383,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor = Colors.red;
     }
 
-    String? type;
-    if (boiler.boiler.isModule) {
-      type = 'M';
-    } else if (boiler.boiler.isAutomated) {
-      type = 'A';
-    }
-
     return Material(
       color: backgroundColor,
       borderRadius: BorderRadius.circular(10),
@@ -415,13 +407,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              if (type != null)
-                Text(
-                  type,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                  ),
+              if (boiler.boiler.isModule || boiler.boiler.isAutomated)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (boiler.boiler.isModule)
+                      const Text(
+                        'M',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                        ),
+                      ),
+                    if (boiler.boiler.isModule && boiler.boiler.isAutomated)
+                      const Text(
+                        ' • ',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                        ),
+                      ),
+                    if (boiler.boiler.isAutomated)
+                      const Text(
+                        'A',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                        ),
+                      ),
+                  ],
                 ),
             ],
           ),
