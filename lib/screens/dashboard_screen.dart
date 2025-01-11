@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/models/boiler_model.dart';
@@ -6,6 +8,13 @@ import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'package:manage_center/widgets/custom_bottom_navigation.dart';
+
+enum BoilerStatus {
+  normal, // зеленый - данные за текущий час
+  warning, // желтый - данные отсутствуют менее 10 минут
+  error, // красный - данные отсутствуют более 10 минут
+  disabled // серый - котельная отключена
+}
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -17,22 +26,27 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
   String? _selectedFilter;
-  List<Boiler> _boilers = [];
+  List<BoilerWithLastData> _boilers = [];
   bool _isLoading = true;
   bool _isInitialized = false;
+  Timer? _updateTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBoilers();
+    _updateTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      _loadBoilers();
+    });
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_isInitialized) {
-      _loadBoilers();
-      _isInitialized = true;
-    }
   }
 
   Future<void> _loadBoilers() async {
     if (!mounted) return;
-
     setState(() => _isLoading = true);
 
     try {
@@ -41,119 +55,123 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       final token = await storageService.getToken();
       if (token == null) {
-        if (!mounted) return;
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Токен авторизации не найден')),
-          );
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
-          );
-        });
-        return;
+        throw Exception('Токен авторизации не найден');
       }
 
-      final boilers = await apiService.getBoilers(token);
+      final boilers = await apiService.getBoilersWithLastData(token);
 
       if (!mounted) return;
-
       setState(() {
         _boilers = boilers;
         _isLoading = false;
       });
     } catch (e) {
-      print(e);
       if (!mounted) return;
-
       setState(() => _isLoading = false);
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка загрузки данных: ${e.toString()}')),
-        );
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: ${e.toString()}')),
+      );
     }
   }
 
-  Map<String, int> _countBoilersByStatus(List<Boiler> boilers) {
+  BoilerStatus _getBoilerStatus(BoilerWithLastData boilerWithLastData) {
+    if (boilerWithLastData.boiler.isDisabled) {
+      return BoilerStatus.disabled;
+    }
+
+    if (boilerWithLastData.lastData == null) {
+      return BoilerStatus.error;
+    }
+
+    final now = DateTime.now();
+    final submitTime = boilerWithLastData.lastData!.submitDateTime;
+
+    // Проверяем, соответствует ли час отправки текущему часу
+    if (submitTime.hour == now.hour &&
+        submitTime.day == now.day &&
+        submitTime.month == now.month &&
+        submitTime.year == now.year) {
+      return BoilerStatus.normal;
+    }
+
+    // Проверяем, прошло ли меньше 10 минут с начала нового часа
+    final timeDifference = now.difference(submitTime);
+    if (timeDifference.inMinutes <= 10) {
+      return BoilerStatus.warning;
+    }
+
+    return BoilerStatus.error;
+  }
+
+  Map<String, int> _countBoilersByStatus(List<BoilerWithLastData> boilers) {
     return {
-      'Норма': boilers.where((b) => !b.isDisabled && !b.isHeatingSeason).length,
-      'Авария': boilers.where((b) => b.isDisabled).length,
-      'Внимание':
-          boilers.where((b) => !b.isDisabled && b.isHeatingSeason).length,
-      'Отключено': boilers.where((b) => b.isDisabled).length,
+      'Данные получены': boilers
+          .where((b) =>
+              !b.boiler.isDisabled &&
+              b.lastData != null &&
+              _isCurrentHour(b.lastData!.submitDateTime))
+          .length,
+      'Задержка отправки': boilers
+          .where((b) =>
+              !b.boiler.isDisabled &&
+              b.lastData != null &&
+              _isWithinWarningPeriod(b.lastData!.submitDateTime))
+          .length,
+      'Пропуск отправки': boilers
+          .where((b) =>
+              !b.boiler.isDisabled &&
+              (b.lastData == null ||
+                  _isErrorPeriod(b.lastData!.submitDateTime)))
+          .length,
+      'Котельная отключена': boilers.where((b) => b.boiler.isDisabled).length,
     };
   }
 
-  List<Widget> _buildBoilerWidgets(List<Boiler> boilers) {
-    return boilers.map((boiler) {
-      String status = 'normal';
-      if (boiler.isDisabled) {
-        status = 'error';
-      } else if (!boiler.isHeatingSeason) {
-        status = 'warning';
-      }
-
-      return _buildBoilerButton(
-        boiler.id.toString(),
-        status,
-        boiler.isModule ? 'M' : (boiler.isAutomated ? 'A' : null),
-      );
-    }).toList();
+  bool _isCurrentHour(DateTime submitTime) {
+    final now = DateTime.now();
+    return submitTime.hour == now.hour &&
+        submitTime.day == now.day &&
+        submitTime.month == now.month &&
+        submitTime.year == now.year;
   }
 
-  List<Widget> _filterBoilers(List<Widget> boilers, String? filter) {
-    if (filter == null) return boilers;
-
-    return boilers.where((boiler) {
-      if (boiler is Material) {
-        final inkWell = (boiler as Material).child as InkWell;
-        final container = inkWell.child as Container;
-        final column = container.child as Column;
-
-        switch (filter) {
-          case 'Норма':
-            return boiler.color == Colors.green;
-          case 'Авария':
-            return boiler.color == Colors.red;
-          case 'Внимание':
-            return boiler.color == Colors.orange;
-          case 'Отключено':
-            return boiler.color == Colors.grey;
-          default:
-            return true;
-        }
-      }
-      return false;
-    }).toList();
+  bool _isWithinWarningPeriod(DateTime submitTime) {
+    final now = DateTime.now();
+    final difference = now.difference(submitTime);
+    return difference.inMinutes <= 10;
   }
 
-// Map<String, int> _countBoilersByStatus(List<List<Widget>> allBoilers) {
-//     Map<String, int> counts = {
-//       'Норма': 0,
-//       'Авария': 0,
-//       'Внимание': 0,
-//       'Отключено': 0,
-//     };
+  bool _isErrorPeriod(DateTime submitTime) {
+    final now = DateTime.now();
+    final difference = now.difference(submitTime);
+    return difference.inMinutes > 10;
+  }
 
-//     for (var boilerList in allBoilers) {
-//       for (var boiler in boilerList) {
-//         if (boiler is Material) {
-//           if (boiler.color == Colors.green) {
-//             counts['Норма'] = counts['Норма']! + 1;
-//           } else if (boiler.color == Colors.red) {
-//             counts['Авария'] = counts['Авария']! + 1;
-//           } else if (boiler.color == Colors.orange) {
-//             counts['Внимание'] = counts['Внимание']! + 1;
-//           } else if (boiler.color == Colors.grey) {
-//             counts['Отключено'] = counts['Отключено']! + 1;
-//           }
-//         }
-//       }
-//     }
-//     return counts;
-//   }
+  List<Widget> _filterBoilers(
+      List<BoilerWithLastData> boilers, String? filter) {
+    if (filter == null) {
+      return boilers.map((boiler) => _buildBoilerButton(boiler)).toList();
+    }
+
+    return boilers
+        .where((boiler) {
+          final status = _getBoilerStatus(boiler);
+          switch (filter) {
+            case 'Данные получены':
+              return status == BoilerStatus.normal;
+            case 'Задержка отправки':
+              return status == BoilerStatus.warning;
+            case 'Пропуск отправки':
+              return status == BoilerStatus.error;
+            case 'Котельная отключена':
+              return status == BoilerStatus.disabled;
+            default:
+              return true;
+          }
+        })
+        .map((boiler) => _buildBoilerButton(boiler))
+        .toList();
+  }
 
   void _showLogoutDialog(BuildContext context) {
     showDialog(
@@ -190,53 +208,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     // Группируем котельные по районам
-    final boilersByDistrict = <int, List<Boiler>>{};
+    final boilersByDistrict = <int, List<BoilerWithLastData>>{};
     for (var boiler in _boilers) {
-      boilersByDistrict.putIfAbsent(boiler.districtId, () => []).add(boiler);
+      boilersByDistrict
+          .putIfAbsent(boiler.boiler.districtId, () => [])
+          .add(boiler);
     }
 
     final boilerCounts = _countBoilersByStatus(_boilers);
-
-    // Создаем списки котельных для каждого района
-    // final List<List<Widget>> allBoilersList = [
-    //   // ЭР-1
-    //   [
-    //     _buildBoilerButton('1', 'normal'),
-    //     _buildBoilerButton('2', 'normal'),
-    //     _buildBoilerButton('3', 'normal', 'MA'),
-    //     _buildBoilerButton('4', 'normal', 'MA'),
-    //     _buildBoilerButton('5', 'warning', 'MA'),
-    //     _buildBoilerButton('6', 'normal', 'MA'),
-    //   ],
-    //   // ЭР-1 (ЦТП)
-    //   [
-    //     _buildBoilerButton('67', 'normal', 'A'),
-    //     _buildBoilerButton('70', 'normal', 'A'),
-    //     _buildBoilerButton('72', 'warning', 'A'),
-    //     _buildBoilerButton('73', 'warning', 'A'),
-    //   ],
-    //   // ЭР-2
-    //   [
-    //     _buildBoilerButton('7', 'normal'),
-    //     _buildBoilerButton('8', 'normal'),
-    //     _buildBoilerButton('9', 'normal', 'MA'),
-    //     _buildBoilerButton('10', 'normal', 'MA'),
-    //     _buildBoilerButton('11', 'error', 'MA'),
-    //     _buildBoilerButton('12', 'normal', 'MA'),
-    //   ],
-    //   // ЭР-3
-    //   [
-    //     _buildBoilerButton('7', 'normal'),
-    //     _buildBoilerButton('8', 'error'),
-    //     _buildBoilerButton('9', 'normal', 'MA'),
-    //     _buildBoilerButton('10', 'normal', 'MA'),
-    //     _buildBoilerButton('11', '', 'MA'),
-    //     _buildBoilerButton('12', 'normal', 'MA'),
-    //   ],
-    // ];
-
-    // // Подсчитываем статистику
-    // final boilerCounts = _countBoilersByStatus(allBoilersList);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -260,14 +239,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisAlignment:
                   MainAxisAlignment.spaceEvenly, // равномерное распределение
               children: [
-                _buildStatusIndicator(
-                    'Норма', boilerCounts['Норма']!, Colors.green),
-                _buildStatusIndicator(
-                    'Авария', boilerCounts['Авария']!, Colors.red),
-                _buildStatusIndicator(
-                    'Внимание', boilerCounts['Внимание']!, Colors.orange),
-                _buildStatusIndicator(
-                    'Отключено', boilerCounts['Отключено']!, Colors.grey),
+                _buildStatusIndicator('Данные получены',
+                    boilerCounts['Данные получены']!, Colors.green),
+                _buildStatusIndicator('Пропуск отправки',
+                    boilerCounts['Пропуск отправки']!, Colors.red),
+                _buildStatusIndicator('Задержка отправки',
+                    boilerCounts['Задержка отправки']!, Colors.orange),
+                _buildStatusIndicator('Котельная отключена',
+                    boilerCounts['Котельная отключена']!, Colors.grey),
               ],
             ),
           ),
@@ -281,7 +260,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                 return _buildDistrictSection(
                   'Эксплуатационный Район - $districtId',
-                  _buildBoilerWidgets(districtBoilers),
+                  districtBoilers,
                 );
               },
             ),
@@ -297,6 +276,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         },
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _updateTimer?.cancel();
+    super.dispose();
   }
 
   Widget _buildStatusIndicator(String label, int count, Color color) {
@@ -352,7 +337,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildDistrictSection(String title, List<Widget> boilers) {
+  Widget _buildDistrictSection(String title, List<BoilerWithLastData> boilers) {
     final filteredBoilers = _filterBoilers(boilers, _selectedFilter);
 
     if (filteredBoilers.isEmpty) {
@@ -379,25 +364,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
           childAspectRatio: 1.0,
           padding: EdgeInsets.zero,
           children: filteredBoilers,
-        )
+        ),
       ],
     );
   }
 
-  Widget _buildBoilerButton(String number, String status, [String? type]) {
+  Widget _buildBoilerButton(BoilerWithLastData boiler) {
     Color backgroundColor;
-    switch (status) {
-      case 'normal':
-        backgroundColor = Colors.green;
-        break;
-      case 'warning':
-        backgroundColor = Colors.orange;
-        break;
-      case 'error':
-        backgroundColor = Colors.red;
-        break;
-      default:
-        backgroundColor = Colors.grey;
+
+    if (boiler.boiler.isDisabled) {
+      backgroundColor = Colors.grey;
+    } else if (boiler.lastData == null) {
+      backgroundColor = Colors.red;
+    } else if (_isCurrentHour(boiler.lastData!.submitDateTime)) {
+      backgroundColor = Colors.green;
+    } else if (_isWithinWarningPeriod(boiler.lastData!.submitDateTime)) {
+      backgroundColor = Colors.orange;
+    } else {
+      backgroundColor = Colors.red;
+    }
+
+    String? type;
+    if (boiler.boiler.isModule) {
+      type = 'M';
+    } else if (boiler.boiler.isAutomated) {
+      type = 'A';
     }
 
     return Material(
@@ -410,7 +401,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             context,
             MaterialPageRoute(builder: (context) => BoilerDetailScreen()),
           );
-          // Навигация к деталям котельной
         },
         child: Container(
           padding: const EdgeInsets.all(6),
@@ -418,7 +408,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                number,
+                boiler.boiler.id.toString(),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 20,
