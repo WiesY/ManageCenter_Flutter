@@ -74,7 +74,7 @@ class ApiService {
     try {
       print('Getting boilers with token: $token');
       final response = await http.get(
-        Uri.parse('$baseUrl/Boilers'),
+        Uri.parse('$baseUrl/Boilers/WithLastData'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -98,6 +98,32 @@ class ApiService {
       }
     } catch (e) {
       print('Error in getBoilers: $e');
+      throw Exception('Ошибка при получении данных: $e');
+    }
+  }
+
+  Future<List<Boiler>> getBoilersWithLastData(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/Boilers/WithLastData'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      switch (response.statusCode) {
+        case 200:
+          final List<dynamic> data = json.decode(response.body);
+          return data.map((json) => Boiler.fromJson(json)).toList();
+        case 401:
+          throw Exception('Некорректный токен авторизации');
+        case 400:
+          throw Exception('Некорректный формат входных данных');
+        default:
+          throw Exception('Ошибка сервера: ${response.statusCode}');
+      }
+    } catch (e) {
       throw Exception('Ошибка при получении данных: $e');
     }
   }
