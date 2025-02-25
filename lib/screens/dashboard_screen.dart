@@ -28,7 +28,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _selectedFilter;
   List<BoilerWithLastData> _boilers = [];
   bool _isLoading = true;
-  bool _isInitialized = false;
   Timer? _updateTimer;
 
   @override
