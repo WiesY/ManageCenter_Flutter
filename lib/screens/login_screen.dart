@@ -99,7 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => state.userInfo.role == 0
+              builder: (context) => state.userInfo.role.name == 'Оператор'
                   ? const OperatorScreen()
                   : const DashboardScreen(),
             ),
@@ -143,7 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 32),
                 // Заголовок
                 const Text(
-                  'Мониторинг\nкотельных',
+                  'Мониторинг\nобъектов водохозяйства',
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
@@ -152,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'АО "Истринская теплосеть"',
+                  'МУП "Истринская теплосеть"',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey[600],

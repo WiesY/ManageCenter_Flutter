@@ -1,19 +1,88 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:manage_center/bloc/auth_bloc.dart';
+import 'package:manage_center/services/storage_service.dart';
 
-enum AppStatus { initial, authenticated, unauthenticated }
+// --- СОБЫТИЯ ---
+abstract class AppEvent {}
+
+// Событие, которое вызывается при старте приложения
+class AppStarted extends AppEvent {}
+
+// Событие, которое будет вызываться при изменении состояния аутентификации
+class _AuthenticationStatusChanged extends AppEvent {
+  final AuthState authState;
+  _AuthenticationStatusChanged(this.authState);
+}
+
+
+// --- СОСТОЯНИЯ ---
+enum AppStatus {
+  unknown, // Начальное состояние, пока мы не знаем, есть ли токен
+  authenticated,
+  unauthenticated,
+}
 
 class AppState {
   final AppStatus status;
   
-  AppState({this.status = AppStatus.initial});
+  const AppState._({this.status = AppStatus.unknown});
+
+  const AppState.unknown() : this._();
+
+  const AppState.authenticated() : this._(status: AppStatus.authenticated);
+  
+  const AppState.unauthenticated() : this._(status: AppStatus.unauthenticated);
 }
 
-abstract class AppEvent {}
 
+// --- БЛОК ---
 class AppBloc extends Bloc<AppEvent, AppState> {
-  AppBloc() : super(AppState()) {
-    on<AppEvent>((event, emit) {
-      // Обработка событий
+  final StorageService _storageService;
+  final AuthBloc _authBloc;
+  late StreamSubscription<AuthState> _authSubscription;
+
+  AppBloc({
+    required StorageService storageService,
+    required AuthBloc authBloc,
+  }) : _storageService = storageService,
+       _authBloc = authBloc,
+       super(const AppState.unknown()) {
+    
+    // Подписываемся на изменения в AuthBloc
+    _authSubscription = _authBloc.stream.listen((authState) {
+      add(_AuthenticationStatusChanged(authState));
     });
+
+    on<AppStarted>(_onAppStarted);
+    on<_AuthenticationStatusChanged>(_onAuthenticationStatusChanged);
   }
-}//теперь давай сделаем так чтобы если мы авторизовались и пользователь поставил при авторизации галочку на "запомнить пароль", то у него при повторном запуске приложения не просило снова авторизоваться, а сразу как бы авторизованным кидало на главную страницу (в нашем случае пока что это dashboard_screen). То есть по идее нам нужно токен пользователя (который мы сохраняем локально). я правильно понимаю?
+
+  // Обработчик события старта приложения
+  Future<void> _onAppStarted(AppStarted event, Emitter<AppState> emit) async {
+    final token = await _storageService.getToken();
+    if (token != null) {
+      // Если токен есть, мы считаем пользователя авторизованным
+      // В реальном приложении здесь можно было бы проверить токен на валидность,
+      // сделав запрос к API, но для начала и так сойдет.
+      emit(const AppState.authenticated());
+    } else {
+      emit(const AppState.unauthenticated());
+    }
+  }
+
+  // Обработчик изменения статуса аутентификации
+  void _onAuthenticationStatusChanged(_AuthenticationStatusChanged event, Emitter<AppState> emit) {
+    if (event.authState is AuthSuccess) {
+      emit(const AppState.authenticated());
+    } else if (event.authState is AuthInitial) { // AuthInitial после логаута
+      emit(const AppState.unauthenticated());
+    }
+  }
+
+  @override
+  Future<void> close() {
+    _authSubscription.cancel();
+    return super.close();
+  }
+}
