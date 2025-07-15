@@ -62,9 +62,7 @@ class AppBloc extends Bloc<AppEvent, AppState> {
   Future<void> _onAppStarted(AppStarted event, Emitter<AppState> emit) async {
     final token = await _storageService.getToken();
     if (token != null) {
-      // Если токен есть, мы считаем пользователя авторизованным
-      // В реальном приложении здесь можно было бы проверить токен на валидность,
-      // сделав запрос к API, но для начала и так сойдет.
+      _authBloc.add(RestoreAuthEvent());
       emit(const AppState.authenticated());
     } else {
       emit(const AppState.unauthenticated());
@@ -77,6 +75,8 @@ class AppBloc extends Bloc<AppEvent, AppState> {
       emit(const AppState.authenticated());
     } else if (event.authState is AuthInitial) { // AuthInitial после логаута
       emit(const AppState.unauthenticated());
+    } else if (event.authState is AuthFailure) {
+    emit(const AppState.unauthenticated());
     }
   }
 

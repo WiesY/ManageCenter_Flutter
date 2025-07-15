@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
+import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/screens/dashboard_screen.dart';
 import 'package:manage_center/screens/operator_screens/operator_screen.dart';
+import 'package:manage_center/services/api_service.dart';
+import 'package:manage_center/services/storage_service.dart';
 
 // void main() {
 //   SystemChrome.setSystemUIOverlayStyle(
@@ -96,14 +99,20 @@ class _LoginScreenState extends State<LoginScreen> {
           }
 
           // Перенаправление в зависимости от роли
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => state.userInfo.role.name == 'Оператор'
-                  ? const OperatorScreen()
-                  : const DashboardScreen(),
-            ),
-          );
+         Navigator.pushReplacement(
+  context,
+  MaterialPageRoute(
+    builder: (context) => state.userInfo.role?.name == 'Оператор'
+      ? const OperatorScreen()
+      : BlocProvider(
+          create: (context) => BoilersBloc(
+            apiService: context.read<ApiService>(),
+            storageService: context.read<StorageService>(),
+          )..add(FetchBoilers()), // Сразу запрашиваем данные
+          child: const DashboardScreen(),
+        ),
+  ),
+);
         } else if (state is AuthFailure) {
           // Закрыть диалог загрузки если он открыт
           if (Navigator.canPop(context)) {

@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:manage_center/models/boiler_model.dart';
+import 'package:manage_center/models/role_model.dart';
 import 'package:manage_center/models/user_info_model.dart';
 import 'package:manage_center/models/boiler_list_item_model.dart';
 import 'package:manage_center/models/boiler_parameter_model.dart';
 import 'package:manage_center/models/boiler_parameter_value_model.dart';
+import 'package:manage_center/services/storage_service.dart';
+import 'package:manage_center/bloc/auth_bloc.dart';
 import '../models/token_model.dart';
 
 class ApiService {
@@ -14,8 +17,8 @@ class ApiService {
 
   Future<TokenResponse> login(String login, String password) async {
     try {
-      login = "RyltsevAV";
-      password = "rav";
+      // login = "RyltsevAV";
+      // password = "rav";
       final response = await http.post(
         Uri.parse('$baseUrl/Auth'),
         headers: {'Content-Type': 'application/json'},
@@ -62,7 +65,7 @@ class ApiService {
               'Decoded data: $data'); // Добавляем логирование декодированных данных
           final userInfo = UserInfo.fromJson(data);
           print(
-              'Created UserInfo object: $userInfo'); // Логируем созданный объект
+              'Created UserInfo object: ${userInfo.name}'); // Логируем созданный объект
           return userInfo;
         case 401:
           throw Exception('Некорректный токен авторизации');
@@ -173,6 +176,7 @@ class ApiService {
     int boilerId, 
     DateTime start, 
     DateTime end,
+    int interval,
     {List<int>? parameterIds} // Опциональный параметр для фильтрации
   ) async {
     try {
@@ -184,6 +188,7 @@ class ApiService {
       Map<String, String> queryParams = {
         'Start': start.toIso8601String(),
         'End': end.toIso8601String(),
+        'Interval': interval.toString(),
       };
 
       // Добавляем фильтр по параметрам, если он указан
@@ -226,5 +231,145 @@ class ApiService {
       throw Exception('Ошибка при получении значений параметров: $e');
     }
   }
+
+  //-------управление пользователями--------
+
+Future<List<UserInfo>> getUsers(String token) async {
+  try {
+    print('Making request to: $baseUrl/users');
+    final response = await http.get(
+      Uri.parse('$baseUrl/users'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    
+    print('getUsers response status: ${response.statusCode}');
+    print('getUsers response body: ${response.body}');
+    
+    if (response.statusCode == 200) {
+      final responseBody = response.body;
+      if (responseBody.isEmpty) {
+        print('Empty response body');
+        return [];
+      }
+      
+      final List<dynamic> jsonList = json.decode(responseBody);
+      print('Parsed JSON list length: ${jsonList.length}');
+      
+      return jsonList.map((json) {
+        print('Processing user JSON: $json');
+        if (json == null) {
+          print('Warning: null user in list');
+          return null;
+        }
+        return UserInfo.fromJson(json as Map<String, dynamic>);
+      }).where((user) => user != null).cast<UserInfo>().toList();
+      
+    } else {
+      throw Exception('Failed to load users: ${response.statusCode} - ${response.body}');
+    }
+  } catch (e) {
+    print('Error in getUsers: $e');
+    rethrow;
+  }
+}
+
+Future<UserInfo> createUser(String token, Map<String, dynamic> userData) async {
+  final response = await http.post(
+    Uri.parse('$baseUrl/users'),
+    headers: {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    },
+    body: json.encode(userData), // {login, password, roleId, etc.}
+  );
+  if (response.statusCode == 200) {
+    return UserInfo.fromJson(json.decode(response.body));
+  } else {
+    throw Exception('Failed to create user: ${response.statusCode}');
+  }
+}
+
+Future<UserInfo> updateUser(String token, int userId, Map<String, dynamic> userData) async {
+  final response = await http.put(
+    Uri.parse('$baseUrl/users/$userId'),
+    headers: {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    },
+    body: json.encode(userData),
+  );
+  if (response.statusCode == 200) {
+    return UserInfo.fromJson(json.decode(response.body));
+  } else {
+    throw Exception('Failed to update user: ${response.statusCode}');
+  }
+}
+
+Future<void> deleteUser(String token, int userId) async {
+  final response = await http.delete(
+    Uri.parse('$baseUrl/users/$userId'),
+    headers: {'Authorization': 'Bearer $token'},
+  );
+  if (response.statusCode != 200) {
+    throw Exception('Failed to delete user: ${response.statusCode}');
+  }
+}
+
+//-------управление ролями--------
+
+Future<List<Role>> getRoles(String token) async {
+  final response = await http.get(
+    Uri.parse('$baseUrl/Roles'),
+    headers: {'Authorization': 'Bearer $token'},
+  );
+  if (response.statusCode == 200) {
+    final List<dynamic> jsonList = json.decode(response.body);
+    return jsonList.map((json) => Role.fromJson(json)).toList();
+  } else {
+    throw Exception('Failed to load roles: ${response.statusCode}');
+  }
+}
+
+Future<Role> createRole(String token, Map<String, dynamic> roleData) async {
+  final response = await http.post(
+    Uri.parse('$baseUrl/Roles'),
+    headers: {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    },
+    body: json.encode(roleData), // {name, canAccessAllBoilers: bool, canManageAccounts: bool, canManageBoilers: bool}
+  );
+  if (response.statusCode == 200) {
+    return Role.fromJson(json.decode(response.body));
+  } else {
+    throw Exception('Failed to create role: ${response.statusCode}');
+  }
+}
+
+Future<Role> updateRole(String token, int roleId, Map<String, dynamic> roleData) async {
+  final response = await http.put(
+    Uri.parse('$baseUrl/Roles/$roleId'),
+    headers: {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    },
+    body: json.encode(roleData),
+  );
+  if (response.statusCode == 200) {
+    return Role.fromJson(json.decode(response.body));
+  } else {
+    throw Exception('Failed to update role: ${response.statusCode}');
+  }
+}
+
+Future<void> deleteRole(String token, int roleId) async {
+  final response = await http.delete(
+    Uri.parse('$baseUrl/Roles/$roleId'),
+    headers: {'Authorization': 'Bearer $token'},
+  );
+  if (response.statusCode != 200) {
+    throw Exception('Failed to delete role: ${response.statusCode}');
+  }
+}
 
 }

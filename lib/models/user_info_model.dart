@@ -3,7 +3,7 @@ import 'package:manage_center/models/role_model.dart';
 class UserInfo {
   final int id;
   final String name;
-  final Role role;
+  final Role? role;
 
   UserInfo({
     required this.id,
@@ -16,7 +16,7 @@ class UserInfo {
     return UserInfo(
       id: json['id'] as int,
       name: json['name'] as String,
-      role: Role.fromJson(json['role'] as Map<String, dynamic>),
+      role: json['role'] != null ? Role.fromJson(json['role'] as Map<String, dynamic>) : null,
     );
   }
 }

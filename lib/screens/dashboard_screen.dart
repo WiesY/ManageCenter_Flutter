@@ -5,15 +5,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/models/boiler_list_item_model.dart';
-import 'package:manage_center/screens/updated_boiler_detail_screen_debug.dart';
-import 'package:manage_center/screens/updated_boiler_detail_screen_final.dart';
-import 'package:manage_center/screens/updated_boiler_detail_screen_fixed.dart';
+import 'package:manage_center/screens/boiler_detail_screen.dart';
+import 'package:manage_center/screens/login_screen.dart';
+import 'package:manage_center/screens/settings/settings_menu_screen.dart';
+import 'package:manage_center/screens/settings/updated_settings_menu_screen.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
-
-import 'updated_boiler_detail_screen (1).dart';
-
+import 'package:manage_center/widgets/custom_bottom_navigation.dart';
 
 // import 'package:manage_center/screens/Boiler_detail_screen.dart';
 
@@ -35,6 +34,9 @@ class DashboardScreen extends StatelessWidget {
             onPressed: () {
               context.read<AuthBloc>().add(LogoutEvent());
               Navigator.pop(dialogContext);
+              Navigator.pushReplacement(context,  MaterialPageRoute(
+                    builder: (BuildContext context) => const LoginScreen(),)
+                  );
             },
             child: const Text('Выйти'),
           ),
@@ -71,7 +73,8 @@ class DashboardScreen extends StatelessWidget {
                   Text('Ошибка: ${state.error}'),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () => context.read<BoilersBloc>().add(FetchBoilers()),
+                    onPressed: () =>
+                        context.read<BoilersBloc>().add(FetchBoilers()),
                     child: const Text('Попробовать снова'),
                   )
                 ],
@@ -83,26 +86,52 @@ class DashboardScreen extends StatelessWidget {
               return const Center(child: Text('Список котельных пуст.'));
             }
             return RefreshIndicator(
-        
-        // Эта функция будет вызвана, когда пользователь потянет список вниз
-        onRefresh: () async {
-          await Future.delayed(Durations.short2);
-          // Отправляем событие в блок для обновления данных
-          context.read<BoilersBloc>().add(FetchBoilers());
-          // Мы должны дождаться, пока загрузка завершится.
-          // Для этого мы можем "послушать" стрим блока.
-          // Это гарантирует, что индикатор будет крутиться, пока данные не загрузятся.
-          await context.read<BoilersBloc>().stream.firstWhere((s) => s is! BoilersLoadInProgress);
-        },
-        child: state.boilers.isEmpty
-            ? const Center(child: Text('Список котельных пуст.'))
-            // Если список не пуст, строим его
-            : _buildBoilerList(context, state.boilers),
-      );
+              // Эта функция будет вызвана, когда пользователь потянет список вниз
+              onRefresh: () async {
+                await Future.delayed(Durations.short2);
+                // Отправляем событие в блок для обновления данных
+                context.read<BoilersBloc>().add(FetchBoilers());
+                // Мы должны дождаться, пока загрузка завершится.
+                // Для этого мы можем "послушать" стрим блока.
+                // Это гарантирует, что индикатор будет крутиться, пока данные не загрузятся.
+                await context
+                    .read<BoilersBloc>()
+                    .stream
+                    .firstWhere((s) => s is! BoilersLoadInProgress);
+              },
+              child: state.boilers.isEmpty
+                  ? const Center(child: Text('Список котельных пуст.'))
+                  // Если список не пуст, строим его
+                  : _buildBoilerList(context, state.boilers),
+            );
           }
           return const Center(child: Text('Загрузка...'));
         },
       ),
+      bottomNavigationBar: CustomBottomNavigation(
+          currentIndex: 0,
+          onTap: (index) {
+            
+            //if (index != 0) {
+              // Навигация на другие экраны в зависимости от индекса
+              switch (index) {
+                // case 1:
+                //   Navigator.pushReplacementNamed(context, '/upload');
+                //   break;
+                // case 2:
+                //   Navigator.pushReplacementNamed(context, '/messages');
+                //   break;
+                case 3:
+                print('click');
+                Navigator.pushReplacement(context,
+                  MaterialPageRoute(
+                    builder: (BuildContext context) => const SettingsScreen(),)
+                  );
+                  break;
+              }
+            }
+          //}
+          ),
     );
   }
 
@@ -123,7 +152,8 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDistrictSection(BuildContext context, String title, List<BoilerListItem> boilers) {
+  Widget _buildDistrictSection(
+      BuildContext context, String title, List<BoilerListItem> boilers) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -137,57 +167,59 @@ class DashboardScreen extends StatelessWidget {
         Wrap(
           spacing: 8.0,
           runSpacing: 8.0,
-          children: boilers.map((boiler) => _buildBoilerCard(context, boiler)).toList(),
+          children: boilers
+              .map((boiler) => _buildBoilerCard(context, boiler))
+              .toList(),
         ),
         const Divider(height: 32),
       ],
     );
   }
 
-Widget _buildBoilerCard(BuildContext context, BoilerListItem boiler) {
-  return InkWell(
-    onTap: () {
-      Navigator.push(
-        context, 
-        MaterialPageRoute(
-          builder: (context) => BlocProvider(
-            create: (context) => BoilerDetailBloc(
-              apiService: context.read<ApiService>(),
-              storageService: context.read<StorageService>(),
-            ),
-            child: BoilerDetailScreen(
-              boilerId: boiler.id,
-              boilerName: boiler.name,
-              districtName: boiler.district.name,
+  Widget _buildBoilerCard(BuildContext context, BoilerListItem boiler) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => BlocProvider(
+              create: (context) => BoilerDetailBloc(
+                apiService: context.read<ApiService>(),
+                storageService: context.read<StorageService>(),
+              ),
+              child: BoilerDetailScreen(
+                boilerId: boiler.id,
+                boilerName: boiler.name,
+                districtName: boiler.district.name,
+              ),
             ),
           ),
+        );
+      },
+      child: Container(
+        width: 120, // Можно задать ширину для единообразия
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.blue.shade100),
         ),
-      );
-    },
-    child: Container(
-      width: 120, // Можно задать ширину для единообразия
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade100),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              boiler.name,
+              softWrap: true,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Тип: ${boiler.boilerType.name}',
+              style: TextStyle(color: Colors.grey.shade700),
+            ),
+          ],
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            boiler.name,
-            softWrap: true,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Тип: ${boiler.boilerType.name}',
-            style: TextStyle(color: Colors.grey.shade700),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+    );
+  }
 }

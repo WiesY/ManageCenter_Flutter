@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/models/user_info_model.dart';
 import '../services/api_service.dart';
@@ -20,15 +21,20 @@ class LoginEvent extends AuthEvent {
 
 class LogoutEvent extends AuthEvent {}
 
+class RestoreAuthEvent extends AuthEvent {}
+
 // Состояния
 abstract class AuthState {}
 
 class AuthInitial extends AuthState {}
+
 class AuthLoading extends AuthState {}
+
 class AuthSuccess extends AuthState {
   final UserInfo userInfo;
   AuthSuccess(this.userInfo);
 }
+
 class AuthFailure extends AuthState {
   final String error;
   AuthFailure(this.error);
@@ -36,16 +42,15 @@ class AuthFailure extends AuthState {
 
 // Bloc
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  final ApiService _apiService;
+  late ApiService _apiService;
   final StorageService _storageService;
 
   AuthBloc({
-    required ApiService apiService,
+    required ApiService? apiService,
     required StorageService storageService,
-  }) : _apiService = apiService,
-       _storageService = storageService,
-       super(AuthInitial()) {
-    
+  })  : _apiService = apiService!,
+        _storageService = storageService,
+        super(AuthInitial()) {
     on<LoginEvent>((event, emit) async {
       emit(AuthLoading());
       try {
@@ -54,14 +59,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           event.login,
           event.password,
         );
-        
+
         if (event.rememberMe) {
           await _storageService.saveToken(tokenResponse.token);
         }
 
         // Получаем информацию о пользователе
+        //final String token = await _storageService.getToken() ?? tokenResponse.token;
         final userInfo = await _apiService.getUserInfo(tokenResponse.token);
-        
+        print('userInfo = ${userInfo.name}');
+
         emit(AuthSuccess(userInfo));
       } catch (e) {
         emit(AuthFailure(e.toString()));
@@ -72,6 +79,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       await _storageService.deleteToken();
       emit(AuthInitial());
     });
-  }
 
+    on<RestoreAuthEvent>((event, emit) async {
+      final token = await _storageService.getToken();
+      if (token != null) {
+        emit(AuthLoading());
+        try {
+          final userInfo = await _apiService.getUserInfo(token);
+          emit(AuthSuccess(userInfo));
+        } catch (e) {
+          await _storageService.deleteToken(); // Удаляем invalid токен
+          emit(AuthFailure(e.toString())); // Эмитим ошибку
+        }
+      } else {
+        emit(AuthInitial());
+      }
+    });
+  }
 }

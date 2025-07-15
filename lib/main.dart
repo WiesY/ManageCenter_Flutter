@@ -3,9 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/app_bloc.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
+import 'package:manage_center/bloc/roles_bloc.dart';
+import 'package:manage_center/bloc/users_bloc.dart';
 import 'package:manage_center/screens/dashboard_screen.dart';
 import 'package:manage_center/screens/login_screen.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/api_service.dart';
 import 'services/storage_service.dart';
@@ -20,6 +21,9 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final storageService = StorageService(prefs);
   final apiService = ApiService();
+  final _tokenTest = await storageService.getToken();
+
+  print (_tokenTest);
 
   runApp(MyApp(
     storageService: storageService,
@@ -49,23 +53,33 @@ class MyApp extends StatelessWidget {
           // AuthBloc теперь доступен во всем приложении
           BlocProvider<AuthBloc>(
             create: (context) => AuthBloc(
-              apiService: context.read<ApiService>(),
-              storageService: context.read<StorageService>(),
+           apiService: apiService,
+              storageService: storageService,
             ),
           ),
-           BlocProvider<BoilerDetailBloc>(
-      create: (context) => BoilerDetailBloc(
-        apiService: context.read<ApiService>(),
-        storageService: context.read<StorageService>(),
-      ),
-    ),
+          BlocProvider<BoilerDetailBloc>(
+            create: (context) => BoilerDetailBloc(
+              apiService: apiService,
+              storageService: storageService,
+            ),
+          ),
           // AppBloc зависит от AuthBloc и StorageService
           BlocProvider<AppBloc>(
             create: (context) => AppBloc(
-              storageService: context.read<StorageService>(),
+              storageService: storageService,
               authBloc: context.read<AuthBloc>(),
             )..add(AppStarted()), // <-- Запускаем проверку при создании блока
           ),
+           BlocProvider<UsersBloc>(
+            create: (context) => UsersBloc(
+           apiService: apiService,
+              storageService: storageService,
+            ),),
+             BlocProvider<RolesBloc>(
+            create: (context) => RolesBloc(
+           apiService: apiService,
+              storageService: storageService,
+            ),),
         ],
         child: const AppView(),
       ),
@@ -82,15 +96,15 @@ class AppView extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       localizationsDelegates: const [
-  GlobalMaterialLocalizations.delegate,
-  GlobalWidgetsLocalizations.delegate,
-  GlobalCupertinoLocalizations.delegate,
-],
-supportedLocales: const [
-  Locale('ru', 'RU'),
-  Locale('en', 'US'),
-],
-locale: const Locale('ru', 'RU'),
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ru', 'RU'),
+        Locale('en', 'US'),
+      ],
+      locale: const Locale('ru', 'RU'),
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -110,7 +124,7 @@ locale: const Locale('ru', 'RU'),
         builder: (context, state) {
           // В зависимости от статуса показываем нужный экран
           if (state.status == AppStatus.authenticated) {
-          return BlocProvider<BoilersBloc>(
+            return BlocProvider<BoilersBloc>(
               create: (context) => BoilersBloc(
                 apiService: context.read<ApiService>(),
                 storageService: context.read<StorageService>(),

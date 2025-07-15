@@ -19,13 +19,15 @@ class LoadBoilerParameterValues extends BoilerDetailEvent {
   final int boilerId;
   final DateTime startDate;
   final DateTime endDate;
-  final List<int> selectedParameterIds; // Обязательный параметр - ID выбранных параметров
+  final List<int> selectedParameterIds;
+  final int interval;
 
-  LoadBoilerParameterValues({
+ LoadBoilerParameterValues({
     required this.boilerId,
     required this.startDate,
     required this.endDate,
     required this.selectedParameterIds,
+    this.interval = 60,
   });
 }
 
@@ -152,13 +154,14 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
       print('Selected parameters: ${selectedParameterNames.join(', ')}');
 
       // Загружаем значения за указанный период
-      final values = await _apiService.getBoilerParameterValues(
-        token, 
-        event.boilerId, 
-        event.startDate, 
-        event.endDate,
-        parameterIds: event.selectedParameterIds, // Передаем выбранные параметры
-      );
+final values = await _apiService.getBoilerParameterValues(
+  token, 
+  event.boilerId, 
+  event.startDate, 
+  event.endDate,
+  event.interval,
+  parameterIds: event.selectedParameterIds,
+);
 
       print('Loaded ${values.length} parameter values from API');
 
@@ -227,25 +230,27 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
     return getMinuteRange(now);
   }
 
-  // Метод для загрузки данных за выбранную минуту
-  void loadDataForSelectedMinute(int boilerId, DateTime selectedDateTime, List<int> selectedParameterIds) {
-    final timeRange = getMinuteRange(selectedDateTime);
-    add(LoadBoilerParameterValues(
-      boilerId: boilerId,
-      startDate: timeRange['start']!,
-      endDate: timeRange['end']!,
-      selectedParameterIds: selectedParameterIds,
-    ));
-  }
+ // Метод для загрузки данных за выбранную минуту
+void loadDataForSelectedMinute(int boilerId, DateTime selectedDateTime, List<int> selectedParameterIds, {int interval = 60}) {
+  final timeRange = getMinuteRange(selectedDateTime);
+  add(LoadBoilerParameterValues(
+    boilerId: boilerId,
+    startDate: timeRange['start']!,
+    endDate: timeRange['end']!,
+    selectedParameterIds: selectedParameterIds,
+    interval: interval, // Передаем interval
+  ));
+}
 
-  // Метод для загрузки данных за текущую минуту
-  void loadCurrentMinuteData(int boilerId, List<int> selectedParameterIds) {
-    final timeRange = getCurrentMinuteRange();
-    add(LoadBoilerParameterValues(
-      boilerId: boilerId,
-      startDate: timeRange['start']!,
-      endDate: timeRange['end']!,
-      selectedParameterIds: selectedParameterIds,
-    ));
-  }
+// Метод для загрузки данных за текущую минуту
+void loadCurrentMinuteData(int boilerId, List<int> selectedParameterIds, {int interval = 60}) {
+  final timeRange = getCurrentMinuteRange();
+  add(LoadBoilerParameterValues(
+    boilerId: boilerId,
+    startDate: timeRange['start']!,
+    endDate: timeRange['end']!,
+    selectedParameterIds: selectedParameterIds,
+    interval: interval, // Передаем interval
+  ));
+}
 }
