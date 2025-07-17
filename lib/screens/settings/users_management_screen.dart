@@ -24,7 +24,6 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     context.read<UsersBloc>().add(FetchUsers());
   }
 
-  // Placeholder список ролей (fetch из API если нужно)
   // final List<Role> _availableRoles = [
   //   Role(
   //       id: 1,
@@ -41,11 +40,10 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   //   // Добавь больше по твоему API
   // ];
 
-  // Проверка прав (возьми из auth_bloc или app_bloc)
   bool get _hasManageRights {
     // Пример: final currentUser = context.read<AuthBloc>().state is AuthSuccess ? (state as AuthSuccess).userInfo : null;
     // return currentUser?.role.canManageAccounts ?? false;
-    return true; // Placeholder — замени на реальную проверку
+    return true; 
   }
 
   @override
@@ -163,7 +161,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showUserForm(context),
         foregroundColor: Colors.white,
-        backgroundColor: Colors.blueAccent, // Адаптируй под accent color
+        backgroundColor: Colors.blueAccent,
         child: const Icon(Icons.add),
       ),
     );
@@ -293,8 +291,8 @@ void _showUserForm(BuildContext context, {UserInfo? user}) {
                 'name': nameController.text,
                 if(!isEdit)'login': loginController.text,
                 if (passwordController.text.isNotEmpty) 'password': passwordController.text, // Только если не пустой
-                'roleId': selectedRoleId, // Теперь напрямую id
-                // Добавь другие поля по API (например, boilersAccess)
+                'roleId': selectedRoleId,
+              
               };
               if (isEdit) {
                 context.read<UsersBloc>().add(UpdateUser(user.id, userData));
