@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:manage_center/models/boiler_model.dart';
+import 'package:manage_center/models/boiler_type_model.dart';
+import 'package:manage_center/models/district_model.dart';
 import 'package:manage_center/models/role_model.dart';
 import 'package:manage_center/models/user_info_model.dart';
 import 'package:manage_center/models/boiler_list_item_model.dart';
@@ -132,7 +134,7 @@ class ApiService {
         throw Exception('Ошибка сервера: ${response.statusCode}');
       }
     } catch (e) {
-      print('Ошибка при получении списка котельных: $e');
+      print('Ошибка при получении списка объектов: $e');
       rethrow; // Перебрасываем исключение дальше (?)
     }
   }
@@ -160,13 +162,13 @@ class ApiService {
         case 401:
           throw Exception('Некорректный токен авторизации');
         case 404:
-          throw Exception('Котельная не найдена');
+          throw Exception('Объект не найден');
         default:
           throw Exception('Ошибка сервера: ${response.statusCode}');
       }
     } catch (e) {
       print('Error in getBoilerParameters: $e');
-      throw Exception('Ошибка при получении параметров котельной: $e');
+      throw Exception('Ошибка при получении параметров объекта: $e');
     }
   }
 
@@ -222,7 +224,7 @@ class ApiService {
         case 401:
           throw Exception('Некорректный токен авторизации');
         case 404:
-          throw Exception('Котельная не найдена');
+          throw Exception('Объект не найден');
         default:
           throw Exception('Ошибка сервера: ${response.statusCode}');
       }
@@ -372,4 +374,378 @@ Future<void> deleteRole(String token, int roleId) async {
   }
 }
 
+//-------управление районами--------
+
+// Получение всех районов
+Future<List<District>> getAllDistricts(String token) async {
+  try {
+    final response = await http.get(
+      Uri.parse('$baseUrl/Districts'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      final districts = data.map((json) => District.fromJson(json)).toList();
+      return districts;
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при получении списка районов: $e');
+    rethrow;
+  }
+}
+
+// Получение района по ID
+Future<District> getDistrictById(String token, int districtId) async {
+  try {
+    final response = await http.get(
+      Uri.parse('$baseUrl/Districts/$districtId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return District.fromJson(data);
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else if (response.statusCode == 404) {
+      throw Exception('Район не найден');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при получении района: $e');
+    rethrow;
+  }
+}
+
+// Создание нового района
+Future<void> createDistrict(String token, String name) async {
+  try {
+    final response = await http.post(
+      Uri.parse('$baseUrl/Districts'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({
+        'name': name,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при создании района: $e');
+    rethrow;
+  }
+}
+
+// Редактирование района
+Future<void> updateDistrict(String token, int districtId, String name) async {
+  try {
+    final response = await http.put(
+      Uri.parse('$baseUrl/Districts/$districtId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({
+        'name': name,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else if (response.statusCode == 404) {
+      throw Exception('Район не найден');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при редактировании района: $e');
+    rethrow;
+  }
+}
+
+// Удаление района
+Future<void> deleteDistrict(String token, int districtId) async {
+  try {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/Districts/$districtId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else if (response.statusCode == 404) {
+      throw Exception('Район не найден');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при удалении района: $e');
+    rethrow;
+  }
+}
+
+//-------управление районами--------
+
+// Получение всех типов объектов
+Future<List<BoilerType>> getAllBoilerTypes(String token) async {
+  try {
+    final response = await http.get(
+      Uri.parse('$baseUrl/BoilerTypes'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      final boilerTypes = data.map((json) => BoilerType.fromJson(json)).toList();
+      return boilerTypes;
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при получении списка типов объектов: $e');
+    rethrow;
+  }
+}
+
+// Получение типа объекта по ID
+Future<BoilerType> getBoilerTypeById(String token, int boilerTypeId) async {
+  try {
+    final response = await http.get(
+      Uri.parse('$baseUrl/BoilerTypes/$boilerTypeId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return BoilerType.fromJson(data);
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else if (response.statusCode == 404) {
+      throw Exception('Тип объекта не найден');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при получении типа объекта: $e');
+    rethrow;
+  }
+}
+
+// Создание нового типа объекта
+Future<void> createBoilerType(String token, String name) async {
+  try {
+    final response = await http.post(
+      Uri.parse('$baseUrl/BoilerTypes'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({
+        'name': name,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при создании типа объекта: $e');
+    rethrow;
+  }
+}
+
+// Редактирование типа объекта
+Future<void> updateBoilerType(String token, int boilerTypeId, String name) async {
+  try {
+    final response = await http.put(
+      Uri.parse('$baseUrl/BoilerTypes/$boilerTypeId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({
+        'name': name,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else if (response.statusCode == 404) {
+      throw Exception('Тип объекта не найден');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при редактировании типа объекта: $e');
+    rethrow;
+  }
+}
+
+// Удаление типа объекта
+Future<void> deleteBoilerType(String token, int boilerTypeId) async {
+  try {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/BoilerTypes/$boilerTypeId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else if (response.statusCode == 404) {
+      throw Exception('Тип объекта не найден');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при удалении типа объекта: $e');
+    rethrow;
+  }
+}
+
+//-------управление объектами--------
+
+// Создание нового объекта
+Future<void> createBoiler(String token, Map<String, dynamic> boilerData) async {
+  try {
+    final response = await http.post(
+      Uri.parse('$baseUrl/Boilers'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: json.encode(boilerData),
+    );
+
+    if (response.statusCode == 200) {
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при создании объекта: $e');
+    rethrow;
+  }
+}
+
+// Получение объекта по ID
+Future<BoilerListItem> getBoilerById(String token, int boilerId) async {
+  try {
+    final response = await http.get(
+      Uri.parse('$baseUrl/Boilers/$boilerId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return BoilerListItem.fromJson(data);
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else if (response.statusCode == 404) {
+      throw Exception('Объект не найден');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при получении объекта: $e');
+    rethrow;
+  }
+}
+
+// Обновление объекта
+Future<void> updateBoiler(String token, int boilerId, Map<String, dynamic> boilerData) async {
+  try {
+    final response = await http.put(
+      Uri.parse('$baseUrl/Boilers/$boilerId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: json.encode(boilerData),
+    );
+
+    if (response.statusCode == 200) {
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else if (response.statusCode == 404) {
+      throw Exception('Объект не найден');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при обновлении объекта: $e');
+    rethrow;
+  }
+}
+
+// Удаление объекта
+Future<void> deleteBoiler(String token, int boilerId) async {
+  try {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/Boilers/$boilerId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else if (response.statusCode == 404) {
+      throw Exception('Объект не найден');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при удалении объекта: $e');
+    rethrow;
+  }
+}
 }

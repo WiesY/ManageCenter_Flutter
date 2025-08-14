@@ -823,7 +823,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
             ),
             const SizedBox(height: 16),
             _buildStatusDetailRow('Статус', _boilerState.statusText),
-            _buildStatusDetailRow('Котельная', widget.boilerName),
+            _buildStatusDetailRow('Объект', widget.boilerName),
             if (widget.districtName != null)
               _buildStatusDetailRow('Район', widget.districtName!),
             _buildStatusDetailRow(

@@ -70,93 +70,99 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                labelText: 'Поиск',
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0)),
-                prefixIcon: const Icon(Icons.search),
-                fillColor: Colors
-                    .grey[200], // Светлый фон для поиска, вписывается в гамму
-                filled: true,
+      body: RefreshIndicator(
+    onRefresh: () async {
+      context.read<UsersBloc>().add(FetchUsers());
+      return Future.delayed(const Duration(milliseconds: 300));
+    },
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  labelText: 'Поиск',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0)),
+                  prefixIcon: const Icon(Icons.search),
+                  fillColor: Colors
+                      .grey[200], // Светлый фон для поиска, вписывается в гамму
+                  filled: true,
+                ),
+                onChanged: (value) =>
+                    setState(() => _searchQuery = value.toLowerCase()),
               ),
-              onChanged: (value) =>
-                  setState(() => _searchQuery = value.toLowerCase()),
             ),
-          ),
-          Expanded(
-            child: BlocBuilder<UsersBloc, UsersState>(
-              builder: (context, state) {
-                if (state is UsersLoading) {
-                  return const Center(
-                      child: CircularProgressIndicator(
-                          color: Colors
-                              .blueAccent)); // Анимация загрузки в твоей гамме
-                } else if (state is UsersLoaded) {
-                  final filteredUsers = state.users
-                      .where((user) =>
-                          user.name.toLowerCase().contains(_searchQuery))
-                      .toList();
-                  if (filteredUsers.isEmpty) {
+            Expanded(
+              child: BlocBuilder<UsersBloc, UsersState>(
+                builder: (context, state) {
+                  if (state is UsersLoading) {
                     return const Center(
-                        child:
-                            Text('Нет пользователей или ничего не найдено.'));
-                  }
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    itemCount: filteredUsers.length,
-                    itemBuilder: (context, index) {
-                      final user = filteredUsers[index];
-                      return Dismissible(
-                        key: Key(user.id.toString()),
-                        direction: DismissDirection.endToStart,
-                        background: Container(
-                          color: Colors
-                              .red, // Красный для delete, вписывается в warning-гамму
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 20.0),
-                          child: const Icon(Icons.delete, color: Colors.white),
-                        ),
-                        confirmDismiss: (direction) =>
-                            _confirmDelete(context, user),
-                        onDismissed: (direction) =>
-                            context.read<UsersBloc>().add(DeleteUser(user.id)),
-                        child: Card(
-                          elevation: 2.0,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8.0)),
-                          color: Colors.white, // Белый кард для контраста
-                          child: ListTile(
-                            title: Text(user.name,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold)),
-                            subtitle: Text('Роль: ${user.role?.name ?? 'Не назначена'}'),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.edit,
-                                  color: Colors.blue), // Синий для edit
-                              onPressed: () =>
-                                  _showUserForm(context, user: user),
+                        child: CircularProgressIndicator(
+                            color: Colors
+                                .blueAccent)); // Анимация загрузки в твоей гамме
+                  } else if (state is UsersLoaded) {
+                    final filteredUsers = state.users
+                        .where((user) =>
+                            user.name.toLowerCase().contains(_searchQuery))
+                        .toList();
+                    if (filteredUsers.isEmpty) {
+                      return const Center(
+                          child:
+                              Text('Нет пользователей или ничего не найдено.'));
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      itemCount: filteredUsers.length,
+                      itemBuilder: (context, index) {
+                        final user = filteredUsers[index];
+                        return Dismissible(
+                          key: Key(user.id.toString()),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            color: Colors
+                                .red, // Красный для delete, вписывается в warning-гамму
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20.0),
+                            child: const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          confirmDismiss: (direction) =>
+                              _confirmDelete(context, user),
+                          onDismissed: (direction) =>
+                              context.read<UsersBloc>().add(DeleteUser(user.id)),
+                          child: Card(
+                            elevation: 2.0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8.0)),
+                            color: Colors.white, // Белый кард для контраста
+                            child: ListTile(
+                              title: Text(user.name,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                              subtitle: Text('Роль: ${user.role?.name ?? 'Не назначена'}'),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.edit,
+                                    color: Colors.blue), // Синий для edit
+                                onPressed: () =>
+                                    _showUserForm(context, user: user),
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  );
-                } else if (state is UsersError) {
-                  return Center(
-                      child: Text('Ошибка: ${state.error}',
-                          style: const TextStyle(color: Colors.red)));
-                }
-                return const SizedBox.shrink();
-              },
+                        );
+                      },
+                    );
+                  } else if (state is UsersError) {
+                    return Center(
+                        child: Text('Ошибка: ${state.error}',
+                            style: const TextStyle(color: Colors.red)));
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showUserForm(context),

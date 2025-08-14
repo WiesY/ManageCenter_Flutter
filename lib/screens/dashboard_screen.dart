@@ -8,7 +8,6 @@ import 'package:manage_center/models/boiler_list_item_model.dart';
 import 'package:manage_center/screens/boiler_detail_screen.dart';
 import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/screens/settings/settings_menu_screen.dart';
-import 'package:manage_center/screens/settings/updated_settings_menu_screen.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
@@ -24,21 +23,24 @@ class DashboardScreen extends StatelessWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Выход'),
-        content: const Text('Вы действительно хотите выйти?'),
+        content: const Text('Вы действительно хотите выйти из аккаунта?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Отмена'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               context.read<AuthBloc>().add(LogoutEvent());
               Navigator.pop(dialogContext);
-              Navigator.pushReplacement(context,  MaterialPageRoute(
-                    builder: (BuildContext context) => const LoginScreen(),)
-                  );
+              Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (BuildContext context) => const LoginScreen(),
+                  ));
             },
-            child: const Text('Выйти'),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Выйти', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -83,7 +85,7 @@ class DashboardScreen extends StatelessWidget {
           }
           if (state is BoilersLoadSuccess) {
             if (state.boilers.isEmpty) {
-              return const Center(child: Text('Список котельных пуст.'));
+              return const Center(child: Text('Список объектов пуст.'));
             }
             return RefreshIndicator(
               // Эта функция будет вызвана, когда пользователь потянет список вниз
@@ -100,7 +102,7 @@ class DashboardScreen extends StatelessWidget {
                     .firstWhere((s) => s is! BoilersLoadInProgress);
               },
               child: state.boilers.isEmpty
-                  ? const Center(child: Text('Список котельных пуст.'))
+                  ? const Center(child: Text('Список объектов пуст.'))
                   // Если список не пуст, строим его
                   : _buildBoilerList(context, state.boilers),
             );
@@ -108,30 +110,6 @@ class DashboardScreen extends StatelessWidget {
           return const Center(child: Text('Загрузка...'));
         },
       ),
-      bottomNavigationBar: CustomBottomNavigation(
-          currentIndex: 0,
-          onTap: (index) {
-            
-            //if (index != 0) {
-              // Навигация на другие экраны в зависимости от индекса
-              switch (index) {
-                // case 1:
-                //   Navigator.pushReplacementNamed(context, '/upload');
-                //   break;
-                // case 2:
-                //   Navigator.pushReplacementNamed(context, '/messages');
-                //   break;
-                case 3:
-                print('click');
-                Navigator.pushReplacement(context,
-                  MaterialPageRoute(
-                    builder: (BuildContext context) => const SettingsScreen(),)
-                  );
-                  break;
-              }
-            }
-          //}
-          ),
     );
   }
 

@@ -57,89 +57,95 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                labelText: 'Поиск по названию роли',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),
-                prefixIcon: const Icon(Icons.search),
-                fillColor: Colors.grey[200],
-                filled: true,
+      body: RefreshIndicator(
+    onRefresh: () async {
+      context.read<RolesBloc>().add(FetchRoles());
+      return Future.delayed(const Duration(milliseconds: 300));
+    },
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  labelText: 'Поиск по названию роли',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),
+                  prefixIcon: const Icon(Icons.search),
+                  fillColor: Colors.grey[200],
+                  filled: true,
+                ),
+                onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
               ),
-              onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
             ),
-          ),
-          Expanded(
-            child: BlocBuilder<RolesBloc, RolesState>(
-              builder: (context, state) {
-                if (state is RolesLoading) {
-                  return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
-                } else if (state is RolesLoaded) {
-                  final filteredRoles = state.roles
-                      .where((role) => role.name.toLowerCase().contains(_searchQuery))
-                      .toList();
-                  if (filteredRoles.isEmpty) {
-                    return const Center(child: Text('Нет ролей или ничего не найдено.'));
-                  }
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    itemCount: filteredRoles.length,
-                    itemBuilder: (context, index) {
-                      final role = filteredRoles[index];
-                      return Dismissible(
-                        key: Key(role.id.toString()),
-                        direction: DismissDirection.endToStart,
-                        background: Container(
-                          color: Colors.red,
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 20.0),
-                          child: const Icon(Icons.delete, color: Colors.white),
-                        ),
-                        confirmDismiss: (direction) => _confirmDelete(context, role),
-                        onDismissed: (direction) => context.read<RolesBloc>().add(DeleteRole(role.id)),
-                        child: Card(
-                          elevation: 2.0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-                          color: Colors.white,
-                          child: ListTile(
-                            title: Text(role.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text(
-                              'Доступ ко всем котельным: ${role.canAccessAllBoilers ? 'Да' : 'Нет'}\n'
-                              'Управление аккаунтами: ${role.canManageAccounts ? 'Да' : 'Нет'}\n'
-                              'Управление котельными: ${role.canManageBoilers ? 'Да' : 'Нет'}',
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () => _showRoleForm(context, role: role),
+            Expanded(
+              child: BlocBuilder<RolesBloc, RolesState>(
+                builder: (context, state) {
+                  if (state is RolesLoading) {
+                    return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
+                  } else if (state is RolesLoaded) {
+                    final filteredRoles = state.roles
+                        .where((role) => role.name.toLowerCase().contains(_searchQuery))
+                        .toList();
+                    if (filteredRoles.isEmpty) {
+                      return const Center(child: Text('Нет ролей или ничего не найдено.'));
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      itemCount: filteredRoles.length,
+                      itemBuilder: (context, index) {
+                        final role = filteredRoles[index];
+                        return Dismissible(
+                          key: Key(role.id.toString()),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            color: Colors.red,
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20.0),
+                            child: const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          confirmDismiss: (direction) => _confirmDelete(context, role),
+                          onDismissed: (direction) => context.read<RolesBloc>().add(DeleteRole(role.id)),
+                          child: Card(
+                            elevation: 2.0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+                            color: Colors.white,
+                            child: ListTile(
+                              title: Text(role.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text(
+                                'Доступ ко всем объектам: ${role.canAccessAllBoilers ? 'Да' : 'Нет'}\n'
+                                'Управление аккаунтами: ${role.canManageAccounts ? 'Да' : 'Нет'}\n'
+                                'Управление объектами: ${role.canManageBoilers ? 'Да' : 'Нет'}',
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.edit, color: Colors.blue),
+                                onPressed: () => _showRoleForm(context, role: role),
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  );
-                } else if (state is RolesError) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text('Ошибка: ${state.error}', style: const TextStyle(color: Colors.red)),
-                        TextButton(
-                          onPressed: () => context.read<RolesBloc>().add(FetchRoles()),
-                          child: const Text('Повторить'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
+                        );
+                      },
+                    );
+                  } else if (state is RolesError) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('Ошибка: ${state.error}', style: const TextStyle(color: Colors.red)),
+                          TextButton(
+                            onPressed: () => context.read<RolesBloc>().add(FetchRoles()),
+                            child: const Text('Повторить'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showRoleForm(context),
@@ -189,7 +195,7 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
                       decoration: const InputDecoration(labelText: 'Название роли'),
                     ),
                     SwitchListTile(
-                      title: const Text('Доступ ко всем котельным'),
+                      title: const Text('Доступ ко всем объектам'),
                       value: canAccessAllBoilers,
                       onChanged: (value) => setState(() => canAccessAllBoilers = value),
                       activeColor: Colors.blue,
@@ -201,7 +207,7 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
                       activeColor: Colors.blue,
                     ),
                     SwitchListTile(
-                      title: const Text('Управление котельными'),
+                      title: const Text('Управление объектами'),
                       value: canManageBoilers,
                       onChanged: (value) => setState(() => canManageBoilers = value),
                       activeColor: Colors.blue,

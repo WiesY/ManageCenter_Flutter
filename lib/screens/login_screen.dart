@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/screens/dashboard_screen.dart';
+import 'package:manage_center/screens/navigation/main_navigation_screen.dart';
 import 'package:manage_center/screens/operator_screens/operator_screen.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
@@ -46,6 +47,24 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+
+  void _onAuth() {
+    if (_loginController.text.isNotEmpty &&
+                          _passwordController.text.isNotEmpty) {
+                        context.read<AuthBloc>().add(LoginEvent(
+                              login: _loginController.text,
+                              password: _passwordController.text,
+                              rememberMe: _rememberMe,
+                            ));
+                      } else {
+                        // Показываем SnackBar через postFrameCallback
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Заполните все поля')),
+                          );
+                        });
+                      }
+  }
 
   bool _validateForm() {
     if (_formKey.currentState?.validate() ?? false) {
@@ -109,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
             apiService: context.read<ApiService>(),
             storageService: context.read<StorageService>(),
           )..add(FetchBoilers()), // Сразу запрашиваем данные
-          child: const DashboardScreen(),
+          child: const MainNavigationScreen(),
         ),
   ),
 );
@@ -179,6 +198,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
                   child: TextField(
                     controller: _loginController,
+                    textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
                       hintText: 'Логин',
                       border: InputBorder.none,
@@ -198,6 +218,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: TextField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted:(value) => _onAuth(),
                     decoration: InputDecoration(
                       hintText: 'Пароль',
                       border: InputBorder.none,
@@ -277,21 +299,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     onPressed: () {
-                      if (_loginController.text.isNotEmpty &&
-                          _passwordController.text.isNotEmpty) {
-                        context.read<AuthBloc>().add(LoginEvent(
-                              login: _loginController.text,
-                              password: _passwordController.text,
-                              rememberMe: _rememberMe,
-                            ));
-                      } else {
-                        // Показываем SnackBar через postFrameCallback
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Заполните все поля')),
-                          );
-                        });
-                      }
+                      _onAuth();
                     },
                     child: const Text(
                       'Войти',
