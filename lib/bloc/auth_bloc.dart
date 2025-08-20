@@ -63,9 +63,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   })  : _apiService = apiService!,
         _storageService = storageService,
         super(AuthInitial()) {
+
     on<LoginEvent>((event, emit) async {
-      emit(AuthLoading());
       try {
+      emit(AuthLoading());
         // Получаем токен
         final tokenResponse = await _apiService.login(
           event.login,
@@ -75,15 +76,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         if (event.rememberMe) {
           await _storageService.saveToken(tokenResponse.token);
         }
-
-        // Если пользователь хочет включить биометрию
-        if (event.enableBiometric) {
-          await _storageService.setBiometricEnabled(true);
-          await _storageService.saveBiometricCredentials(
-            event.login,
-            event.password,
-          );
-        }
+        
+       // Если включена биометрия, сохраняем токен как сессионный
+    if (event.enableBiometric) {
+      await _storageService.saveTokenType(true); // Сессионный токен
+      await _storageService.saveBiometricCredentials(event.login, event.password);
+      await _storageService.setBiometricEnabled(true);
+    } else {
+      await _storageService.saveTokenType(false); // Долгосрочный токен
+    }
 
         // Получаем информацию о пользователе
         final userInfo = await _apiService.getUserInfo(tokenResponse.token);
@@ -152,6 +153,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     on<LogoutEvent>((event, emit) async {
       await _storageService.deleteToken();
+      await _storageService.clearBiometricCredentials();
       emit(AuthInitial());
     });
 

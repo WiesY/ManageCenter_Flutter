@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:manage_center/app_lifecycle_manager.dart';
 import 'package:manage_center/bloc/app_bloc.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
 import 'package:manage_center/bloc/boiler_types_bloc.dart';
@@ -110,52 +111,55 @@ class AppView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('ru', 'RU'),
-        Locale('en', 'US'),
-      ],
-      locale: const Locale('ru', 'RU'),
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.light,
+    return AppLifecycleManager(
+        storageService: context.read<StorageService>(),
+      child: MaterialApp(
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('ru', 'RU'),
+          Locale('en', 'US'),
+        ],
+        locale: const Locale('ru', 'RU'),
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.blue,
+            brightness: Brightness.light,
+          ),
         ),
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.light,
+        darkTheme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.blue,
+            brightness: Brightness.light,
+          ),
         ),
-      ),
-      home: BlocBuilder<AppBloc, AppState>(
-        builder: (context, state) {
-          // В зависимости от статуса показываем нужный экран
-          if (state.status == AppStatus.authenticated) {
-            return BlocProvider<BoilersBloc>(
-              create: (context) => BoilersBloc(
-                apiService: context.read<ApiService>(),
-                storageService: context.read<StorageService>(),
-              )..add(FetchBoilers()),
-              child: const MainNavigationScreen(),
+        home: BlocBuilder<AppBloc, AppState>(
+          builder: (context, state) {
+            // В зависимости от статуса показываем нужный экран
+            if (state.status == AppStatus.authenticated) {
+              return BlocProvider<BoilersBloc>(
+                create: (context) => BoilersBloc(
+                  apiService: context.read<ApiService>(),
+                  storageService: context.read<StorageService>(),
+                )..add(FetchBoilers()),
+                child: const MainNavigationScreen(),
+              );
+            }
+            if (state.status == AppStatus.unauthenticated) {
+              return const LoginScreen();
+            }
+            // Пока идет проверка, можно показывать сплэш-скрин или загрузчик
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
             );
-          }
-          if (state.status == AppStatus.unauthenticated) {
-            return const LoginScreen();
-          }
-          // Пока идет проверка, можно показывать сплэш-скрин или загрузчик
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        },
+          },
+        ),
       ),
     );
   }

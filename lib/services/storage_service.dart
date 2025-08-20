@@ -21,6 +21,17 @@ class StorageService {
   Future<void> deleteToken() async {
     await _prefs.remove(tokenKey);
   }
+
+  // Добавь новый метод для сохранения информации о типе токена
+Future<void> saveTokenType(bool isSessionToken) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool('is_session_token', isSessionToken);
+}
+
+Future<bool> isSessionToken() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool('is_session_token') ?? false;
+}
   
   // Биометрические методы
   Future<void> setBiometricEnabled(bool enabled) async {
