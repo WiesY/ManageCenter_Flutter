@@ -33,11 +33,11 @@ class DashboardScreen extends StatelessWidget {
             onPressed: () {
               context.read<AuthBloc>().add(LogoutEvent());
               Navigator.pop(dialogContext);
-              Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (BuildContext context) => const LoginScreen(),
-                  ));
+              Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (Route<dynamic> route) =>
+                      false // удаляем все предыдущие экраны
+                  );
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Выйти', style: TextStyle(color: Colors.white)),

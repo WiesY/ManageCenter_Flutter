@@ -133,7 +133,7 @@ class AppView extends StatelessWidget {
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.blue,
-          brightness: Brightness.dark,
+          brightness: Brightness.light,
         ),
       ),
       home: BlocBuilder<AppBloc, AppState>(

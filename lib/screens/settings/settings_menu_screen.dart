@@ -300,7 +300,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _navigateToBoilersManagement(BuildContext context) {
-         Navigator.push(
+    Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => const BoilersManagementScreen(),
@@ -309,7 +309,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _navigateToBoilerTypes(BuildContext context) {
-     Navigator.push(
+    Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => const BoilerTypesManagementScreen(),
@@ -370,11 +370,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () {
               context.read<AuthBloc>().add(LogoutEvent());
               Navigator.pop(dialogContext);
-              Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (BuildContext context) => const LoginScreen(),
-                  ));
+              Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (Route<dynamic> route) =>
+                      false // удаляем все предыдущие экраны
+                  );
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Выйти', style: TextStyle(color: Colors.white)),
