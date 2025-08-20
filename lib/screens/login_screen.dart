@@ -120,6 +120,8 @@ class _LoginScreenState extends State<LoginScreen> {
             Navigator.pop(context);
           }
 
+          // Завершаем автозаполнение
+          TextInput.finishAutofillContext();
           // Перенаправление в зависимости от роли
           Navigator.pushReplacement(
             context,
@@ -204,127 +206,134 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 48),
                 // Поля ввода
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-                  child: TextField(
-                    controller: _loginController,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      hintText: 'Логин',
-                      border: InputBorder.none,
-                      icon: Icon(Icons.person_outline),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-                  child: TextField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (value) => _onAuth(),
-                    decoration: InputDecoration(
-                      hintText: 'Пароль',
-                      border: InputBorder.none,
-                      icon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                          color: Colors.grey,
+                AutofillGroup(
+                  child: Column(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.shade200),
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 5),
+                        child: TextField(
+                          controller: _loginController,
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const [AutofillHints.username],
+                          decoration: const InputDecoration(
+                            hintText: 'Логин',
+                            border: InputBorder.none,
+                            icon: Icon(Icons.person_outline),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 16),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 5),
+                        child: TextField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          autofillHints: const [AutofillHints.password],
+                          onSubmitted: (value) => _onAuth(),
+                          decoration: InputDecoration(
+                            hintText: 'Пароль',
+                            border: InputBorder.none,
+                            icon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: Colors.grey,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Запомнить пароль и Забыли пароль
+                      Row(
+                        children: [
+                          SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: Checkbox(
+                              value: _rememberMe,
+                              onChanged: (value) {
+                                setState(() {
+                                  _rememberMe = value ?? true;
+                                });
+                              },
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              side: BorderSide(color: Colors.grey.shade400),
+                              activeColor: Colors.blue.shade700,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Запомнить пароль',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                            ),
+                          ),
+                          const Spacer(),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                // Запомнить пароль и Забыли пароль
-                Row(
-                  children: [
-                    SizedBox(
-                      height: 24,
-                      width: 24,
-                      child: Checkbox(
-                        value: _rememberMe,
-                        onChanged: (value) {
-                          setState(() {
-                            _rememberMe = value ?? true;
-                          });
-                        },
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        side: BorderSide(color: Colors.grey.shade400),
-                        activeColor: Colors.blue.shade700,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Запомнить пароль',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14,
-                      ),
-                    ),
-                    const Spacer(),
-                  ],
-                ),
-
                 // Биометрическая аутентификация (если доступна)
                 // if (_isBiometricAvailable && !_isBiometricEnabled)
                 //   Padding(
-                //     padding: const EdgeInsets.only(top: 16.0),
-                //     child: Row(
-                //       children: [
-                //         SizedBox(
-                //           height: 24,
-                //           width: 24,
-                //           child: Checkbox(
-                //             value: _enableBiometric,
-                //             onChanged: (value) {
-                //               setState(() {
-                //                 _enableBiometric = value ?? false;
-                //               });
-                //             },
-                //             shape: RoundedRectangleBorder(
-                //               borderRadius: BorderRadius.circular(4),
-                //             ),
-                //             side: BorderSide(color: Colors.grey.shade400),
-                //             activeColor: Colors.blue.shade700,
-                //           ),
-                //         ),
-                //         const SizedBox(width: 12),
-                //         Text(
-                //           'Использовать биометрию для входа',
-                //           style: TextStyle(
-                //             color: Colors.grey[600],
-                //             fontSize: 14,
-                //           ),
-                //         ),
-                //       ],
-                //     ),
+                //    padding: const EdgeInsets.only(top: 16.0),
+                //    child: Row(
+                //    children: [
+                //    SizedBox(
+                //    height: 24,
+                //    width: 24,
+                //    child: Checkbox(
+                //    value: _enableBiometric,
+                //    onChanged: (value) {
+                //    setState(() {
+                //    _enableBiometric = value ?? false;
+                //    });
+                //    },
+                //    shape: RoundedRectangleBorder(
+                //    borderRadius: BorderRadius.circular(4),
+                //    ),
+                //    side: BorderSide(color: Colors.grey.shade400),
+                //    activeColor: Colors.blue.shade700,
+                //    ),
+                //    ),
+                //    const SizedBox(width: 12),
+                //    Text(
+                //    'Использовать биометрию для входа',
+                //    style: TextStyle(
+                //    color: Colors.grey[600],
+                //    fontSize: 14,
+                //    ),
+                //    ),
+                //    ],
+                //    ),
                 //   ),
 
-                 const SizedBox(height: 32),
+                const SizedBox(height: 32),
                 // Кнопка входа
                 SizedBox(
                   width: double.infinity,
@@ -354,29 +363,29 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Кнопка биометрической аутентификации
                 // if (_isBiometricAvailable)
                 //   Padding(
-                //     padding: const EdgeInsets.only(top: 16.0),
-                //     child: SizedBox(
-                //       width: double.infinity,
-                //       height: 56,
-                //       child: OutlinedButton.icon(
-                //         style: OutlinedButton.styleFrom(
-                //           foregroundColor: Colors.blue.shade700,
-                //           side: BorderSide(color: Colors.blue.shade700),
-                //           shape: RoundedRectangleBorder(
-                //             borderRadius: BorderRadius.circular(16),
-                //           ),
-                //         ),
-                //         onPressed: _authenticateWithBiometrics,
-                //         icon: const Icon(Icons.fingerprint),
-                //         label: const Text(
-                //           'Войти с биометрией',
-                //           style: TextStyle(
-                //             fontSize: 16,
-                //             fontWeight: FontWeight.w600,
-                //           ),
-                //         ),
-                //       ),
-                //     ),
+                //    padding: const EdgeInsets.only(top: 16.0),
+                //    child: SizedBox(
+                //    width: double.infinity,
+                //    height: 56,
+                //    child: OutlinedButton.icon(
+                //    style: OutlinedButton.styleFrom(
+                //    foregroundColor: Colors.blue.shade700,
+                //    side: BorderSide(color: Colors.blue.shade700),
+                //    shape: RoundedRectangleBorder(
+                //    borderRadius: BorderRadius.circular(16),
+                //    ),
+                //    ),
+                //    onPressed: _authenticateWithBiometrics,
+                //    icon: const Icon(Icons.fingerprint),
+                //    label: const Text(
+                //    'Войти с биометрией',
+                //    style: TextStyle(
+                //    fontSize: 16,
+                //    fontWeight: FontWeight.w600,
+                //    ),
+                //    ),
+                //    ),
+                //    ),
                 //   ),
               ],
             ),
