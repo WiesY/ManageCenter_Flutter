@@ -50,14 +50,15 @@ class _LoginScreenState extends State<LoginScreen> {
     context.read<AuthBloc>().add(BiometricLoginEvent());
   }
 
-  // Метод для предложения сохранить учетные данные перед авторизацией
-  void _promptToSaveCredentials() {
-    if (_loginController.text.isNotEmpty &&
-        _passwordController.text.isNotEmpty) {
-      // Вызываем диалог сохранения пароля в системе
+// Метод для предложения сохранить учетные данные
+void _promptToSaveCredentials() {
+  if (_loginController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
+    // Небольшая задержка перед вызовом диалога сохранения
+    Future.delayed(const Duration(milliseconds: 100), () {
       TextInput.finishAutofillContext(shouldSave: true);
-    }
+    });
   }
+}
 
   void _onAuth() {
     _promptToSaveCredentials();
