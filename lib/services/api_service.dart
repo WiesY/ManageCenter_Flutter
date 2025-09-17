@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:manage_center/models/boiler_model.dart';
 import 'package:manage_center/models/boiler_type_model.dart';
 import 'package:manage_center/models/district_model.dart';
+import 'package:manage_center/models/parameter_group_model.dart';
 import 'package:manage_center/models/role_model.dart';
 import 'package:manage_center/models/user_info_model.dart';
 import 'package:manage_center/models/boiler_list_item_model.dart';
@@ -233,6 +234,166 @@ class ApiService {
       throw Exception('Ошибка при получении значений параметров: $e');
     }
   }
+
+  //----управление группами параметров----
+
+// Получение всех групп параметров
+Future<List<ParameterGroup>> getParameterGroups(String token) async {
+  try {
+    final response = await http.get(
+      Uri.parse('$baseUrl/ParamGroups'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.map((json) => ParameterGroup.fromJson(json)).toList();
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при получении групп параметров: $e');
+    rethrow;
+  }
+}
+
+// Получение группы по ID
+Future<ParameterGroup> getParameterGroupById(String token, int parameterGroupId) async {
+  try {
+    final response = await http.get(
+      Uri.parse('$baseUrl/ParameterGroups/$parameterGroupId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return ParameterGroup.fromJson(data);
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else if (response.statusCode == 404) {
+      throw Exception('Группа параметров не найдена');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при получении группы параметров: $e');
+    rethrow;
+  }
+}
+
+// Создание новой группы параметров
+Future<void> createParameterGroup(String token, String name) async {
+  try {
+    final response = await http.post(
+      Uri.parse('$baseUrl/ParamGroups'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({'name': name}),
+    );
+
+    if (response.statusCode == 200) {
+      // Успешно создано
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при создании группы параметров: $e');
+    rethrow;
+  }
+}
+
+// Обновление группы параметров
+Future<void> updateParameterGroup(String token, int parameterGroupId, String name) async {
+  try {
+    final response = await http.put(
+      Uri.parse('$baseUrl/ParamGroups/$parameterGroupId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({'name': name}),
+    );
+
+    if (response.statusCode == 200) {
+      // Успешно обновлено
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else if (response.statusCode == 404) {
+      throw Exception('Группа параметров не найдена');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при обновлении группы параметров: $e');
+    rethrow;
+  }
+}
+
+// Удаление группы параметров
+Future<void> deleteParameterGroup(String token, int parameterGroupId) async {
+  try {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/ParamGroups/$parameterGroupId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else if (response.statusCode == 404) {
+      throw Exception('Группа параметров не найдена');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при удалении группы параметров: $e');
+    rethrow;
+  }
+}
+
+// Изменение группы у параметров
+Future<void> updateParametersGroup(String token, int groupId, List<int> boilerIds) async {
+  try {
+    final response = await http.put(
+      Uri.parse('$baseUrl/BoilerParameters/Parameters/Groups'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({
+        'groupId': groupId,
+        'boilersId': boilerIds,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      // Успешно обновлено
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при изменении группы параметров: $e');
+    rethrow;
+  }
+}
 
   //-------управление пользователями--------
 

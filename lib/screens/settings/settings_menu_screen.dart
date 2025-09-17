@@ -7,6 +7,7 @@ import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/screens/settings/boiler_types_management_screen.dart';
 import 'package:manage_center/screens/settings/boilers_management_screen.dart';
 import 'package:manage_center/screens/settings/districts_management_screen.dart';
+import 'package:manage_center/screens/settings/param_groups_management_screen.dart';
 import 'package:manage_center/screens/settings/roles_management_screen.dart';
 import 'package:manage_center/screens/settings/users_management_screen.dart';
 import 'package:manage_center/screens/settings/change_password_screen.dart';
@@ -89,6 +90,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: 'Районы',
                       icon: Icons.location_city,
                       onTap: () => _navigateToDistricts(context),
+                    ),
+                    SettingsItem(
+                      title: 'Группы параметров',
+                      icon: Icons.group_work,
+                      onTap: () => _navigateToParamGroupsManagement(context),
+                    ),
+                  ],
+                ),
+
+                if(canManageBoilers)
+                _buildSettingsCategory(
+                  context,
+                  title: 'Группы параметров',
+                  icon: Icons.business,
+                  items: [
+                    SettingsItem(
+                      title: 'Управление группами',
+                      icon: Icons.home_work,
+                      onTap: () => _navigateToParamGroupsManagement(context),
                     ),
                   ],
                 ),
@@ -304,6 +324,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context,
       MaterialPageRoute(
         builder: (context) => const BoilersManagementScreen(),
+      ),
+    );
+  }
+
+    void _navigateToParamGroupsManagement(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ParamGroupsManagementScreen(),
       ),
     );
   }

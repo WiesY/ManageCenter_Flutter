@@ -132,7 +132,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
   }
 
   void _loadCurrentValues() {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     context.read<BoilerDetailBloc>().add(LoadBoilerParameterValues(
       boilerId: widget.boilerId,
       startDate: now.subtract(const Duration(minutes: 5)),
@@ -173,7 +173,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
   }
 
   String _formatTime(DateTime time) {
-    return DateFormat('HH:mm:ss').format(time.add(const Duration(hours: 3)));
+    return DateFormat('HH:mm:ss').format(time.toLocal());
   }
 
   String _translateParameterType(String valueType) {
