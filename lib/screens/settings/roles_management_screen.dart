@@ -115,7 +115,8 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
                               subtitle: Text(
                                 'Доступ ко всем объектам: ${role.canAccessAllBoilers ? 'Да' : 'Нет'}\n'
                                 'Управление аккаунтами: ${role.canManageAccounts ? 'Да' : 'Нет'}\n'
-                                'Управление объектами: ${role.canManageBoilers ? 'Да' : 'Нет'}',
+                                'Управление объектами: ${role.canManageBoilers ? 'Да' : 'Нет'}\n'
+                                'Управление параметрами: ${role.canManageParameters ? 'Да' : 'Нет'}',
                               ),
                               trailing: IconButton(
                                 icon: const Icon(Icons.edit, color: Colors.blue),
@@ -178,6 +179,7 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
     bool canAccessAllBoilers = role?.canAccessAllBoilers ?? false;
     bool canManageAccounts = role?.canManageAccounts ?? false;
     bool canManageBoilers = role?.canManageBoilers ?? false;
+    bool canManageParameters = role?.canManageParameters ?? false;
 
     showDialog(
       context: context,
@@ -212,6 +214,12 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
                       onChanged: (value) => setState(() => canManageBoilers = value),
                       activeColor: Colors.blue,
                     ),
+                     SwitchListTile(
+                      title: const Text('Управление параметрами'),
+                      value: canManageParameters,
+                      onChanged: (value) => setState(() => canManageParameters = value),
+                      activeColor: Colors.blue,
+                    ),
                   ],
                 ),
               ),
@@ -228,6 +236,7 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
                       'canAccessAllBoilers': canAccessAllBoilers,
                       'canManageAccounts': canManageAccounts,
                       'canManageBoilers': canManageBoilers,
+                      'canManageParameters': canManageParameters,
                     };
                     if (isEdit) {
                       context.read<RolesBloc>().add(UpdateRole(role!.id, roleData));

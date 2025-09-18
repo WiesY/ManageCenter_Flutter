@@ -247,7 +247,7 @@ Future<List<ParameterGroup>> getParameterGroups(String token) async {
       Uri.parse('$baseUrl/ParamGroups'),
       headers: {
         'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
+        'Accept': 'text/plain',
       },
     );
 
@@ -266,13 +266,13 @@ Future<List<ParameterGroup>> getParameterGroups(String token) async {
 }
 
 // Получение группы по ID
-Future<ParameterGroup> getParameterGroupById(String token, int parameterGroupId) async {
+Future<ParameterGroup> getParameterGroupById(String token, int paramGroupId) async {
   try {
     final response = await http.get(
-      Uri.parse('$baseUrl/ParameterGroups/$parameterGroupId'),
+      Uri.parse('$baseUrl/ParamGroups/$paramGroupId'),
       headers: {
         'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
+        'Accept': 'text/plain',
       },
     );
 
@@ -293,23 +293,40 @@ Future<ParameterGroup> getParameterGroupById(String token, int parameterGroupId)
 }
 
 // Создание новой группы параметров
-Future<void> createParameterGroup(String token, String name) async {
+Future<ParameterGroup> createParameterGroup(String token, String name, String color, String iconFileName) async {
   try {
-    final response = await http.post(
-      Uri.parse('$baseUrl/ParamGroups'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: json.encode({'name': name}),
-    );
+    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/ParamGroups'));
+    
+    // Добавляем заголовки
+    request.headers.addAll({
+      'Authorization': 'Bearer $token',
+      'Accept': 'text/plain',
+    });
+    
+    // Добавляем поля формы
+    request.fields['Name'] = name;
+    
+    if (color != null && color.isNotEmpty) {
+      request.fields['Color'] = color;
+    }
+    
+    // Если есть файл иконки, добавляем его
+    if (iconFileName != null && iconFileName.isNotEmpty) {
+      request.fields['IconFileName'] = iconFileName;
+      // Если нужно загрузить файл, добавь его как MultipartFile
+      // request.files.add(await http.MultipartFile.fromPath('IconFile', iconFilePath));
+    }
+    
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode == 200) {
-      // Успешно создано
+      final data = json.decode(response.body);
+      return ParameterGroup.fromJson(data);
     } else if (response.statusCode == 401) {
       throw Exception('Некорректный токен авторизации');
     } else {
-      throw Exception('Ошибка сервера: ${response.statusCode}');
+      throw Exception('Ошибка сервера: ${response.statusCode} - ${response.body}');
     }
   } catch (e) {
     print('Ошибка при создании группы параметров: $e');
@@ -318,25 +335,42 @@ Future<void> createParameterGroup(String token, String name) async {
 }
 
 // Обновление группы параметров
-Future<void> updateParameterGroup(String token, int parameterGroupId, String name) async {
+Future<ParameterGroup> updateParameterGroup(String token, int paramGroupId, String name, String color, String iconFileName) async {
   try {
-    final response = await http.put(
-      Uri.parse('$baseUrl/ParamGroups/$parameterGroupId'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: json.encode({'name': name}),
-    );
+    var request = http.MultipartRequest('PUT', Uri.parse('$baseUrl/ParamGroups/$paramGroupId'));
+    
+    // Добавляем заголовки
+    request.headers.addAll({
+      'Authorization': 'Bearer $token',
+      'Accept': 'text/plain',
+    });
+    
+    // Добавляем поля формы
+    request.fields['Name'] = name;
+    
+    if (color != null && color.isNotEmpty) {
+      request.fields['Color'] = color;
+    }
+    
+    // Если есть файл иконки, добавляем его
+    if (iconFileName != null && iconFileName.isNotEmpty) {
+      request.fields['IconFileName'] = iconFileName;
+      // Если нужно загрузить файл, добавь его как MultipartFile
+      // request.files.add(await http.MultipartFile.fromPath('IconFile', iconFilePath));
+    }
+    
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode == 200) {
-      // Успешно обновлено
+      final data = json.decode(response.body);
+      return ParameterGroup.fromJson(data);
     } else if (response.statusCode == 401) {
       throw Exception('Некорректный токен авторизации');
     } else if (response.statusCode == 404) {
       throw Exception('Группа параметров не найдена');
     } else {
-      throw Exception('Ошибка сервера: ${response.statusCode}');
+      throw Exception('Ошибка сервера: ${response.statusCode} - ${response.body}');
     }
   } catch (e) {
     print('Ошибка при обновлении группы параметров: $e');
@@ -345,13 +379,13 @@ Future<void> updateParameterGroup(String token, int parameterGroupId, String nam
 }
 
 // Удаление группы параметров
-Future<void> deleteParameterGroup(String token, int parameterGroupId) async {
+Future<void> deleteParameterGroup(String token, int paramGroupId) async {
   try {
     final response = await http.delete(
-      Uri.parse('$baseUrl/ParamGroups/$parameterGroupId'),
+      Uri.parse('$baseUrl/ParamGroups/$paramGroupId'),
       headers: {
         'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
+        'Accept': 'text/plain',
       },
     );
 
@@ -370,8 +404,76 @@ Future<void> deleteParameterGroup(String token, int parameterGroupId) async {
   }
 }
 
+// Получение иконки группы по имени файла
+Future<String> getParameterGroupIconByName(String token, String fileName, bool isDownload) async {
+  try {
+    final queryParams = {
+      'isDownload': isDownload.toString(),
+    };
+    
+    final uri = Uri.parse('$baseUrl/ParamGroups/icon').replace(
+      queryParameters: queryParams,
+    );
+    
+    final response = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return response.body; // Возвращаем содержимое файла или base64 строку
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else if (response.statusCode == 404) {
+      throw Exception('Файл не найден');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при получении иконки группы: $e');
+    rethrow;
+  }
+}
+
+// Получение иконки группы по ID группы
+Future<String> getParameterGroupIconById(String token, int paramGroupId, bool isDownload) async {
+  try {
+    final queryParams = {
+      'isDownload': isDownload.toString(),
+    };
+    
+    final uri = Uri.parse('$baseUrl/ParamGroups/$paramGroupId/Icon').replace(
+      queryParameters: queryParams,
+    );
+    
+    final response = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return response.body; // Возвращаем содержимое файла или base64 строку
+    } else if (response.statusCode == 401) {
+      throw Exception('Некорректный токен авторизации');
+    } else if (response.statusCode == 404) {
+      throw Exception('Группа или иконка не найдена');
+    } else {
+      throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при получении иконки группы: $e');
+    rethrow;
+  }
+}
+
 // Изменение группы у параметров
-Future<void> updateParametersGroup(String token, int groupId, List<int> boilerIds) async {
+Future<void> updateParametersGroup(String token, int groupId, List<int> parametersId) async {
   try {
     final response = await http.put(
       Uri.parse('$baseUrl/BoilerParameters/Parameters/Groups'),
@@ -381,7 +483,7 @@ Future<void> updateParametersGroup(String token, int groupId, List<int> boilerId
       },
       body: json.encode({
         'groupId': groupId,
-        'boilersId': boilerIds,
+        'parametersId': parametersId,
       }),
     );
 

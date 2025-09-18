@@ -115,17 +115,22 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _buildBoilerList(BuildContext context, List<BoilerListItem> boilers) {
-    final boilersByDistrict = <String, List<BoilerListItem>>{};
+    // Группируем котельные по районам, сохраняя объект района
+    final boilersByDistrict = <int, List<BoilerListItem>>{};
     for (var boiler in boilers) {
-      boilersByDistrict.putIfAbsent(boiler.district.name, () => []).add(boiler);
+      boilersByDistrict.putIfAbsent(boiler.district.id, () => []).add(boiler);
     }
+
+    // Сортируем районы по ID
+    final sortedDistrictIds = boilersByDistrict.keys.toList()..sort();
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: boilersByDistrict.length,
+      itemCount: sortedDistrictIds.length,
       itemBuilder: (context, index) {
-        final districtName = boilersByDistrict.keys.elementAt(index);
-        final districtBoilers = boilersByDistrict[districtName]!;
+        final districtId = sortedDistrictIds[index];
+        final districtBoilers = boilersByDistrict[districtId]!;
+        final districtName = districtBoilers.first.district.name;
         return _buildDistrictSection(context, districtName, districtBoilers);
       },
     );

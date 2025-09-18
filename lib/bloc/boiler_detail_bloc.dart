@@ -39,6 +39,16 @@ class LoadBoilerParameterValues extends BoilerDetailEvent {
   });
 }
 
+class UpdateParametersGroup extends BoilerDetailEvent {
+  final int groupId;
+  final List<int> parameterIds;
+  
+  UpdateParametersGroup({
+    required this.groupId,
+    required this.parameterIds,
+  });
+}
+
 // --- СОСТОЯНИЯ ---
 abstract class BoilerDetailState {}
 
@@ -110,6 +120,7 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
 
     on<LoadBoilerConfiguration>(_onLoadBoilerConfiguration);
     on<LoadBoilerParameterValues>(_onLoadBoilerParameterValues);
+    on<UpdateParametersGroup>(_onUpdateParametersGroup);
   }
 
   // В блоке нужно изменить методы:
@@ -206,6 +217,28 @@ Future<void> _onLoadBoilerParameterValues(
   }
 }
 
+Future<void> _onUpdateParametersGroup(
+  UpdateParametersGroup event,
+  Emitter<BoilerDetailState> emit,
+) async {
+  try {
+    final token = await _storageService.getToken();
+    if (token == null) {
+      throw Exception('Токен не найден. Авторизуйтесь.');
+    }
+    print('==== ${token}, ${event.groupId}, ${event.parameterIds}');
+    await _apiService.updateParametersGroup(token, event.groupId, event.parameterIds);
+    
+    // После успешного обновления перезагружаем конфигурацию
+    if (_currentBoilerId != null) {
+      add(LoadBoilerConfiguration(_currentBoilerId!));
+    }
+  } catch (e) {
+    print('Error updating parameters group: $e');
+    emit(BoilerDetailLoadFailure(error: e.toString()));
+  }
+}
+
   // Вспомогательный метод для получения временного диапазона выбранной минуты
   static Map<String, DateTime> getMinuteRange(DateTime selectedDateTime) {
     final startOfMinute = DateTime(
@@ -259,6 +292,10 @@ Future<void> _onLoadBoilerParameterValues(
       interval: interval,
     ));
   }
+
+  void updateParametersGroup(int groupId, List<int> parameterIds) {
+  add(UpdateParametersGroup(groupId: groupId, parameterIds: parameterIds));
+}
 
   // Вспомогательные методы для работы с группами
   List<BoilerParameter> getParametersByGroup(int groupId) {

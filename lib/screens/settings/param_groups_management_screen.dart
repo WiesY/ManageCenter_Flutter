@@ -1,10 +1,13 @@
 import 'dart:async';
-
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/parameter_groups_bloc.dart';
 import 'package:manage_center/models/parameter_group_model.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
 
 class ParamGroupsManagementScreen extends StatefulWidget {
   const ParamGroupsManagementScreen({super.key});
@@ -31,6 +34,20 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
       return authState.userInfo.role?.canManageBoilers ?? false;
     }
     return false; // Если не авторизован или нет прав
+  }
+
+  // Получение иконки для группы
+  void _loadGroupIcon(int groupId) {
+    final bloc = context.read<ParameterGroupsBloc>();
+    
+    // Проверяем, есть ли иконка уже в кэше блока
+    if (!bloc.iconCache.containsKey(groupId)) {
+      try {
+        bloc.add(FetchParameterGroupIcon(groupId));
+      } catch (e) {
+        print('Ошибка при загрузке иконки: $e');
+      }
+    }
   }
 
   @override
@@ -83,20 +100,43 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
             Expanded(
               child: BlocBuilder<ParameterGroupsBloc, ParameterGroupsState>(
                 builder: (context, state) {
+                  // Получаем блок для доступа к кэшу иконок
+                  final bloc = context.read<ParameterGroupsBloc>();
+                  
                   if (state is ParameterGroupsLoadInProgress) {
                     return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
-                  } else if (state is ParameterGroupsLoadSuccess) {
-                    final filteredGroups = state.parameterGroups
+                  } else if (state is ParameterGroupsLoadSuccess || 
+                            state is ParameterGroupIconLoadSuccess ||
+                            state is ParameterGroupIconLoadInProgress) {
+                    
+                    // Получаем список групп из разных состояний
+                    List<ParameterGroup> groups = [];
+                    if (state is ParameterGroupsLoadSuccess) {
+                      groups = state.parameterGroups;
+                    } else if (state is ParameterGroupIconLoadSuccess) {
+                      groups = state.parameterGroups;
+                    } else if (state is ParameterGroupIconLoadInProgress) {
+                      groups = state.parameterGroups;
+                    }
+                    
+                    final filteredGroups = groups
                         .where((group) => group.name.toLowerCase().contains(_searchQuery))
                         .toList();
+                        
                     if (filteredGroups.isEmpty) {
                       return const Center(child: Text('Нет групп параметров или ничего не найдено.'));
                     }
+                    
                     return ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       itemCount: filteredGroups.length,
                       itemBuilder: (context, index) {
                         final group = filteredGroups[index];
+                        // Загружаем иконку для группы, если она есть
+                        if (group.iconFileName != null && group.iconFileName!.isNotEmpty) {
+                          _loadGroupIcon(group.id);
+                        }
+                        
                         return Dismissible(
                           key: Key(group.id.toString()),
                           direction: DismissDirection.endToStart,
@@ -113,9 +153,9 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
                             color: Colors.white,
                             child: ListTile(
-                              leading: Icon(group.icon, color: group.color),
+                              leading: _buildGroupIcon(group, bloc.iconCache),
                               title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text('Количество параметров: ${group.parameterIds.length}'),
+                              subtitle: Text('ID: ${group.id}'),
                               trailing: IconButton(
                                 icon: const Icon(Icons.edit, color: Colors.blue),
                                 onPressed: () => _showParameterGroupForm(context, group: group),
@@ -155,6 +195,63 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
     );
   }
 
+  // Виджет для отображения иконки группы
+  Widget _buildGroupIcon(ParameterGroup group, Map<int, String> iconCache) {
+    // Если у группы есть цвет, преобразуем его из строки в Color
+    Color groupColor = Colors.blue;
+    if (group.color != null && group.color!.isNotEmpty) {
+      try {
+        // Формат цвета: #RRGGBBAA
+        final colorStr = group.color!;
+        if (colorStr.startsWith('#') && colorStr.length == 9) {
+          final hexColor = colorStr.substring(1);
+          final r = int.parse(hexColor.substring(0, 2), radix: 16);
+          final g = int.parse(hexColor.substring(2, 4), radix: 16);
+          final b = int.parse(hexColor.substring(4, 6), radix: 16);
+          final a = int.parse(hexColor.substring(6, 8), radix: 16);
+          groupColor = Color.fromARGB(a, r, g, b);
+        }
+      } catch (e) {
+        print('Ошибка при парсинге цвета: $e');
+      }
+    }
+    
+    // Если у группы есть иконка и она загружена в кэш
+    if (group.iconFileName != null && group.iconFileName!.isNotEmpty && iconCache.containsKey(group.id)) {
+      try {
+        // Предполагаем, что иконка хранится в base64
+        final iconData = iconCache[group.id]!;
+        return Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: groupColor.withOpacity(0.2),
+            shape: BoxShape.circle,
+          ),
+          child: ClipOval(
+            child: Image.memory(
+              base64Decode(iconData),
+              fit: BoxFit.cover,
+            ),
+          ),
+        );
+      } catch (e) {
+        print('Ошибка при отображении иконки: $e');
+      }
+    }
+    
+    // Если иконки нет или ошибка, показываем стандартную иконку
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: groupColor.withOpacity(0.2),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(Icons.folder, color: groupColor),
+    );
+  }
+
   // Диалог подтверждения удаления
   Future<bool?> _confirmDelete(BuildContext context, ParameterGroup group) {
     return showDialog<bool>(
@@ -191,38 +288,34 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
     final isEdit = group != null;
     final nameController = TextEditingController(text: group?.name ?? '');
     
-    // Начальные значения для иконки и цвета
-    IconData selectedIcon = group?.icon ?? Icons.folder;
-    Color selectedColor = group?.color ?? Colors.blue;
-
-    // Список доступных иконок
-    final List<IconData> availableIcons = [
-      Icons.folder,
-      Icons.thermostat,
-      Icons.speed,
-      Icons.water_drop,
-      Icons.height,
-      Icons.bolt,
-      Icons.settings,
-      Icons.analytics,
-    ];
-
-    // Список доступных цветов
-    final List<Color> availableColors = [
-      Colors.blue,
-      Colors.red,
-      Colors.green,
-      Colors.orange,
-      Colors.purple,
-      Colors.cyan,
-      Colors.teal,
-    ];
+    // Начальные значения для цвета и иконки
+    String selectedColor = group?.color ?? '#0000FFFF'; // Синий по умолчанию
+    String? selectedIconFileName = group?.iconFileName;
+    File? selectedIconFile;
+    
+    // Преобразуем строку цвета в объект Color для отображения
+    Color pickerColor = Colors.blue;
+    if (selectedColor.startsWith('#') && selectedColor.length == 9) {
+      try {
+        final hexColor = selectedColor.substring(1);
+        final r = int.parse(hexColor.substring(0, 2), radix: 16);
+        final g = int.parse(hexColor.substring(2, 4), radix: 16);
+        final b = int.parse(hexColor.substring(4, 6), radix: 16);
+        final a = int.parse(hexColor.substring(6, 8), radix: 16);
+        pickerColor = Color.fromARGB(a, r, g, b);
+      } catch (e) {
+        print('Ошибка при парсинге цвета: $e');
+      }
+    }
 
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
+            // Получаем блок для доступа к кэшу иконок
+            final bloc = context.read<ParameterGroupsBloc>();
+            
             return AlertDialog(
               title: Text(isEdit ? 'Редактировать группу параметров' : 'Добавить группу параметров'),
               content: SingleChildScrollView(
@@ -235,64 +328,107 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
                     ),
                     const SizedBox(height: 16),
                     
-                    // Выбор иконки
-                    const Text('Выберите иконку:'),
+                    // Выбор цвета
+                    const Text('Выберите цвет:'),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: availableIcons.map((icon) {
-                        return InkWell(
-                          onTap: () {
-                            setState(() {
-                              selectedIcon = icon;
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: selectedIcon == icon ? selectedColor.withOpacity(0.3) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: selectedIcon == icon ? selectedColor : Colors.grey,
-                                width: 1,
+                    GestureDetector(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              title: const Text('Выберите цвет'),
+                              content: SingleChildScrollView(
+                                child: ColorPicker(
+                                  pickerColor: pickerColor,
+                                  onColorChanged: (Color color) {
+                                    setState(() {
+                                      pickerColor = color;
+                                      // Преобразуем Color в строку формата #RRGGBBAA
+                                      selectedColor = '#${color.red.toRadixString(16).padLeft(2, '0')}'
+                                          '${color.green.toRadixString(16).padLeft(2, '0')}'
+                                          '${color.blue.toRadixString(16).padLeft(2, '0')}'
+                                          '${color.alpha.toRadixString(16).padLeft(2, '0')}';
+                                    });
+                                  },
+                                  pickerAreaHeightPercent: 0.8,
+                                ),
                               ),
-                            ),
-                            child: Icon(icon, color: selectedColor, size: 30),
-                          ),
+                              actions: <Widget>[
+                                TextButton(
+                                  child: const Text('Готово'),
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                ),
+                              ],
+                            );
+                          },
                         );
-                      }).toList(),
+                      },
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: pickerColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.grey),
+                        ),
+                      ),
                     ),
                     
                     const SizedBox(height: 16),
                     
-                    // Выбор цвета
-                    const Text('Выберите цвет:'),
+                    // Выбор иконки
+                    const Text('Иконка группы:'),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: availableColors.map((color) {
-                        return InkWell(
-                          onTap: () {
-                            setState(() {
-                              selectedColor = color;
-                            });
-                          },
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: selectedColor == color ? Colors.black : Colors.transparent,
-                                width: 2,
-                              ),
-                            ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Отображение текущей иконки или заглушки
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: pickerColor.withOpacity(0.2),
+                            shape: BoxShape.circle,
                           ),
-                        );
-                      }).toList(),
+                          child: selectedIconFile != null
+                              ? ClipOval(
+                                  child: Image.file(
+                                    selectedIconFile!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : selectedIconFileName != null && group != null && bloc.iconCache.containsKey(group.id)
+                                  ? ClipOval(
+                                      child: Image.memory(
+                                        base64Decode(bloc.iconCache[group.id]!),
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : Icon(Icons.folder, color: pickerColor),
+                        ),
+                        
+                        // Кнопка выбора файла
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            FilePickerResult? result = await FilePicker.platform.pickFiles(
+                              type: FileType.image,
+                              allowMultiple: false,
+                            );
+                            
+                            if (result != null && result.files.single.path != null) {
+                              setState(() {
+                                selectedIconFile = File(result.files.single.path!);
+                                selectedIconFileName = result.files.single.name;
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.upload_file),
+                          label: const Text('Выбрать иконку'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -309,14 +445,20 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
                     }
                     
                     if (isEdit) {
-                      final updatedGroup = group!.copyWith(
-                        name: nameController.text,
-                        icon: selectedIcon,
-                        color: selectedColor,
+                      _updateParameterGroup(
+                        group!.id,
+                        nameController.text,
+                        selectedColor,
+                        selectedIconFileName ?? '',
+                        selectedIconFile,
                       );
-                      _updateParameterGroup(updatedGroup);
                     } else {
-                      _createParameterGroup(nameController.text, selectedIcon, selectedColor);
+                      _createParameterGroup(
+                        nameController.text,
+                        selectedColor,
+                        selectedIconFileName ?? '',
+                        selectedIconFile,
+                      );
                     }
                     
                     Navigator.pop(context);
@@ -332,36 +474,117 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
   }
 
   // Метод создания группы параметров
-  void _createParameterGroup(String name, IconData icon, Color color) async {
-    try {
-      // Вызов события создания группы параметров
-      context.read<ParameterGroupsBloc>().add(CreateParameterGroup(name, icon, color));
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Группа параметров успешно создана')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка при создании группы параметров: $e')),
-      );
+void _createParameterGroup(String name, String color, String iconFileName, File? iconFile) async {
+  try {
+    // Показываем индикатор загрузки
+    final loadingDialog = _showLoadingDialog(context, 'Создание группы...');
+    
+    // Вызов события создания группы параметров
+    final bloc = context.read<ParameterGroupsBloc>();
+    
+    // Если есть файл иконки, сначала нужно его загрузить на сервер
+    if (iconFile != null) {
+      // Здесь должен быть код для загрузки файла иконки
+      // Например:
+      // final uploadResult = await _apiService.uploadGroupIcon(iconFile);
+      // iconFileName = uploadResult.fileName;
     }
+    
+    // Создаем группу
+    bloc.add(CreateParameterGroup(name, color, iconFileName));
+    
+    // Ждем небольшую задержку для завершения операции
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    // Закрываем диалог загрузки
+    Navigator.of(context, rootNavigator: true).pop();
+    
+    // Показываем сообщение об успехе
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Группа параметров успешно создана')),
+    );
+    
+    // Принудительно обновляем список групп
+    bloc.add(FetchParameterGroups());
+  } catch (e) {
+    // Закрываем диалог загрузки, если он открыт
+    Navigator.of(context, rootNavigator: true).pop();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Ошибка при создании группы параметров: $e')),
+    );
   }
+}
 
-  // Метод обновления группы параметров
-  void _updateParameterGroup(ParameterGroup group) async {
-    try {
-      // Вызов события обновления группы параметров
-      context.read<ParameterGroupsBloc>().add(UpdateParameterGroup(group));
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Группа параметров успешно обновлена')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка при обновлении группы параметров: $e')),
-      );
+// Метод обновления группы параметров
+void _updateParameterGroup(int groupId, String name, String color, String iconFileName, File? iconFile) async {
+  try {
+    // Показываем индикатор загрузки
+    final loadingDialog = _showLoadingDialog(context, 'Обновление группы...');
+    
+    // Вызов события обновления группы параметров
+    final bloc = context.read<ParameterGroupsBloc>();
+    
+    // Если есть файл иконки, сначала нужно его загрузить на сервер
+    if (iconFile != null) {
+      // Здесь должен быть код для загрузки файла иконки
+      // Например:
+      // final uploadResult = await _apiService.uploadGroupIcon(iconFile);
+      // iconFileName = uploadResult.fileName;
     }
+    
+    // Обновляем группу
+    bloc.add(UpdateParameterGroup(
+      groupId,
+      name,
+      color,
+      iconFileName,
+    ));
+    
+    // Ждем небольшую задержку для завершения операции
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    // Закрываем диалог загрузки
+    Navigator.of(context, rootNavigator: true).pop();
+    
+    // Показываем сообщение об успехе
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Группа параметров успешно обновлена')),
+    );
+    
+    // Принудительно обновляем список групп
+    bloc.add(FetchParameterGroups());
+  } catch (e) {
+    // Закрываем диалог загрузки, если он открыт
+    Navigator.of(context, rootNavigator: true).pop();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Ошибка при обновлении группы параметров: $e')),
+    );
   }
+}
+
+// Вспомогательный метод для отображения диалога загрузки
+Widget _showLoadingDialog(BuildContext context, String message) {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 20),
+            Text(message),
+          ],
+        ),
+      );
+    },
+  );
+  
+  // Возвращаем пустой виджет, так как диалог показывается через showDialog
+  return const SizedBox.shrink();
+}
 
   @override
   void dispose() {

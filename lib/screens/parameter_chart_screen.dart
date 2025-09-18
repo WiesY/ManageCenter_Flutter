@@ -687,7 +687,7 @@ class _ParameterChartScreenState extends State<ParameterChartScreen> {
         title: Column(
           children: [
             Text(
-              widget.parameter.paramDescription,
+              widget.parameter.name,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             Text(

@@ -52,7 +52,7 @@ class BoilerParameterValue {
   }
 
   // Для удобства доступа к описанию параметра
-  String get parameterDescription => parameter.paramDescription;
+  String get name => parameter.name;
   int get parameterId => parameter.id;
   String get valueType => parameter.valueType;
 
