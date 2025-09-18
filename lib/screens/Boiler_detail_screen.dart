@@ -4,7 +4,9 @@ import 'package:intl/intl.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
 import 'package:manage_center/models/boiler_parameter_model.dart';
 import 'package:manage_center/models/boiler_parameter_value_model.dart';
+import 'package:manage_center/models/groups_model.dart';
 import 'package:manage_center/screens/parameter_chart_screen.dart';
+import 'package:manage_center/widgets/blinking_dot.dart';
 
 // Упрощенные константы
 class AppColors {
@@ -13,29 +15,6 @@ class AppColors {
   static const background = Color(0xFFF5F5F5);
   static const error = Colors.red;
   static const warning = Colors.orange;
-}
-
-// Модель для группы параметров
-class ParameterGroup {
-  final String id;
-  final String name;
-  final String description;
-  final IconData icon;
-  final Color color;
-  final List<int> parameterIds;
-  bool isVisible;
-  bool isExpanded;
-
-  ParameterGroup({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.icon,
-    required this.color,
-    required this.parameterIds,
-    this.isVisible = true,
-    this.isExpanded = true,
-  });
 }
 
 // Статус котельной
@@ -60,75 +39,21 @@ class BoilerDetailScreen extends StatefulWidget {
 
 class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
   List<BoilerParameter> _allParameters = [];
+  List<Group> _allGroups = [];
   List<BoilerParameterValue> _currentValues = [];
   Map<int, BoilerParameterValue> _parameterValueMap = {};
+  Map<int, bool> _groupVisibility = {}; // Видимость групп
+  Map<int, bool> _groupExpansion = {}; // Развернутость групп
   BoilerStatus _boilerStatus = BoilerStatus.normal;
-
-  // Предустановленные группы параметров
-  late List<ParameterGroup> _parameterGroups;
 
   @override
   void initState() {
     super.initState();
-    _initializeGroups();
-    _loadParameters();
+    _loadConfiguration();
   }
 
-  void _initializeGroups() {
-    _parameterGroups = [
-      ParameterGroup(
-        id: 'temperature',
-        name: 'Температура',
-        description: 'Показатели температуры',
-        icon: Icons.thermostat,
-        color: Colors.red,
-        parameterIds: [], // Будем заполнять автоматически
-      ),
-      ParameterGroup(
-        id: 'pressure',
-        name: 'Давление',
-        description: 'Показатели давления',
-        icon: Icons.speed,
-        color: Colors.blue,
-        parameterIds: [],
-      ),
-      ParameterGroup(
-        id: 'flow',
-        name: 'Расход',
-        description: 'Показатели расхода',
-        icon: Icons.water_drop,
-        color: Colors.cyan,
-        parameterIds: [],
-      ),
-      ParameterGroup(
-        id: 'level',
-        name: 'Уровень',
-        description: 'Показатели уровня',
-        icon: Icons.height,
-        color: Colors.green,
-        parameterIds: [],
-      ),
-      ParameterGroup(
-        id: 'power',
-        name: 'Мощность',
-        description: 'Показатели мощности',
-        icon: Icons.bolt,
-        color: Colors.orange,
-        parameterIds: [],
-      ),
-      ParameterGroup(
-        id: 'other',
-        name: 'Прочее',
-        description: 'Остальные параметры',
-        icon: Icons.more_horiz,
-        color: Colors.grey,
-        parameterIds: [],
-      ),
-    ];
-  }
-
-  void _loadParameters() {
-    context.read<BoilerDetailBloc>().add(LoadBoilerParameters(widget.boilerId));
+  void _loadConfiguration() {
+    context.read<BoilerDetailBloc>().add(LoadBoilerConfiguration(widget.boilerId));
   }
 
   void _loadCurrentValues() {
@@ -142,33 +67,90 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
     ));
   }
 
-  void _categorizeParameters() {
-    for (var parameter in _allParameters) {
-      final description = parameter.paramDescription.toLowerCase();
-
-      if (description.contains('темп') || description.contains('°c')) {
-        _parameterGroups[0].parameterIds.add(parameter.id);
-      } else if (description.contains('давл') || description.contains('бар') || description.contains('па')) {
-        _parameterGroups[1].parameterIds.add(parameter.id);
-      } else if (description.contains('расход') || description.contains('поток')) {
-        _parameterGroups[2].parameterIds.add(parameter.id);
-      } else if (description.contains('уровень')) {
-        _parameterGroups[3].parameterIds.add(parameter.id);
-      } else if (description.contains('мощн') || description.contains('кВт') || description.contains('вт')) {
-        _parameterGroups[4].parameterIds.add(parameter.id);
-      } else {
-        _parameterGroups[5].parameterIds.add(parameter.id);
-      }
-    }
-
-    // Убираем пустые группы
-    _parameterGroups.removeWhere((group) => group.parameterIds.isEmpty);
-  }
-
   void _buildParameterValueMap() {
     _parameterValueMap.clear();
     for (var value in _currentValues) {
       _parameterValueMap[value.parameter.id] = value;
+    }
+  }
+
+  void _initializeGroupSettings() {
+    for (var group in _allGroups) {
+      _groupVisibility[group.id] ??= true; // По умолчанию все группы видимы
+      _groupExpansion[group.id] ??= group.isExpanded; // Используем настройку из модели
+    }
+  }
+
+Group get _otherGroup => const Group(
+  id: -1, // Специальный ID
+  name: 'Другие',
+  color: 'grey', 
+  iconFileName: 'other',
+  isExpanded: false,
+);
+
+List<BoilerParameter> _getParametersWithoutGroup() {
+  return _allParameters.where((param) => param.groupId == null).toList();
+}
+
+List<BoilerParameter> _getParametersForGroup(int? groupId) {
+  if (groupId == null || groupId == -1) {
+    return _getParametersWithoutGroup();
+  }
+  return _allParameters.where((param) => param.groupId == groupId).toList();
+}
+
+
+  //IconData _getGroupIcon(String iconFileName) {
+    // Маппинг имен файлов иконок на IconData
+    // switch (iconFileName.toLowerCase()) {
+    //   case 'temperature':
+    //   case 'temp':
+    //     return Icons.thermostat;
+    //   case 'pressure':
+    //     return Icons.speed;
+    //   case 'flow':
+    //   case 'water':
+    //     return Icons.water_drop;
+    //   case 'level':
+    //     return Icons.height;
+    //   case 'power':
+    //   case 'energy':
+    //     return Icons.bolt;
+    //   case 'valve':
+    //     return Icons.tune;
+    //   case 'pump':
+    //     return Icons.settings_input_component;
+    //   default:
+    //     return Icons.sensors;
+    // }
+  //}
+
+  Color _parseGroupColor(String colorString) {
+    // Парсинг цвета из строки (например, "#FF0000" или "red")
+    try {
+      if (colorString.startsWith('#')) {
+        return Color(int.parse(colorString.substring(1), radix: 16) + 0xFF000000);
+      }
+      // Можно добавить обработку именованных цветов
+      switch (colorString.toLowerCase()) {
+        case 'red':
+          return Colors.red;
+        case 'blue':
+          return Colors.blue;
+        case 'green':
+          return Colors.green;
+        case 'orange':
+          return Colors.orange;
+        case 'purple':
+          return Colors.purple;
+        case 'cyan':
+          return Colors.cyan;
+        default:
+          return Colors.grey;
+      }
+    } catch (e) {
+      return Colors.grey;
     }
   }
 
@@ -200,7 +182,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
       case 'short':
         return 'короткое целое';
       default:
-        return valueType; // Если тип неизвестен, оставляем как есть
+        return valueType;
     }
   }
 
@@ -234,7 +216,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
       body: Column(
         children: [
           _buildStatusHeader(),
-          _buildGroupFilterChips(),
+          if (_allGroups.isNotEmpty) _buildGroupFilterChips(),
           Expanded(child: _buildParameterGroups()),
         ],
       ),
@@ -290,14 +272,15 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: _statusColor,
-              shape: BoxShape.circle,
-            ),
-          ),
+          BlinkingDot(color: _statusColor, size: 12,),
+          // Container(
+          //   width: 12,
+          //   height: 12,
+          //   decoration: BoxDecoration(
+          //     color: _statusColor,
+          //     shape: BoxShape.circle,
+          //   ),
+          //),
           const SizedBox(width: 12),
           Text(
             _statusText,
@@ -321,48 +304,64 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
   }
 
   Widget _buildGroupFilterChips() {
+    final visibleGroups = _allGroups.where((group) {
+      final parametersInGroup = _getParametersForGroup(group.id);
+      return parametersInGroup.isNotEmpty;
+    }).toList();
+
+    if (visibleGroups.isEmpty) return const SizedBox.shrink();
+
     return Container(
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: _parameterGroups.length,
+        itemCount: visibleGroups.length,
         itemBuilder: (context, index) {
-          final group = _parameterGroups[index];
+          final group = visibleGroups[index];
+          final parametersInGroup = _getParametersForGroup(group.id);
+          final isVisible = _groupVisibility[group.id] ?? true;
+          final groupColor = _parseGroupColor(group.color);
+
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: FilterChip(
               label: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(group.icon, size: 16, color: group.isVisible ? Colors.white : group.color),
+                  Icon(
+                    //_getGroupIcon(group.iconFileName),
+                    Icons.folder,
+                    size: 16,
+                    color: isVisible ? Colors.white : groupColor,
+                  ),
                   const SizedBox(width: 4),
                   Text(group.name),
-                  if (group.parameterIds.isNotEmpty)
+                  if (parametersInGroup.isNotEmpty)
                     Container(
                       margin: const EdgeInsets.only(left: 4),
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: group.isVisible ? Colors.white24 : group.color.withOpacity(0.2),
+                        color: isVisible ? Colors.white24 : groupColor.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        '${group.parameterIds.length}',
+                        '${parametersInGroup.length}',
                         style: TextStyle(
                           fontSize: 10,
-                          color: group.isVisible ? Colors.white : group.color,
+                          color: isVisible ? Colors.white : groupColor,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                 ],
               ),
-              selected: group.isVisible,
-              selectedColor: group.color,
+              selected: isVisible,
+              selectedColor: groupColor,
               backgroundColor: Colors.white,
               onSelected: (selected) {
                 setState(() {
-                  group.isVisible = selected;
+                  _groupVisibility[group.id] = selected;
                 });
               },
             ),
@@ -389,7 +388,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
                 Text('Ошибка загрузки: ${state.error}'),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: _loadParameters,
+                  onPressed: _loadConfiguration,
                   child: const Text('Повторить'),
                 ),
               ],
@@ -397,9 +396,10 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
           );
         }
 
-        if (state is BoilerDetailParametersLoaded) {
+        if (state is BoilerDetailConfigurationLoaded) {
           _allParameters = state.parameters;
-          _categorizeParameters();
+          _allGroups = state.groups;
+          _initializeGroupSettings();
           // Автоматически загружаем текущие значения
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _loadCurrentValues();
@@ -409,7 +409,21 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
 
         if (state is BoilerDetailValuesLoaded) {
           _currentValues = state.values;
+          _allParameters = state.parameters;
+          _allGroups = state.groups;
           _buildParameterValueMap();
+          _initializeGroupSettings();
+          return _buildGroupsList();
+        }
+
+        // Поддержка старого состояния для совместимости
+        if (state is BoilerDetailParametersLoaded) {
+          _allParameters = state.parameters;
+          _allGroups = state.groups;
+          _initializeGroupSettings();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _loadCurrentValues();
+          });
           return _buildGroupsList();
         }
 
@@ -419,51 +433,89 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
   }
 
   Widget _buildGroupsList() {
-    final visibleGroups = _parameterGroups.where((g) => g.isVisible).toList();
+  final parametersWithoutGroup = _getParametersWithoutGroup();
+  
+  // Получаем видимые реальные группы
+  final visibleRealGroups = _allGroups.where((group) {
+    final isVisible = _groupVisibility[group.id] ?? true;
+    final parametersInGroup = _getParametersForGroup(group.id);
+    return isVisible && parametersInGroup.isNotEmpty;
+  }).toList();
 
-    if (visibleGroups.isEmpty) {
-      return const Center(
-        child: Text('Выберите группы для отображения'),
-      );
+  // Создаем список всех видимых групп
+  List<Group> allVisibleGroups = [...visibleRealGroups];
+
+  // Добавляем виртуальную группу "Другие" если есть параметры без группы
+  if (parametersWithoutGroup.isNotEmpty) {
+    final isOtherGroupVisible = _groupVisibility[-1] ?? true;
+    if (isOtherGroupVisible) {
+      allVisibleGroups.add(_otherGroup);
     }
+  }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(8),
-      itemCount: visibleGroups.length,
-      itemBuilder: (context, index) {
-        return _buildGroupCard(visibleGroups[index]);
-      },
+  if (allVisibleGroups.isEmpty) {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.folder_open, size: 64, color: Colors.grey),
+          SizedBox(height: 16),
+          Text('Нет доступных групп параметров'),
+          SizedBox(height: 8),
+          Text(
+            'Выберите группы для отображения или обновите данные',
+            style: TextStyle(color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildGroupCard(ParameterGroup group) {
-    final parametersInGroup = _allParameters.where((p) => group.parameterIds.contains(p.id)).toList();
+  return ListView.builder(
+    padding: const EdgeInsets.all(8),
+    itemCount: allVisibleGroups.length,
+    itemBuilder: (context, index) {
+      return _buildGroupCard(allVisibleGroups[index]);
+    },
+  );
+}
 
+  Widget _buildGroupCard(Group group) {
+    final parametersInGroup = _getParametersForGroup(group.id);
     if (parametersInGroup.isEmpty) return const SizedBox.shrink();
+
+    final groupColor = _parseGroupColor(group.color);
+    final isExpanded = _groupExpansion[group.id] ?? group.isExpanded;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ExpansionTile(
-        initiallyExpanded: group.isExpanded,
+        initiallyExpanded: isExpanded,
         onExpansionChanged: (expanded) {
           setState(() {
-            group.isExpanded = expanded;
+            _groupExpansion[group.id] = expanded;
           });
         },
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: group.color.withOpacity(0.1),
+            color: groupColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(group.icon, color: group.color, size: 24),
+          child: Icon(
+            //_getGroupIcon(group.iconFileName),
+            Icons.folder,
+            color: groupColor,
+            size: 24,
+          ),
         ),
         title: Text(
           group.name,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
-        subtitle: Text('${parametersInGroup.length} параметров • Нажмите для просмотра графика'),
+        subtitle: Text('${parametersInGroup.length} параметров • Нажмите на параметр для просмотра графика'),
         children: parametersInGroup.map((parameter) {
           final value = _parameterValueMap[parameter.id];
           return _buildParameterTile(parameter, value);
@@ -494,8 +546,8 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
       onTap: () => _openParameterChart(parameter),
       title: Text(
         parameter.paramDescription.isNotEmpty
-          ? parameter.paramDescription
-          : 'Параметр ID: ${parameter.id}',
+            ? parameter.paramDescription
+            : 'Параметр ID: ${parameter.id}',
         style: const TextStyle(fontSize: 14),
       ),
       subtitle: Row(
@@ -517,7 +569,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
           ),
           const SizedBox(width: 8),
           Text(
-            'ID: ${parameter.id}',
+            'ID: ${parameter.id} • Группа: ${parameter.groupId}',
             style: TextStyle(fontSize: 10, color: Colors.grey[600]),
           ),
         ],
@@ -563,22 +615,31 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
           width: double.maxFinite,
           child: ListView.builder(
             shrinkWrap: true,
-            itemCount: _parameterGroups.length,
+            itemCount: _allGroups.length,
             itemBuilder: (context, index) {
-              final group = _parameterGroups[index];
+              final group = _allGroups[index];
+              final parametersInGroup = _getParametersForGroup(group.id);
+              final isVisible = _groupVisibility[group.id] ?? true;
+              final groupColor = _parseGroupColor(group.color);
+
               return CheckboxListTile(
                 title: Row(
                   children: [
-                    Icon(group.icon, color: group.color, size: 20),
+                    Icon(
+                      //_getGroupIcon(group.iconFileName),
+                      Icons.folder,
+                      color: groupColor,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
-                    Text(group.name),
+                    Expanded(child: Text(group.name)),
                   ],
                 ),
-                subtitle: Text('${group.parameterIds.length} параметров'),
-                value: group.isVisible,
-                onChanged: (value) {
+                subtitle: Text('${parametersInGroup.length} параметров'),
+                value: isVisible,
+                onChanged: parametersInGroup.isEmpty ? null : (value) {
                   setState(() {
-                    group.isVisible = value ?? false;
+                    _groupVisibility[group.id] = value ?? false;
                   });
                   Navigator.pop(context);
                   _showGroupManagementDialog();

@@ -1,20 +1,28 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/models/boiler_parameter_model.dart';
 import 'package:manage_center/models/boiler_parameter_value_model.dart';
+import 'package:manage_center/models/boiler_configuration.dart';
+import 'package:manage_center/models/boiler_history_model.dart';
+import 'package:manage_center/models/groups_model.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 
 // --- СОБЫТИЯ ---
 abstract class BoilerDetailEvent {}
 
-// Загрузка параметров котельной
+// Загрузка конфигурации котельной (параметры + группы)
+class LoadBoilerConfiguration extends BoilerDetailEvent {
+  final int boilerId;
+  LoadBoilerConfiguration(this.boilerId);
+}
+
+// Загрузка параметров котельной (устаревшее, оставлено для совместимости)
 class LoadBoilerParameters extends BoilerDetailEvent {
   final int boilerId;
-
   LoadBoilerParameters(this.boilerId);
 }
 
-// Загрузка значений параметров за выбранную минуту для конкретных параметров
+// Загрузка значений параметров за выбранный период для конкретных параметров
 class LoadBoilerParameterValues extends BoilerDetailEvent {
   final int boilerId;
   final DateTime startDate;
@@ -22,7 +30,7 @@ class LoadBoilerParameterValues extends BoilerDetailEvent {
   final List<int> selectedParameterIds;
   final int interval;
 
- LoadBoilerParameterValues({
+  LoadBoilerParameterValues({
     required this.boilerId,
     required this.startDate,
     required this.endDate,
@@ -38,22 +46,37 @@ class BoilerDetailInitial extends BoilerDetailState {}
 
 class BoilerDetailLoadInProgress extends BoilerDetailState {}
 
+class BoilerDetailConfigurationLoaded extends BoilerDetailState {
+  final List<BoilerParameter> parameters;
+  final List<Group> groups;
+
+  BoilerDetailConfigurationLoaded({
+    required this.parameters,
+    required this.groups,
+  });
+}
+
+// Устаревшее состояние, оставлено для совместимости
 class BoilerDetailParametersLoaded extends BoilerDetailState {
   final List<BoilerParameter> parameters;
+  final List<Group> groups;
 
   BoilerDetailParametersLoaded({
     required this.parameters,
+    this.groups = const [],
   });
 }
 
 class BoilerDetailValuesLoaded extends BoilerDetailState {
   final List<BoilerParameter> parameters;
+  final List<Group> groups;
   final List<BoilerParameterValue> values;
   final List<int> selectedParameterIds;
   final DateTime selectedDateTime;
 
   BoilerDetailValuesLoaded({
     required this.parameters,
+    required this.groups,
     required this.values,
     required this.selectedParameterIds,
     required this.selectedDateTime,
@@ -73,8 +96,9 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
   final ApiService _apiService;
   final StorageService _storageService;
 
-  // Кэшируем параметры, чтобы не загружать их каждый раз
+  // Кэшируем конфигурацию, чтобы не загружать её каждый раз
   List<BoilerParameter>? _cachedParameters;
+  List<Group>? _cachedGroups;
   int? _currentBoilerId;
 
   BoilerDetailBloc({
@@ -84,126 +108,103 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
         _storageService = storageService,
         super(BoilerDetailInitial()) {
 
-    on<LoadBoilerParameters>(_onLoadBoilerParameters);
+    on<LoadBoilerConfiguration>(_onLoadBoilerConfiguration);
     on<LoadBoilerParameterValues>(_onLoadBoilerParameterValues);
   }
 
-  Future<void> _onLoadBoilerParameters(
-    LoadBoilerParameters event, 
-    Emitter<BoilerDetailState> emit
-  ) async {
-    emit(BoilerDetailLoadInProgress());
+  // В блоке нужно изменить методы:
 
-    try {
-      final token = await _storageService.getToken();
-      if (token == null) {
-        throw Exception('Токен не найден. Авторизуйтесь.');
-      }
+Future<void> _onLoadBoilerConfiguration(
+  LoadBoilerConfiguration event,
+  Emitter<BoilerDetailState> emit,
+) async {
+  emit(BoilerDetailLoadInProgress());
 
-      print('Loading parameters for boiler ${event.boilerId}');
-      final parameters = await _apiService.getBoilerParameters(token, event.boilerId);
+  try {
+    final token = await _storageService.getToken();
+    if (token == null) {
+      throw Exception('Токен не найден. Авторизуйтесь.');
+    }
 
-      _cachedParameters = parameters;
+    print('Loading configuration for boiler ${event.boilerId}');
+    
+    // Используем исправленный метод getBoilerParameters
+    final configuration = await _apiService.getBoilerParameters(token, event.boilerId);
+
+    _cachedParameters = configuration.boilerParameters;
+    _cachedGroups = configuration.groups;
+    _currentBoilerId = event.boilerId;
+
+    print('Loaded ${configuration.boilerParameters.length} parameters and ${configuration.groups.length} groups');
+
+    emit(BoilerDetailConfigurationLoaded(
+      parameters: configuration.boilerParameters,
+      groups: configuration.groups,
+    ));
+  } catch (e) {
+    print('Error loading configuration: $e');
+    emit(BoilerDetailLoadFailure(error: e.toString()));
+  }
+}
+
+Future<void> _onLoadBoilerParameterValues(
+  LoadBoilerParameterValues event,
+  Emitter<BoilerDetailState> emit,
+) async {
+  emit(BoilerDetailLoadInProgress());
+
+  try {
+    final token = await _storageService.getToken();
+    if (token == null) {
+      throw Exception('Токен не найден. Авторизуйтесь.');
+    }
+
+    // Если конфигурация не загружена, загружаем её
+    if (_cachedParameters == null || _cachedGroups == null || _currentBoilerId != event.boilerId) {
+      print('Loading configuration first...');
+      final configuration = await _apiService.getBoilerParameters(token, event.boilerId);
+      _cachedParameters = configuration.boilerParameters;
+      _cachedGroups = configuration.groups;
       _currentBoilerId = event.boilerId;
-
-      print('Loaded ${parameters.length} parameters:');
-      for (var param in parameters) {
-        print('  - ID: ${param.id}, Name: "${param.paramDescription}", Type: ${param.valueType}');
-      }
-
-      emit(BoilerDetailParametersLoaded(
-        parameters: parameters,
-      ));
-    } catch (e) {
-      print('Error loading parameters: $e');
-      emit(BoilerDetailLoadFailure(
-        error: e.toString(),
-      ));
     }
-  }
 
-  Future<void> _onLoadBoilerParameterValues(
-    LoadBoilerParameterValues event, 
-    Emitter<BoilerDetailState> emit
-  ) async {
-    emit(BoilerDetailLoadInProgress());
+    print('Loading parameter values for boiler ${event.boilerId}');
+    
+    // Используем исправленный метод getBoilerParameterValues
+    final historyResponse = await _apiService.getBoilerParameterValues(
+      token,
+      event.boilerId,
+      event.startDate,
+      event.endDate,
+      event.interval,
+      parameterIds: event.selectedParameterIds,
+    );
 
-    try {
-      final token = await _storageService.getToken();
-      if (token == null) {
-        throw Exception('Токен не найден. Авторизуйтесь.');
-      }
+    // Обновляем группы, если они пришли в ответе
+    if (historyResponse.groups.isNotEmpty) {
+      _cachedGroups = historyResponse.groups;
+    }
 
-      // Если параметры не загружены или это другая котельная, загружаем их
-      if (_cachedParameters == null || _currentBoilerId != event.boilerId) {
-        print('Loading parameters first...');
-        final parameters = await _apiService.getBoilerParameters(token, event.boilerId);
-        _cachedParameters = parameters;
-        _currentBoilerId = event.boilerId;
-      }
+    final values = historyResponse.historyNodeValues;
+    print('Loaded ${values.length} parameter values from API');
 
-      print('Loading parameter values for boiler ${event.boilerId}');
-      print('Selected parameter IDs: ${event.selectedParameterIds}');
-      print('Time range: ${event.startDate} to ${event.endDate}');
-
-      // Получаем названия выбранных параметров для логирования
-      final selectedParameterNames = _cachedParameters!
-          .where((param) => event.selectedParameterIds.contains(param.id))
-          .map((param) => '"${param.paramDescription}"')
-          .toList();
-      print('Selected parameters: ${selectedParameterNames.join(', ')}');
-
-      // Загружаем значения за указанный период
-final values = await _apiService.getBoilerParameterValues(
-  token, 
-  event.boilerId, 
-  event.startDate, 
-  event.endDate,
-  event.interval,
-  parameterIds: event.selectedParameterIds,
-);
-
-      print('Loaded ${values.length} parameter values from API');
-
-      // Фильтруем значения только для выбранных параметров
-      final filteredValues = values.where((value) => 
+    // Фильтруем значения только для выбранных параметров
+    final filteredValues = values.where((value) =>
         event.selectedParameterIds.contains(value.parameter.id)
-      ).toList();
+    ).toList();
 
-      print('After filtering: ${filteredValues.length} values');
-
-      // Логируем какие параметры получили данные
-      final receivedParameterIds = filteredValues.map((v) => v.parameter.id).toSet();
-      final missingParameterIds = event.selectedParameterIds.toSet().difference(receivedParameterIds);
-
-      if (missingParameterIds.isNotEmpty) {
-        print('Warning: No data received for parameter IDs: $missingParameterIds');
-        final missingParameterNames = _cachedParameters!
-            .where((param) => missingParameterIds.contains(param.id))
-            .map((param) => '"${param.paramDescription}"')
-            .toList();
-        print('Missing parameters: ${missingParameterNames.join(', ')}');
-      }
-
-      // Логируем что получили
-      print('Final values:');
-      for (var value in filteredValues) {
-        print('  - Parameter: "${value.parameter.paramDescription}" = ${value.displayValue} (${value.parameter.valueType})');
-      }
-
-      emit(BoilerDetailValuesLoaded(
-        parameters: _cachedParameters!,
-        values: filteredValues,
-        selectedParameterIds: event.selectedParameterIds,
-        selectedDateTime: event.startDate,
-      ));
-    } catch (e) {
-      print('Error loading parameter values: $e');
-      emit(BoilerDetailLoadFailure(
-        error: e.toString(),
-      ));
-    }
+    emit(BoilerDetailValuesLoaded(
+      parameters: _cachedParameters!,
+      groups: _cachedGroups!,
+      values: filteredValues,
+      selectedParameterIds: event.selectedParameterIds,
+      selectedDateTime: event.startDate,
+    ));
+  } catch (e) {
+    print('Error loading parameter values: $e');
+    emit(BoilerDetailLoadFailure(error: e.toString()));
   }
+}
 
   // Вспомогательный метод для получения временного диапазона выбранной минуты
   static Map<String, DateTime> getMinuteRange(DateTime selectedDateTime) {
@@ -230,27 +231,50 @@ final values = await _apiService.getBoilerParameterValues(
     return getMinuteRange(now);
   }
 
- // Метод для загрузки данных за выбранную минуту
-void loadDataForSelectedMinute(int boilerId, DateTime selectedDateTime, List<int> selectedParameterIds, {int interval = 60}) {
-  final timeRange = getMinuteRange(selectedDateTime);
-  add(LoadBoilerParameterValues(
-    boilerId: boilerId,
-    startDate: timeRange['start']!,
-    endDate: timeRange['end']!,
-    selectedParameterIds: selectedParameterIds,
-    interval: interval, // Передаем interval
-  ));
-}
+  // Метод для загрузки конфигурации котельной
+  void loadConfiguration(int boilerId) {
+    add(LoadBoilerConfiguration(boilerId));
+  }
 
-// Метод для загрузки данных за текущую минуту
-void loadCurrentMinuteData(int boilerId, List<int> selectedParameterIds, {int interval = 60}) {
-  final timeRange = getCurrentMinuteRange();
-  add(LoadBoilerParameterValues(
-    boilerId: boilerId,
-    startDate: timeRange['start']!,
-    endDate: timeRange['end']!,
-    selectedParameterIds: selectedParameterIds,
-    interval: interval, // Передаем interval
-  ));
-}
+  // Метод для загрузки данных за выбранную минуту
+  void loadDataForSelectedMinute(int boilerId, DateTime selectedDateTime, List<int> selectedParameterIds, {int interval = 60}) {
+    final timeRange = getMinuteRange(selectedDateTime);
+    add(LoadBoilerParameterValues(
+      boilerId: boilerId,
+      startDate: timeRange['start']!,
+      endDate: timeRange['end']!,
+      selectedParameterIds: selectedParameterIds,
+      interval: interval,
+    ));
+  }
+
+  // Метод для загрузки данных за текущую минуту
+  void loadCurrentMinuteData(int boilerId, List<int> selectedParameterIds, {int interval = 60}) {
+    final timeRange = getCurrentMinuteRange();
+    add(LoadBoilerParameterValues(
+      boilerId: boilerId,
+      startDate: timeRange['start']!,
+      endDate: timeRange['end']!,
+      selectedParameterIds: selectedParameterIds,
+      interval: interval,
+    ));
+  }
+
+  // Вспомогательные методы для работы с группами
+  List<BoilerParameter> getParametersByGroup(int groupId) {
+    if (_cachedParameters == null) return [];
+    return _cachedParameters!.where((param) => param.groupId == groupId).toList();
+  }
+
+  Group? getGroupById(int groupId) {
+    if (_cachedGroups == null) return null;
+    try {
+      return _cachedGroups!.firstWhere((group) => group.id == groupId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  List<Group> get availableGroups => _cachedGroups ?? [];
+  List<BoilerParameter> get availableParameters => _cachedParameters ?? [];
 }

@@ -11,6 +11,7 @@ import 'package:manage_center/screens/settings/settings_menu_screen.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
+import 'package:manage_center/widgets/blinking_dot.dart';
 import 'package:manage_center/widgets/custom_bottom_navigation.dart';
 
 // import 'package:manage_center/screens/Boiler_detail_screen.dart';
@@ -191,9 +192,15 @@ class DashboardScreen extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 4),
-            Text(
-              'Тип: ${boiler.boilerType.name}',
-              style: TextStyle(color: Colors.grey.shade700),
+            Row(
+              children: [
+                Text(
+                  'Тип: ${boiler.boilerType.name}',
+                  style: TextStyle(color: Colors.grey.shade700),
+                ),
+                const Spacer(),
+                const BlinkingDot(color: Colors.green),
+              ],
             ),
           ],
         ),

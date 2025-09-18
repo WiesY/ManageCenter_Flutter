@@ -4,6 +4,7 @@ class Role {
   final bool canAccessAllBoilers;
   final bool canManageAccounts;
   final bool canManageBoilers;
+  final bool canManageParameters;
 
   Role({
     required this.id,
@@ -11,6 +12,7 @@ class Role {
     required this.canAccessAllBoilers,
     required this.canManageAccounts,
     required this.canManageBoilers,
+    required this.canManageParameters,
   });
 
   // Этот factory-конструктор будет создавать объект Role из JSON
@@ -21,6 +23,7 @@ class Role {
       canAccessAllBoilers: json['canAccessAllBoilers'] as bool,
       canManageAccounts: json['canManageAccounts'] as bool,
       canManageBoilers: json['canManageBoilers'] as bool,
+      canManageParameters: json['canManageParameters'] as bool,
     );
   }
 }
