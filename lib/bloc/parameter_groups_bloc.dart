@@ -12,7 +12,7 @@ class FetchParameterGroups extends ParameterGroupsEvent {}
 class CreateParameterGroup extends ParameterGroupsEvent {
   final String name;
   final String color;
-  final String iconFileName;
+  final String? iconFileName;
 
   CreateParameterGroup(this.name, this.color, this.iconFileName);
 }
@@ -21,7 +21,7 @@ class UpdateParameterGroup extends ParameterGroupsEvent {
   final int groupId;
   final String name;
   final String color;
-  final String iconFileName;
+  final String? iconFileName;
 
   UpdateParameterGroup(this.groupId, this.name, this.color, this.iconFileName);
 }
@@ -40,7 +40,7 @@ class FetchParameterGroupIcon extends ParameterGroupsEvent {
 }
 
 class FetchParameterGroupIconByName extends ParameterGroupsEvent {
-  final String fileName;
+  final String? fileName;
   final bool isDownload;
 
   FetchParameterGroupIconByName(this.fileName, {this.isDownload = false});

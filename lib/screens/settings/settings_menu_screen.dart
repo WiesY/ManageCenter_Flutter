@@ -99,19 +99,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
 
-                if(canManageBoilers)
-                _buildSettingsCategory(
-                  context,
-                  title: 'Группы параметров',
-                  icon: Icons.business,
-                  items: [
-                    SettingsItem(
-                      title: 'Управление группами',
-                      icon: Icons.home_work,
-                      onTap: () => _navigateToParamGroupsManagement(context),
-                    ),
-                  ],
-                ),
+                // if(canManageBoilers)
+                // _buildSettingsCategory(
+                //   context,
+                //   title: 'Группы параметров',
+                //   icon: Icons.business,
+                //   items: [
+                //     SettingsItem(
+                //       title: 'Управление группами',
+                //       icon: Icons.home_work,
+                //       onTap: () => _navigateToParamGroupsManagement(context),
+                //     ),
+                //   ],
+                // ),
 
               if (canManageAccounts)
                 _buildSettingsCategory(

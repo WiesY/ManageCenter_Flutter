@@ -293,7 +293,7 @@ Future<ParameterGroup> getParameterGroupById(String token, int paramGroupId) asy
 }
 
 // Создание новой группы параметров
-Future<ParameterGroup> createParameterGroup(String token, String name, String color, String iconFileName) async {
+Future<ParameterGroup> createParameterGroup(String token, String name, String color, String? iconFileName) async {
   try {
     var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/ParamGroups'));
     
@@ -335,7 +335,7 @@ Future<ParameterGroup> createParameterGroup(String token, String name, String co
 }
 
 // Обновление группы параметров
-Future<ParameterGroup> updateParameterGroup(String token, int paramGroupId, String name, String color, String iconFileName) async {
+Future<ParameterGroup> updateParameterGroup(String token, int paramGroupId, String name, String color, String? iconFileName) async {
   try {
     var request = http.MultipartRequest('PUT', Uri.parse('$baseUrl/ParamGroups/$paramGroupId'));
     
@@ -405,7 +405,7 @@ Future<void> deleteParameterGroup(String token, int paramGroupId) async {
 }
 
 // Получение иконки группы по имени файла
-Future<String> getParameterGroupIconByName(String token, String fileName, bool isDownload) async {
+Future<String> getParameterGroupIconByName(String token, String? fileName, bool isDownload) async {
   try {
     final queryParams = {
       'isDownload': isDownload.toString(),
