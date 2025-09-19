@@ -7,15 +7,18 @@ import 'package:manage_center/models/boiler_parameter_model.dart';
 import 'package:manage_center/models/boiler_parameter_value_model.dart';
 import 'package:manage_center/models/groups_model.dart';
 import 'package:manage_center/screens/parameter_chart_screen.dart';
-import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/widgets/blinking_dot.dart';
 
 class AppColors {
   static const primary = Color(0xFF2E7D32);
   static const primaryLight = Color(0xFF4CAF50);
   static const background = Color(0xFFF5F5F5);
-  static const error = Colors.red;
-  static const warning = Colors.orange;
+  static const surface = Colors.white;
+  static const error = Color(0xFFE53E3E);
+  static const warning = Color(0xFFFF8C00);
+  static const success = Colors.green;
+  static const textPrimary = Color(0xFF2D3748);
+  static const textSecondary = Color(0xFF718096);
 }
 
 enum BoilerStatus { normal, warning, error }
@@ -36,23 +39,28 @@ class BoilerDetailScreen extends StatefulWidget {
   State<BoilerDetailScreen> createState() => _BoilerDetailScreenState();
 }
 
-class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
+class _BoilerDetailScreenState extends State<BoilerDetailScreen>
+    with TickerProviderStateMixin {
   List<BoilerParameter> _allParameters = [];
   List<Group> _allGroups = [];
   Map<int, BoilerParameterValue> _parameterValueMap = {};
   Map<int, bool> _groupVisibility = {};
   Map<int, bool> _groupExpansion = {};
   BoilerStatus _boilerStatus = BoilerStatus.normal;
+  bool _canManageParameters = false;
+  String _searchQuery = '';
   
-  // Переменные для управления группами параметров
+  // Переменные для диалога изменения группы
   Map<int, bool> _selectedParameters = {};
   int? _selectedGroupId;
-  bool _canManageParameters = false;
+
+  late AnimationController _refreshController;
+  late Animation<double> _refreshAnimation;
 
   static const _otherGroup = Group(
     id: -1,
     name: 'Другие',
-    color: 'grey',
+    color: '#9E9E9E',
     iconFileName: 'other',
     isExpanded: false,
   );
@@ -60,8 +68,21 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _refreshController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _refreshAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _refreshController, curve: Curves.easeInOut),
+    );
     _loadConfiguration();
     _checkPermissions();
+  }
+
+  @override
+  void dispose() {
+    _refreshController.dispose();
+    super.dispose();
   }
 
   void _checkPermissions() {
@@ -73,21 +94,20 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
     }
   }
 
-  void _loadConfiguration() {
-    context
-        .read<BoilerDetailBloc>()
-        .add(LoadBoilerConfiguration(widget.boilerId));
+  Future<void> _loadConfiguration() async {
+    context.read<BoilerDetailBloc>().add(LoadBoilerConfiguration(widget.boilerId));
   }
 
-  void _loadCurrentValues() {
+  Future<void> _loadCurrentValues() async {
+    _refreshController.forward().then((_) => _refreshController.reverse());
     final now = DateTime.now().toUtc();
     context.read<BoilerDetailBloc>().add(LoadBoilerParameterValues(
-          boilerId: widget.boilerId,
-          startDate: now.subtract(const Duration(minutes: 5)),
-          endDate: now,
-          selectedParameterIds: _allParameters.map((p) => p.id).toList(),
-          interval: 1,
-        ));
+      boilerId: widget.boilerId,
+      startDate: now.subtract(const Duration(minutes: 5)),
+      endDate: now,
+      selectedParameterIds: _allParameters.map((p) => p.id).toList(),
+      interval: 1,
+    ));
   }
 
   void _buildParameterValueMap(List<BoilerParameterValue> values) {
@@ -102,8 +122,6 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
       _groupVisibility[group.id] ??= true;
       _groupExpansion[group.id] ??= group.isExpanded;
     }
-
-    // Инициализируем настройки для группы "Другие"
     _groupVisibility[-1] ??= true;
     _groupExpansion[-1] ??= _otherGroup.isExpanded;
   }
@@ -118,20 +136,12 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
   Color _parseGroupColor(String colorString) {
     try {
       if (colorString.startsWith('#')) {
-        return Color(
-            int.parse(colorString.substring(1), radix: 16) + 0xFF000000);
+        String hexColor = colorString.substring(1, 7);
+        return Color(int.parse(hexColor, radix: 16) + 0xFF000000);
       }
-      return switch (colorString.toLowerCase()) {
-        'red' => Colors.red,
-        'blue' => Colors.blue,
-        'green' => Colors.green,
-        'orange' => Colors.orange,
-        'purple' => Colors.purple,
-        'cyan' => Colors.cyan,
-        _ => Colors.grey,
-      };
+      return AppColors.textSecondary;
     } catch (e) {
-      return Colors.grey;
+      return AppColors.textSecondary;
     }
   }
 
@@ -150,69 +160,95 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
   }
 
   Color get _statusColor => switch (_boilerStatus) {
-        BoilerStatus.normal => AppColors.primaryLight,
-        BoilerStatus.warning => AppColors.warning,
-        BoilerStatus.error => AppColors.error,
-      };
+    BoilerStatus.normal => AppColors.success,
+    BoilerStatus.warning => AppColors.warning,
+    BoilerStatus.error => AppColors.error,
+  };
 
   String get _statusText => switch (_boilerStatus) {
-        BoilerStatus.normal => 'В работе',
-        BoilerStatus.warning => 'Внимание',
-        BoilerStatus.error => 'Авария',
-      };
+    BoilerStatus.normal => 'В работе',
+    BoilerStatus.warning => 'Внимание',
+    BoilerStatus.error => 'Авария',
+  };
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: _buildAppBar(),
-      body: BlocBuilder<BoilerDetailBloc, BoilerDetailState>(
-        builder: (context, state) {
-          return Column(
-            children: [
-              _buildStatusHeader(),
-              // Показываем чипы только когда группы загружены
-              if (_allGroups.isNotEmpty) _buildGroupFilterChips(),
-              Expanded(child: _buildParameterGroupsContent(state)),
-            ],
-          );
-        },
+      body: RefreshIndicator(
+        onRefresh: _loadCurrentValues,
+        color: AppColors.primary,
+        child: BlocBuilder<BoilerDetailBloc, BoilerDetailState>(
+          builder: (context, state) {
+            return CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(child: _buildStatusHeader()),
+                if (_allGroups.isNotEmpty)
+                  SliverToBoxAdapter(child: _buildGroupFilterChips()),
+                SliverFillRemaining(
+                  child: _buildParameterGroupsContent(state),
+                ),
+              ],
+            );
+          },
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _loadCurrentValues,
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.refresh, color: Colors.white),
-      ),
+      // floatingActionButton: AnimatedBuilder(
+      //   animation: _refreshAnimation,
+      //   builder: (context, child) {
+      //     return FloatingActionButton(
+      //       onPressed: _loadCurrentValues,
+      //       backgroundColor: AppColors.primary,
+      //       elevation: 8,
+      //       child: Transform.rotate(
+      //         angle: _refreshAnimation.value * 2 * 3.14159,
+      //         child: const Icon(Icons.refresh, color: Colors.white),
+      //       ),
+      //     );
+      //   },
+      // ),
     );
   }
 
-  AppBar _buildAppBar() {
+  PreferredSizeWidget _buildAppBar() {
     return AppBar(
       title: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             widget.boilerName,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
           ),
           if (widget.districtName != null)
             Text(
               widget.districtName!,
-              style: const TextStyle(fontSize: 14, color: Colors.white70),
+              style: const TextStyle(
+                fontSize: 13,
+                color: Colors.white70,
+                fontWeight: FontWeight.w400,
+              ),
             ),
         ],
       ),
       centerTitle: true,
       backgroundColor: AppColors.primary,
-      foregroundColor: Colors.white,
+        foregroundColor: Colors.white,
+
+      elevation: 0,
       actions: [
         IconButton(
-          icon: const Icon(Icons.settings),
+          icon: const Icon(Icons.tune, color: Colors.white),
+          tooltip: 'Управление группами',
           onPressed: _showGroupManagementDialog,
         ),
-        // Показываем кнопку изменения группы только если есть права
         if (_canManageParameters)
           IconButton(
-            icon: const Icon(Icons.add_to_photos),
+            icon: const Icon(Icons.edit_attributes, color: Colors.white),
             tooltip: 'Изменить группу параметров',
             onPressed: _showChangeGroupDialog,
           ),
@@ -222,47 +258,79 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
 
   Widget _buildParameterGroupsContent(BoilerDetailState state) {
     return switch (state) {
-      BoilerDetailLoadInProgress() =>
-        const Center(child: CircularProgressIndicator()),
+      BoilerDetailLoadInProgress() => _buildLoadingWidget(),
       BoilerDetailLoadFailure() => _buildErrorWidget(state.error),
       BoilerDetailConfigurationLoaded() => _handleConfigurationLoaded(state),
       BoilerDetailValuesLoaded() => _handleValuesLoaded(state),
       BoilerDetailParametersLoaded() => _handleParametersLoaded(state),
-      _ => const Center(child: Text('Инициализация...')),
+      _ => _buildLoadingWidget(),
     };
+  }
+
+  Widget _buildLoadingWidget() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: AppColors.primary),
+          SizedBox(height: 16),
+          Text(
+            'Загрузка данных...',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildStatusHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.all(8),
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Row(
         children: [
-          BlinkingDot(color: _statusColor, size: 12),
-          const SizedBox(width: 12),
-          Text(
-            _statusText,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: _statusColor,
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _statusColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
+            child: BlinkingDot(color: _statusColor, size: 16),
           ),
-          const Spacer(),
-          Text(
-            'Обновлено: ${DateFormat('HH:mm:ss').format(DateTime.now().toLocal())}',
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _statusText,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: _statusColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Обновлено: ${DateFormat('HH:mm:ss').format(DateTime.now().toLocal())}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -272,20 +340,18 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
   Widget _buildGroupFilterChips() {
     if (_allGroups.isEmpty) return const SizedBox.shrink();
 
-    // Создаем список всех групп включая "Другие"
     final allGroupsWithOther = <Group>[..._allGroups];
-
-    // Добавляем группу "Другие" только если есть параметры без группы
     final parametersWithoutGroup = _getParametersForGroup(-1);
     if (parametersWithoutGroup.isNotEmpty) {
       allGroupsWithOther.add(_otherGroup);
     }
 
-    return SizedBox(
-      height: 60,
+    return Container(
+      height: 70,
+      margin: const EdgeInsets.only(bottom: 8),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: allGroupsWithOther.length,
         itemBuilder: (context, index) {
           final group = allGroupsWithOther[index];
@@ -294,34 +360,37 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
           final groupColor = _parseGroupColor(group.color);
 
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.only(right: 12),
             child: FilterChip(
               label: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.folder,
-                    size: 16,
+                    Icons.folder_rounded,
+                    size: 18,
                     color: isVisible ? Colors.white : groupColor,
                   ),
-                  const SizedBox(width: 4),
-                  Text(group.name),
+                  const SizedBox(width: 8),
+                  Text(
+                    group.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: isVisible ? Colors.white : groupColor,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   Container(
-                    margin: const EdgeInsets.only(left: 4),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: isVisible
-                          ? Colors.white24
-                          : groupColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
+                      color: isVisible ? Colors.white24 : groupColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       '$parametersCount',
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         color: isVisible ? Colors.white : groupColor,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -329,7 +398,8 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
               ),
               selected: isVisible,
               selectedColor: groupColor,
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.surface,
+              elevation: isVisible ? 4 : 2,
               onSelected: (selected) {
                 setState(() {
                   _groupVisibility[group.id] = selected;
@@ -342,37 +412,68 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
     );
   }
 
-  Widget _buildParameterGroups() {
-    return BlocBuilder<BoilerDetailBloc, BoilerDetailState>(
-      builder: (context, state) {
-        return switch (state) {
-          BoilerDetailLoadInProgress() =>
-            const Center(child: CircularProgressIndicator()),
-          BoilerDetailLoadFailure() => _buildErrorWidget(state.error),
-          BoilerDetailConfigurationLoaded() =>
-            _handleConfigurationLoaded(state),
-          BoilerDetailValuesLoaded() => _handleValuesLoaded(state),
-          BoilerDetailParametersLoaded() => _handleParametersLoaded(state),
-          _ => const Center(child: Text('Инициализация...')),
-        };
-      },
-    );
-  }
-
   Widget _buildErrorWidget(String error) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error, size: 64, color: AppColors.error),
-          const SizedBox(height: 16),
-          Text('Ошибка загрузки: $error'),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _loadConfiguration,
-            child: const Text('Повторить'),
-          ),
-        ],
+      child: Container(
+        margin: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.error.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.error_outline,
+                size: 48,
+                color: AppColors.error,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Ошибка загрузки',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              error,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: _loadConfiguration,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Повторить'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -412,28 +513,58 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
     }
 
     if (visibleGroups.isEmpty) {
-      return const Center(
+      return _buildEmptyState();
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: visibleGroups.length,
+      itemBuilder: (context, index) => _buildGroupCard(visibleGroups[index]),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.folder_open, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('Нет доступных групп параметров'),
-            SizedBox(height: 8),
-            Text(
+            Icon(
+              Icons.folder_open_rounded,
+              size: 64,
+              color: AppColors.textSecondary.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Нет доступных групп параметров',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
               'Выберите группы для отображения или обновите данные',
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
           ],
         ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(8),
-      itemCount: visibleGroups.length,
-      itemBuilder: (context, index) => _buildGroupCard(visibleGroups[index]),
+      ),
     );
   }
 
@@ -442,9 +573,19 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
     final groupColor = _parseGroupColor(group.color);
     final isExpanded = _groupExpansion[group.id] ?? group.isExpanded;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: ExpansionTile(
         initiallyExpanded: isExpanded,
         onExpansionChanged: (expanded) {
@@ -453,34 +594,36 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
           });
         },
         leading: Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: groupColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(Icons.folder, color: groupColor, size: 24),
+          child: Icon(
+            Icons.folder_rounded,
+            color: groupColor,
+            size: 24,
+          ),
         ),
         title: Text(
           group.name,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+            color: AppColors.textPrimary,
+          ),
         ),
         subtitle: Text(
           parametersInGroup.isEmpty
               ? 'Нет параметров в группе'
-              : '${parametersInGroup.length} параметров • Нажмите на параметр для просмотра графика',
+              : '${parametersInGroup.length} параметров • Нажмите для просмотра графика',
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13,
+          ),
         ),
         children: parametersInGroup.isEmpty
-            ? [
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text(
-                    'В данной группе пока нет параметров',
-                    style: TextStyle(
-                        color: Colors.grey, fontStyle: FontStyle.italic),
-                    textAlign: TextAlign.center,
-                  ),
-                )
-              ]
+            ? [_buildEmptyGroupMessage()]
             : parametersInGroup
                 .map((parameter) => _buildParameterTile(
                     parameter, _parameterValueMap[parameter.id]))
@@ -489,65 +632,101 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
     );
   }
 
-  Widget _buildParameterTile(
-      BoilerParameter parameter, BoilerParameterValue? value) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      onTap: () => _openParameterChart(parameter),
-      title: Text(
-        parameter.name.isNotEmpty
-            ? parameter.name
-            : 'Параметр ID: ${parameter.id}',
-        style: const TextStyle(fontSize: 14),
+  Widget _buildEmptyGroupMessage() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Text(
+        'В данной группе пока нет параметров',
+        style: TextStyle(
+          color: AppColors.textSecondary.withOpacity(0.7),
+          fontStyle: FontStyle.italic,
+        ),
+        textAlign: TextAlign.center,
       ),
-      subtitle: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.blue[100],
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              _translateParameterType(parameter.valueType),
-              style: TextStyle(
-                fontSize: 10,
-                color: Colors.blue[700],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'ID: ${parameter.id} • Группа: ${parameter.groupId ?? "Нет"}',
-            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-          ),
-        ],
+    );
+  }
+
+  Widget _buildParameterTile(BoilerParameter parameter, BoilerParameterValue? value) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(12),
       ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: value != null ? Colors.green[50] : Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: value != null ? Colors.green[200]! : Colors.grey[300]!,
-              ),
-            ),
-            child: Text(
-              value?.displayValue ?? 'Нет данных',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: value != null ? AppColors.primary : Colors.grey[600],
-                fontSize: 14,
-              ),
-            ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        onTap: () => _openParameterChart(parameter),
+        title: Text(
+          parameter.name.isNotEmpty
+              ? parameter.name
+              : 'Параметр ID: ${parameter.id}',
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textPrimary,
           ),
-          const SizedBox(width: 8),
-          Icon(Icons.show_chart, size: 20, color: Colors.grey[400]),
-        ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  _translateParameterType(parameter.valueType),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'ID: ${parameter.id}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: value != null ? AppColors.success.withOpacity(0.1) : AppColors.textSecondary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: value != null ? AppColors.success.withOpacity(0.3) : AppColors.textSecondary.withOpacity(0.3),
+                ),
+              ),
+              child: Text(
+                value?.displayValue ?? 'Нет данных',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: value != null ? AppColors.success : AppColors.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(
+              Icons.trending_up_rounded,
+              size: 20,
+              color: AppColors.textSecondary.withOpacity(0.6),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -569,7 +748,6 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
   }
 
   void _showGroupManagementDialog() {
-    // Создаем список всех групп включая "Другие"
     final allGroupsWithOther = <Group>[..._allGroups];
     final parametersWithoutGroup = _getParametersForGroup(-1);
     if (parametersWithoutGroup.isNotEmpty) {
@@ -579,7 +757,11 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Управление группами'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Управление группами',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView.builder(
@@ -594,13 +776,14 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
               return CheckboxListTile(
                 title: Row(
                   children: [
-                    Icon(Icons.folder, color: groupColor, size: 20),
-                    const SizedBox(width: 8),
+                    Icon(Icons.folder_rounded, color: groupColor, size: 20),
+                    const SizedBox(width: 12),
                     Expanded(child: Text(group.name)),
                   ],
                 ),
                 subtitle: Text('$parametersCount параметров'),
                 value: isVisible,
+                activeColor: AppColors.primary,
                 onChanged: (value) {
                   setState(() {
                     _groupVisibility[group.id] = value ?? false;
@@ -622,175 +805,177 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen> {
     );
   }
 
-  // Новый метод для отображения диалога изменения группы параметров
-  // Добавим переменную для хранения текста поиска
-
-String _searchQuery = '';
-// Обновленный метод для отображения диалога изменения группы параметров
-// Обновленный метод для отображения диалога изменения группы параметров
-void _showChangeGroupDialog() {
-  // Сбрасываем выбранные параметры, группу и поисковый запрос
-  setState(() {
-    _selectedParameters = {};
-    _selectedGroupId = null;
-    _searchQuery = '';
-  });
-  
-  showDialog(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setDialogState) {
-        // Фильтруем параметры по поисковому запросу
-        final filteredParameters = _searchQuery.isEmpty
-            ? _allParameters
-            : _allParameters.where((param) => 
-                param.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
-        
-        // Проверяем, все ли отфильтрованные параметры выбраны
-        bool areAllSelected = filteredParameters.isNotEmpty && 
-            filteredParameters.every((param) => _selectedParameters[param.id] == true);
-        
-        return AlertDialog(
-          title: const Text('Изменение группы параметров'),
-          content: SizedBox(
-            width: double.maxFinite,
-            height: 800,
-            child: Column(
-              children: [
-                // Добавляем строку поиска
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Поиск параметров...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+  void _showChangeGroupDialog() {
+    setState(() {
+      _selectedParameters = {};
+      _selectedGroupId = null;
+      _searchQuery = '';
+    });
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final filteredParameters = _searchQuery.isEmpty
+              ? _allParameters
+              : _allParameters.where((param) => 
+                  param.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+          
+          bool areAllSelected = filteredParameters.isNotEmpty && 
+              filteredParameters.every((param) => _selectedParameters[param.id] == true);
+          
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text(
+              'Изменение группы параметров',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 600,
+              child: Column(
+                children: [
+                  TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Поиск параметров...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    onChanged: (value) {
+                      setDialogState(() {
+                        _searchQuery = value;
+                      });
+                    },
                   ),
-                  onChanged: (value) {
-                    setDialogState(() {
-                      _searchQuery = value;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                
-                // Строка с информацией о количестве и кнопкой "Выбрать все"
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Найдено параметров: ${filteredParameters.length}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    if (filteredParameters.isNotEmpty)
-                      TextButton.icon(
-                        onPressed: () {
-                          setDialogState(() {
-                            // Если все выбраны - снимаем выбор, иначе - выбираем все
-                            final newValue = !areAllSelected;
-                            for (var param in filteredParameters) {
-                              _selectedParameters[param.id] = newValue;
-                            }
-                          });
-                        },
-                        icon: Icon(
-                          areAllSelected ? Icons.deselect : Icons.select_all,
-                          size: 18,
-                        ),
-                        label: Text(areAllSelected ? 'Снять выбор' : 'Выбрать все'),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: const Size(0, 36),
+                  const SizedBox(height: 16),
+                  
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Найдено: ${filteredParameters.length}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
                         ),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                
-                // Список параметров
-                Expanded(
-                  child: filteredParameters.isEmpty
-                      ? Center(
-                          child: Text(
-                            'Параметры не найдены',
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-                        )
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: filteredParameters.length,
-                          itemBuilder: (context, index) {
-                            final parameter = filteredParameters[index];
-                            final isSelected = _selectedParameters[parameter.id] ?? false;
-                            
-                            return CheckboxListTile(
-                              title: Text(parameter.name.isNotEmpty 
-                                ? parameter.name 
-                                : 'Параметр ID: ${parameter.id}'),
-                              subtitle: Text('Группа: ${_getGroupName(parameter.groupId)}'),
-                              value: isSelected,
-                              onChanged: (value) {
-                                setDialogState(() {
-                                  _selectedParameters[parameter.id] = value ?? false;
-                                });
-                              },
-                            );
+                      if (filteredParameters.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: () {
+                            setDialogState(() {
+                              final newValue = !areAllSelected;
+                              for (var param in filteredParameters) {
+                                _selectedParameters[param.id] = newValue;
+                              }
+                            });
                           },
+                          icon: Icon(
+                            areAllSelected ? Icons.deselect : Icons.select_all,
+                            size: 18,
+                          ),
+                          label: Text(areAllSelected ? 'Снять выбор' : 'Выбрать все'),
                         ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  Expanded(
+                    child: filteredParameters.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Параметры не найдены',
+                              style: TextStyle(color: AppColors.textSecondary),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: filteredParameters.length,
+                            itemBuilder: (context, index) {
+                              final parameter = filteredParameters[index];
+                              final isSelected = _selectedParameters[parameter.id] ?? false;
+                              
+                              return CheckboxListTile(
+                                title: Text(parameter.name.isNotEmpty 
+                                  ? parameter.name 
+                                  : 'Параметр ID: ${parameter.id}'),
+                                subtitle: Text('Группа: ${_getGroupName(parameter.groupId)}'),
+                                value: isSelected,
+                                activeColor: AppColors.primary,
+                                onChanged: (value) {
+                                  setDialogState(() {
+                                    _selectedParameters[parameter.id] = value ?? false;
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Выберите новую группу:',
+                      style: TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<int>(
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    hint: const Text('Выберите группу'),
+                    value: _selectedGroupId,
+                    items: _allGroups.map((group) {
+                      return DropdownMenuItem<int>(
+                        value: group.id,
+                        child: Text(group.name),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setDialogState(() {
+                        _selectedGroupId = value;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Отмена'),
+              ),
+              ElevatedButton(
+                onPressed: _getSelectedParameterIds().isEmpty || _selectedGroupId == null
+                  ? null
+                  : () {
+                      _updateParametersGroup();
+                      Navigator.pop(context);
+                    },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-                
-                const SizedBox(height: 16),
-                const Text('Выберите новую группу:'),
-                const SizedBox(height: 8),
-                DropdownButton<int>(
-                  isExpanded: true,
-                  hint: const Text('Выберите группу'),
-                  value: _selectedGroupId,
-                  items: _allGroups.map((group) {
-                    return DropdownMenuItem<int>(
-                      value: group.id,
-                      child: Text(group.name),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setDialogState(() {
-                      _selectedGroupId = value;
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Отмена'),
-            ),
-            ElevatedButton(
-              onPressed: _getSelectedParameterIds().isEmpty || _selectedGroupId == null
-                ? null
-                : () {
-                  print('==== onPressed ${_getSelectedParameterIds()}');
-                    _updateParametersGroup();
-                    Navigator.pop(context);
-                  },
-              child: const Text('Изменить группу'),
-            ),
-          ],
-        );
-      },
-    ),
-  );
-}
+                child: const Text('Изменить группу'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
-  // Метод для получения имени группы по ID
   String _getGroupName(int? groupId) {
     if (groupId == null) return 'Без группы';
-    
     try {
       return _allGroups.firstWhere((g) => g.id == groupId).name;
     } catch (e) {
@@ -798,7 +983,6 @@ void _showChangeGroupDialog() {
     }
   }
 
-  // Метод для получения списка ID выбранных параметров
   List<int> _getSelectedParameterIds() {
     return _selectedParameters.entries
       .where((entry) => entry.value)
@@ -806,14 +990,10 @@ void _showChangeGroupDialog() {
       .toList();
   }
 
-  // Метод для вызова обновления группы параметров
   void _updateParametersGroup() {
     final selectedIds = _getSelectedParameterIds();
     if (selectedIds.isEmpty || _selectedGroupId == null) return;
-
-    print('==== в блоке  selectedIds = ${selectedIds}, _selectedGroupId = ${_selectedGroupId}');
     
-    // Добавляем новое событие в блок
     context.read<BoilerDetailBloc>().add(
       UpdateParametersGroup(
         groupId: _selectedGroupId!,
@@ -821,11 +1001,12 @@ void _showChangeGroupDialog() {
       )
     );
     
-    // Показываем сообщение
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Группа параметров обновляется...'),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: const Text('Группа параметров обновляется...'),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
