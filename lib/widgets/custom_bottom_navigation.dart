@@ -22,8 +22,8 @@ class CustomBottomNavigation extends StatelessWidget {
         elevation: 8,
         items: [
           _buildNavItem(Icons.home_outlined, Icons.home, 'Главная'),
-          _buildNavItem(Icons.upload_outlined, Icons.upload, 'Выгрузить'),
-          _buildNavItem(Icons.message_outlined, Icons.message, 'Диалоги'),
+          _buildNavItem(Icons.analytics_outlined, Icons.analytics, 'Аналитика'),
+          _buildNavItem(Icons.message_outlined, Icons.message, 'Журнал'),
           _buildNavItem(Icons.settings_outlined, Icons.settings, 'Настройки'),
         ],
         currentIndex: currentIndex,

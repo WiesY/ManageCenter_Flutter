@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
+import 'package:manage_center/screens/analitics_screen.dart';
 import 'package:manage_center/screens/dashboard_screen.dart';
 import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/screens/settings/settings_menu_screen.dart';
@@ -23,7 +24,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
     GlobalKey<NavigatorState>(), // Главная
     GlobalKey<NavigatorState>(), // Выгрузить
-    GlobalKey<NavigatorState>(), // Диалоги
+    GlobalKey<NavigatorState>(), // Журнал аварий
     GlobalKey<NavigatorState>(), // Настройки
   ];
 
@@ -98,7 +99,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   Widget _buildUploadTab() {
-    return const UploadScreen();
+    return const AnalyticsScreen();
   }
 
   Widget _buildMessagesTab() {
@@ -110,51 +111,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 }
 
-// Временные экраны для табов, которые еще не реализованы
-class UploadScreen extends StatelessWidget {
-  const UploadScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Выгрузить'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-      ),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.upload_outlined,
-              size: 64,
-              color: Colors.grey,
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Экран выгрузки',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey,
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Функционал в разработке',
-              style: TextStyle(
-                color: Colors.grey,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class MessagesScreen extends StatelessWidget {
   const MessagesScreen({super.key});
 
@@ -162,7 +118,8 @@ class MessagesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Диалоги'),
+        //тут будут регистрироваться аварийные ситуации
+        title: const Text('Журнал'),
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
@@ -178,7 +135,7 @@ class MessagesScreen extends StatelessWidget {
             ),
             SizedBox(height: 16),
             Text(
-              'Диалоги',
+              'Журнал',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w500,

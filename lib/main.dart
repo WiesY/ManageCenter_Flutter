@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/app_lifecycle_manager.dart';
+import 'package:manage_center/bloc/analytics_bloc.dart';
 import 'package:manage_center/bloc/app_bloc.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
 import 'package:manage_center/bloc/boiler_types_bloc.dart';
@@ -73,6 +74,12 @@ class MyApp extends StatelessWidget {
     storageService: context.read<StorageService>(),
   ),
 ),
+BlocProvider<AnalyticsBloc>(
+            create: (context) => AnalyticsBloc(
+              apiService: context.read<ApiService>(),
+              storageService: context.read<StorageService>(),
+            ),
+          ),
           // AppBloc зависит от AuthBloc и StorageService
           BlocProvider<AppBloc>(
             create: (context) => AppBloc(

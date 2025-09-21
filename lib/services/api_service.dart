@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:manage_center/models/BoilerTypeCompareValues.dart';
 import 'package:manage_center/models/boiler_configuration.dart';
 import 'package:manage_center/models/boiler_history_model.dart';
 import 'package:manage_center/models/boiler_model.dart';
@@ -234,6 +235,71 @@ Future<BoilerHistoryResponse> getBoilerParameterValues(
     }
   } catch (e) {
     print('Error in getBoilerParameterValues: $e');
+    throw Exception('Ошибка при получении значений параметров: $e');
+  }
+}
+
+// Получение истории значений параметров по типу объекта
+Future<List<BoilerTypeCompareValues>> getBoilerParametersByTypeCompareValues(
+  String token, 
+  int boilerTypeId, 
+  List<int>? groupIds, 
+  String compareDateTime, 
+  {bool includeUngrouped = true}
+) async {
+  try {
+    print('Getting parameter values for boiler type $boilerTypeId at $compareDateTime');
+    
+    // Формируем базовый URL
+    String url = '$baseUrl/BoilerParameters/$boilerTypeId/CompareValues';
+    
+    // Формируем параметры запроса
+    Map<String, String> queryParams = {
+      'compareDateTime': compareDateTime,
+      'includeUngrouped': includeUngrouped.toString(),
+    };
+    
+    // Добавляем groupIds, если они указаны
+    if (groupIds != null && groupIds.isNotEmpty) {
+      queryParams['groupIds'] = groupIds.join(',');
+    }
+    
+    // Создаем URI с параметрами
+    final uri = Uri.parse(url).replace(queryParameters: queryParams);
+    
+    print('Request URL: $uri');
+    
+    final response = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+        'Accept': 'text/plain',
+      },
+    );
+    
+    print('Response status code: ${response.statusCode}');
+    
+    switch (response.statusCode) {
+      case 200:
+        final List<dynamic> data = json.decode(response.body);
+        print('Received data for ${data.length} boilers');
+        
+        return data.map((boilerData) => 
+          BoilerTypeCompareValues.fromJson(boilerData)
+        ).toList();
+        
+      case 401:
+        throw Exception('Некорректный токен авторизации');
+      case 403:
+        throw Exception('Пользователь должен иметь доступ к указанной котельной');
+      case 404:
+        throw Exception('Тип объекта не найден');
+      default:
+        throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error in getBoilerParametersByTypeCompareValues: $e');
     throw Exception('Ошибка при получении значений параметров: $e');
   }
 }
