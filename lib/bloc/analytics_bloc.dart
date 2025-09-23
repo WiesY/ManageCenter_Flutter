@@ -268,7 +268,7 @@ class AnalyticsBloc extends Bloc<AnalyticsEvent, AnalyticsState> {
       
       // Обновляем состояние с новой выбранной датой
       emit(currentState.copyWith(
-        selectedDate: event.date,
+        selectedDate: event.date.toUtc(),
         compareValues: null, // Сбрасываем данные таблицы
       ));
       
@@ -292,7 +292,7 @@ class AnalyticsBloc extends Bloc<AnalyticsEvent, AnalyticsState> {
       
       try {
         final token = await _storageService.getToken();
-        final compareDateTime = currentState.selectedDate.toIso8601String();
+        final compareDateTime = currentState.selectedDate.toUtc().toIso8601String();
         
         // Формируем список ID групп параметров, если выбрана конкретная группа
         List<int>? groupIds;

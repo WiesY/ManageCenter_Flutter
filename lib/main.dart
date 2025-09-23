@@ -140,6 +140,7 @@ class AppView extends StatelessWidget {
         locale: const Locale('ru', 'RU'),
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
+          dividerColor: Colors.transparent,
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
             seedColor: Colors.blue,
@@ -147,6 +148,7 @@ class AppView extends StatelessWidget {
           ),
         ),
         darkTheme: ThemeData(
+          dividerColor: Colors.transparent,
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
             seedColor: Colors.blue,

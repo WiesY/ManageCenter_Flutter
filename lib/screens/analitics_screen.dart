@@ -83,11 +83,11 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildSelectedDateInfo(context, state),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 6),
                   _buildObjectTypeSelector(context, state),
                   const SizedBox(height: 16),
                   _buildParameterGroupSelector(context, state),
-                  const SizedBox(height: 20),
+                 // const SizedBox(height: 1),
                   _buildParametersTable(context, state),
                 ],
               ),
@@ -153,32 +153,35 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
   }
 
   Widget _buildSelectedDateInfo(BuildContext context, AnalyticsLoadedState state) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.access_time,
-            color: AppColors.primary,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Text(
-            'Выбранная дата: ${DateFormat('dd.MM.yyyy HH:mm').format(state.selectedDate.toLocal())}',
-            style: const TextStyle(
+    return InkWell(
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.access_time,
               color: AppColors.primary,
-              fontWeight: FontWeight.w500,
-              fontSize: 14,
+              size: 20,
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Text(
+              'Выбранная дата: ${DateFormat('dd.MM.yyyy HH:mm').format(state.selectedDate.toLocal())}',
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w500,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
       ),
+      onTap:() => _selectDateTime(context),
     );
   }
 
@@ -197,7 +200,7 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
         SizedBox(
           height: 50,
           child: ListView.builder(
@@ -264,7 +267,7 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
         SizedBox(
           height: 50,
           child: state.parameterGroups.isEmpty
@@ -516,54 +519,68 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
       ),
     ];
     
-    // Добавляем колонки для каждого параметра
-    for (int i = 0; i < allParameters.length; i++) {
-      final param = allParameters[i];
-      final columnIndex = i + 1; // +1 потому что первая колонка - это объекты
-      
-      columns.add(
-        DataColumn(
-          label: InkWell(
-            onTap: () {
-              setState(() {
-                // Сортировка по параметру
-                if (activeSortColumnIndex == columnIndex) {
-                  // Циклическое изменение направления сортировки: asc -> desc -> none
-                  if (sortDirection == SortDirection.asc) {
-                    sortDirection = SortDirection.desc;
-                  } else if (sortDirection == SortDirection.desc) {
-                    sortDirection = SortDirection.none;
-                    activeSortColumnIndex = null; // Сброс активного столбца
-                  } else {
-                    sortDirection = SortDirection.asc;
-                  }
+// Добавляем колонки для каждого параметра
+for (int i = 0; i < allParameters.length; i++) {
+  final param = allParameters[i];
+  final columnIndex = i + 1; // +1 потому что первая колонка - это объекты
+  
+  columns.add(
+    DataColumn(
+      label: Container(
+        constraints: const BoxConstraints(maxWidth: 120), // Ограничиваем ширину
+        child: InkWell(
+          onTap: () {
+            setState(() {
+              // Сортировка по параметру
+              if (activeSortColumnIndex == columnIndex) {
+                // Циклическое изменение направления сортировки: asc -> desc -> none
+                if (sortDirection == SortDirection.asc) {
+                  sortDirection = SortDirection.desc;
+                } else if (sortDirection == SortDirection.desc) {
+                  sortDirection = SortDirection.none;
+                  activeSortColumnIndex = null; // Сброс активного столбца
                 } else {
-                  activeSortColumnIndex = columnIndex;
                   sortDirection = SortDirection.asc;
                 }
-              });
-            },
-            child: Row(
-              children: [
-                Text(
-                  param.parameterName,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  sortDirection == SortDirection.asc && activeSortColumnIndex == columnIndex
-                      ? Icons.arrow_upward
-                      : sortDirection == SortDirection.desc && activeSortColumnIndex == columnIndex
-                          ? Icons.arrow_downward
-                          : Icons.sort,
-                  size: 16,
-                ),
-              ],
-            ),
+              } else {
+                activeSortColumnIndex = columnIndex;
+                sortDirection = SortDirection.asc;
+              }
+            });
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      param.parameterName,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.visible, // Разрешаем перенос текста
+                      softWrap: true, // Включаем перенос строк
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    sortDirection == SortDirection.asc && activeSortColumnIndex == columnIndex
+                        ? Icons.arrow_upward
+                        : sortDirection == SortDirection.desc && activeSortColumnIndex == columnIndex
+                            ? Icons.arrow_downward
+                            : Icons.sort,
+                    size: 16,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-      );
-    }
+      ),
+    ),
+  );
+}
     
     // Создаем список объектов для строк
     List<BoilerTypeCompareValues> sortedBoilers = List.from(compareValues);
@@ -670,7 +687,17 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
           }
         }
         
-        cells.add(DataCell(Text(value)));
+        cells.add(
+  DataCell(
+    Container(
+      constraints: const BoxConstraints(maxWidth: 120),
+      child: Text(
+        value,
+        overflow: TextOverflow.ellipsis,
+      ),
+    )
+  )
+);
       }
       
       rows.add(DataRow(cells: cells));
@@ -714,7 +741,7 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        '3. Параметры объектов',
+                        'Параметры объектов',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -735,19 +762,228 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
               ],
             ),
           ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowColor: MaterialStateProperty.all(AppColors.background),
-              columns: columns,
-              rows: rows,
-            ),
-          ),
+          _buildFixedColumnTable(sortedBoilers, allParameters),
+//           SingleChildScrollView(
+//   scrollDirection: Axis.horizontal,
+//   child: DataTable(
+//     headingRowColor: MaterialStateProperty.all(AppColors.background),
+//     headingRowHeight: 120, // Увеличиваем высоту заголовка
+//     columnSpacing: 16, // Устанавливаем отступ между колонками
+//     horizontalMargin: 16, // Устанавливаем горизонтальный отступ
+//     columns: columns,
+//     rows: rows,
+//   ),
+// ),
           const SizedBox(height: 16),
         ],
       ),
     );
   }
+
+  Widget _buildFixedColumnTable(List<BoilerTypeCompareValues> sortedBoilers, List<ParameterCompareData> allParameters) {
+  const double fixedColumnWidth = 150.0;
+  const double parameterColumnWidth = 120.0;
+  const double rowHeight = 56.0;
+  const double headerHeight = 192.0;
+
+  return Row(
+    children: [
+      // Закрепленная колонка с названиями объектов
+      Container(
+        width: fixedColumnWidth,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border(
+            right: BorderSide(color: AppColors.background, width: 2),
+          ),
+        ),
+        child: Column(
+          children: [
+            // Заголовок закрепленной колонки
+            Container(
+              height: headerHeight,
+              color: AppColors.background,
+              padding: const EdgeInsets.all(16),
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    if (activeSortColumnIndex == 0) {
+                      if (sortDirection == SortDirection.asc) {
+                        sortDirection = SortDirection.desc;
+                      } else if (sortDirection == SortDirection.desc) {
+                        sortDirection = SortDirection.none;
+                        activeSortColumnIndex = null;
+                      } else {
+                        sortDirection = SortDirection.asc;
+                      }
+                    } else {
+                      activeSortColumnIndex = 0;
+                      sortDirection = SortDirection.asc;
+                    }
+                  });
+                },
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Объект',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    Icon(
+                      sortDirection == SortDirection.asc && activeSortColumnIndex == 0
+                          ? Icons.arrow_upward
+                          : sortDirection == SortDirection.desc && activeSortColumnIndex == 0
+                              ? Icons.arrow_downward
+                              : Icons.sort,
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Строки с названиями объектов
+            ...sortedBoilers.map((boiler) => Container(
+              height: rowHeight,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: AppColors.background, width: 1),
+                ),
+              ),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  boiler.boilerName,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            )),
+          ],
+        ),
+      ),
+      // Прокручиваемая часть с параметрами
+      Expanded(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Container(
+            width: allParameters.length * parameterColumnWidth,
+            child: Column(
+              children: [
+                // Заголовки параметров
+                Container(
+                  height: headerHeight,
+                  color: AppColors.background,
+                  child: Row(
+                    children: allParameters.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final param = entry.value;
+                      final columnIndex = index + 1;
+                      
+                      return Container(
+                        width: parameterColumnWidth,
+                        padding: const EdgeInsets.all(16),
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              if (activeSortColumnIndex == columnIndex) {
+                                if (sortDirection == SortDirection.asc) {
+                                  sortDirection = SortDirection.desc;
+                                } else if (sortDirection == SortDirection.desc) {
+                                  sortDirection = SortDirection.none;
+                                  activeSortColumnIndex = null;
+                                } else {
+                                  sortDirection = SortDirection.asc;
+                                }
+                              } else {
+                                activeSortColumnIndex = columnIndex;
+                                sortDirection = SortDirection.asc;
+                              }
+                            });
+                          },
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      param.parameterName,
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
+                                      overflow: TextOverflow.visible,
+                                      softWrap: true,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    sortDirection == SortDirection.asc && activeSortColumnIndex == columnIndex
+                                        ? Icons.arrow_upward
+                                        : sortDirection == SortDirection.desc && activeSortColumnIndex == columnIndex
+                                            ? Icons.arrow_downward
+                                            : Icons.sort,
+                                    size: 16,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                // Строки с данными параметров
+                ...sortedBoilers.map((boiler) => Container(
+                  height: rowHeight,
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: AppColors.background, width: 1),
+                    ),
+                  ),
+                  child: Row(
+                    children: allParameters.map((param) {
+                      String value = 'Н/Д';
+                      
+                      for (final group in boiler.groups) {
+                        final paramValue = group.parameters.firstWhere(
+                          (p) => p.parameterId == param.parameterId,
+                          orElse: () => ParameterCompareData(
+                            parameterId: 0,
+                            parameterName: '',
+                            value: '',
+                            receiptDate: DateTime.now(),
+                            parameterValueType: '',
+                          ),
+                        );
+                        
+                        if (paramValue.parameterId != 0) {
+                          value = paramValue.displayValue;
+                          break;
+                        }
+                      }
+                      
+                      return Container(
+                        width: parameterColumnWidth,
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          value,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                )),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+}
 
   Future<void> _selectDateTime(BuildContext context) async {
     final state = context.read<AnalyticsBloc>().state;

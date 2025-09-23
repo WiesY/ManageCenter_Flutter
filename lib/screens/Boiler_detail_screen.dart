@@ -284,6 +284,9 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   }
 
   Widget _buildStatusHeader() {
+    // Получаем общее количество параметров
+    final totalParametersCount = _allParameters.length;
+    
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
@@ -322,12 +325,33 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  'Обновлено: ${DateFormat('HH:mm:ss').format(DateTime.now().toLocal())}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Обновлено: ${DateFormat('HH:mm:ss').format(DateTime.now().toLocal())}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Всего параметров: $totalParametersCount',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -347,8 +371,8 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
     }
 
     return Container(
-      height: 70,
-      margin: const EdgeInsets.only(bottom: 8),
+      height: 60,
+      //margin: const EdgeInsets.only(bottom: 5),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
