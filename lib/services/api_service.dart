@@ -239,6 +239,97 @@ Future<BoilerHistoryResponse> getBoilerParameterValues(
   }
 }
 
+// Получение истории значений для конкретного параметра
+Future<List<BoilerParameterValue>> getParameterHistoryValues(
+  String token, 
+  int boilerId, 
+  int parameterId,
+  DateTime startDate, 
+  DateTime endDate,
+  int interval
+) async {
+  try {
+    print('Getting history values for parameter $parameterId from $startDate to $endDate');
+    
+    Map<String, String> queryParams = {
+      'Start': startDate.toIso8601String(),
+      'End': endDate.toIso8601String(),
+      'Interval': interval.toString(),
+    };
+
+    final uri = Uri.parse('$baseUrl/BoilerParameters/$boilerId/$parameterId/Values').replace(
+      queryParameters: queryParams,
+    );
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    print('Response status code: ${response.statusCode}');
+
+    switch (response.statusCode) {
+      case 200:
+        final dynamic data = json.decode(response.body);
+        
+        // Выводим структуру ответа для отладки
+        print('Response structure: ${data.runtimeType}');
+        
+        if (data is Map<String, dynamic>) {
+          // Если это объект, проверяем наличие нужных полей
+          if (data.containsKey('historyNodeValues') && data['historyNodeValues'] is List) {
+            final List<dynamic> values = data['historyNodeValues'];
+            print('Received ${values.length} parameter values from historyNodeValues');
+            return values.map((item) => BoilerParameterValue.fromJson(item)).toList();
+          } else if (data.containsKey('values') && data['values'] is List) {
+            final List<dynamic> values = data['values'];
+            print('Received ${values.length} parameter values from values');
+            return values.map((item) => BoilerParameterValue.fromJson(item)).toList();
+          } else {
+            // Если нет нужных ключей, создаем параметр из самого объекта
+            print('Creating parameter value from response object');
+            
+            // Проверяем наличие необходимых полей
+            if (!data.containsKey('parameter')) {
+              // Создаем параметр вручную
+              data['parameter'] = {
+                'id': parameterId,
+                'name': 'Параметр $parameterId',
+                'valueType': 'double'
+              };
+            }
+            
+            // Проверяем наличие даты получения
+            if (!data.containsKey('receiptDate')) {
+              data['receiptDate'] = DateTime.now().toIso8601String();
+            }
+            
+            return [BoilerParameterValue.fromJson(data)];
+          }
+        } else if (data is List) {
+          // Если это список, обрабатываем как раньше
+          print('Received ${data.length} parameter values from list');
+          return data.map((item) => BoilerParameterValue.fromJson(item)).toList();
+        } else {
+          throw Exception('Неожиданный формат данных: ${data.runtimeType}');
+        }
+        
+      case 401:
+        throw Exception('Некорректный токен авторизации');
+      case 404:
+        throw Exception('Параметр не найден');
+      default:
+        throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error in getParameterHistoryValues: $e');
+    throw Exception('Ошибка при получении истории значений параметра: $e');
+  }
+}
+
 // Получение истории значений параметров по типу объекта
 Future<List<BoilerTypeCompareValues>> getBoilerParametersByTypeCompareValues(
   String token, 

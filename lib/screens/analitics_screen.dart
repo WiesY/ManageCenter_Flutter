@@ -132,19 +132,15 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
     return AppBar(
       title: const Text(
         'Аналитика',
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
       ),
-      centerTitle: true,
-      backgroundColor: AppColors.primary,
-      foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
+      //centerTitle: true,
+      backgroundColor: const Color.fromARGB(0, 255, 255, 255),
+      foregroundColor: Colors.black,
       elevation: 0,
       actions: [
         IconButton(
-          icon: const Icon(Icons.calendar_today, color: Colors.white),
+          icon: const Icon(Icons.calendar_today, color: Colors.black),
           tooltip: 'Выбрать дату',
           onPressed: () => _selectDateTime(context),
         ),
@@ -552,27 +548,30 @@ for (int i = 0; i < allParameters.length; i++) {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      param.parameterName,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      overflow: TextOverflow.visible, // Разрешаем перенос текста
-                      softWrap: true, // Включаем перенос строк
+              Transform.rotate(
+                                angle: math.pi / 2, // Поворот на 90 градусов по часовой стрелке
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        param.parameterName,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.visible, // Разрешаем перенос текста
+                        softWrap: true, // Включаем перенос строк
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    sortDirection == SortDirection.asc && activeSortColumnIndex == columnIndex
-                        ? Icons.arrow_upward
-                        : sortDirection == SortDirection.desc && activeSortColumnIndex == columnIndex
-                            ? Icons.arrow_downward
-                            : Icons.sort,
-                    size: 16,
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    Icon(
+                      sortDirection == SortDirection.asc && activeSortColumnIndex == columnIndex
+                          ? Icons.arrow_upward
+                          : sortDirection == SortDirection.desc && activeSortColumnIndex == columnIndex
+                              ? Icons.arrow_downward
+                              : Icons.sort,
+                      size: 16,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
