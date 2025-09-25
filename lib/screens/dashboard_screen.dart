@@ -77,7 +77,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   List<BoilerListItem> _filterBoilers(List<BoilerListItem> boilers) {
     if (_searchQuery.isEmpty) return boilers;
-    
+
     return boilers.where((boiler) {
       return boiler.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
              boiler.district.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -322,7 +322,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   }
                   if (state is BoilersLoadSuccess) {
                     final filteredBoilers = _filterBoilers(state.boilers);
-                    
+
                     if (state.boilers.isEmpty) {
                       return Center(
                         child: Column(
@@ -394,7 +394,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       );
                     }
-                    
+
                     return RefreshIndicator(
                       color: Colors.blue.shade600,
                       onRefresh: () async {
@@ -542,18 +542,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 2),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            childAspectRatio: 1.1,
-            crossAxisSpacing: 6,
-            mainAxisSpacing: 6,
-          ),
-          itemCount: boilers.length,
-          itemBuilder: (context, index) => _buildBoilerCard(context, boilers[index]),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // Вычисляем количество колонок на основе ширины экрана
+            final screenWidth = constraints.maxWidth;
+            const cardWidth = 76.0; // Желаемая ширина карточки
+            const spacing = 6.0;
+            const horizontalPadding = 4.0; // 2 * 2 из padding
+            
+            final availableWidth = screenWidth - horizontalPadding;
+            int crossAxisCount = ((availableWidth + spacing) / (cardWidth + spacing)).floor();
+            crossAxisCount = crossAxisCount.clamp(2, 20); // Минимум 2, максимум 8 колонок
+            
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                childAspectRatio: 0.85,
+                crossAxisSpacing: 6,
+                mainAxisSpacing: 6,
+              ),
+              itemCount: boilers.length,
+              itemBuilder: (context, index) => _buildBoilerCard(context, boilers[index]),
+            );
+          },
         ),
         const SizedBox(height: 16),
       ],
@@ -562,6 +576,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildBoilerCard(BuildContext context, BoilerListItem boiler) {
     // Highlight search matches
+    print('boiler.hasConnection = ${boiler.hasConnection}');
     final isHighlighted = _searchQuery.isNotEmpty && (
       boiler.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
       boiler.district.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -607,7 +622,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             boxShadow: [
               BoxShadow(
-                color: isHighlighted 
+                color: isHighlighted
                     ? Colors.yellow.shade200.withOpacity(0.5)
                     : Colors.blue.shade100.withOpacity(0.3),
                 blurRadius: 6,
@@ -616,63 +631,69 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(6),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
+                // Верхняя строка с иконками
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade600,
-                        borderRadius: BorderRadius.circular(4),
+                        color: boiler.hasConnection ? Colors.blue.shade600 : Colors.red.shade600,
+                        borderRadius: BorderRadius.circular(3),
                       ),
                       child: const Icon(
                         Icons.water_drop_rounded,
                         color: Colors.white,
-                        size: 12,
+                        size: 10,
                       ),
                     ),
-                    const Spacer(),
                     Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const BlinkingDot(color: Colors.green, size: 6),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                // Тип котла
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(3),
                   ),
                   child: Text(
                     boiler.boilerType.name,
                     style: TextStyle(
                       color: Colors.grey.shade700,
-                      fontSize: 10,
+                      fontSize: 8,
                       fontWeight: FontWeight.w500,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const BlinkingDot(color: Colors.green, size: 8),
+                const SizedBox(height: 4),
+                // Название котла
+                Expanded(
+                  child: Text(
+                    boiler.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.black87,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  boiler.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: Colors.black87,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),

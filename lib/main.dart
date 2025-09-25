@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'dart:ui';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/app_lifecycle_manager.dart';
@@ -128,6 +132,15 @@ class AppView extends StatelessWidget {
     return AppLifecycleManager(
         //storageService: context.read<StorageService>(),
       child: MaterialApp(
+        scrollBehavior: const MaterialScrollBehavior().copyWith(
+        dragDevices: {
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.touch,
+          PointerDeviceKind.stylus,
+          PointerDeviceKind.unknown,
+        },
+        scrollbars: kIsWeb || Platform.isWindows || Platform.isLinux || Platform.isMacOS,
+      ),
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,

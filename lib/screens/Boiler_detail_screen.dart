@@ -709,8 +709,9 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
+              //const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 child: Text(
                   'ID: ${parameter.id}',
                   style: const TextStyle(

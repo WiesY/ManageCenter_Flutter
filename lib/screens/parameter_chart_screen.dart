@@ -534,11 +534,11 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
 
     if (duration.inHours <= 24) {
       options.addAll([
-        IntervalOption(
-            title: 'Каждую минуту',
-            subtitle: 'Максимальная детализация',
-            interval: 1,
-            icon: Icons.timer),
+        // IntervalOption(
+        //     title: 'Каждую минуту',
+        //     subtitle: 'Максимальная детализация',
+        //     interval: 1,
+        //     icon: Icons.timer),
         IntervalOption(
             title: 'Каждые 5 минут',
             subtitle: 'Высокая детализация',
@@ -803,8 +803,8 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
 
     if (_dataType == ChartDataType.boolean) {
       // Для булевых значений используем фиксированные границы
-      minY = -0.2;
-      maxY = 1.2;
+      minY = -0.1;
+      maxY = 1.1;
     } else {
       // Для числовых значений
       final minVal = values.reduce(math.min);
@@ -829,7 +829,7 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
     final maxXVal = math.max(1.0, (spots.length - 1).toDouble());
 
     // Оптимальные интервалы для осей
-    final bottomInterval = math.max(1, (spots.length / 5).ceil()).toDouble();
+    final bottomInterval = math.max(1, (spots.length / 1).ceil()).toDouble();
     final leftInterval = _calculateOptimalInterval(minY, maxY);
 
     return Container(
@@ -858,7 +858,7 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
             show: true,
             drawVerticalLine: true,
             drawHorizontalLine: true,
-            horizontalInterval: leftInterval,
+            horizontalInterval: 10,
             getDrawingHorizontalLine: (value) => FlLine(
               color: AppColors.textSecondary.withOpacity(0.2),
               strokeWidth: 1,
@@ -869,10 +869,10 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
             ),
           ),
           titlesData: FlTitlesData(
-            bottomTitles: AxisTitles(
+            bottomTitles: AxisTitles( //настройка заголовков по оси X
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 40,
+                reservedSize: 20,
                 interval: bottomInterval,
                 getTitlesWidget: (value, meta) {
                   final index = value.round();
@@ -895,10 +895,10 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
               ),
             ),
             leftTitles: AxisTitles(
-              sideTitles: SideTitles(
+              sideTitles: SideTitles( //настройка заголовков по оси Y
                 showTitles: true,
-                reservedSize: 65,
-                interval: leftInterval,
+                reservedSize: 45,
+                interval: _dataType == ChartDataType.boolean ? 1 : 8,
                 getTitlesWidget: (value, meta) {
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
