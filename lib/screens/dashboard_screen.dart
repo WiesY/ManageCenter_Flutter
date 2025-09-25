@@ -560,7 +560,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 2),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: crossAxisCount,
-                childAspectRatio: 0.85,
+                childAspectRatio: 1,
                 crossAxisSpacing: 6,
                 mainAxisSpacing: 6,
               ),
@@ -641,7 +641,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(2),
+                      padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
                         color: boiler.hasConnection ? Colors.blue.shade600 : Colors.red.shade600,
                         borderRadius: BorderRadius.circular(3),
@@ -652,18 +652,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         size: 10,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade100,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const BlinkingDot(color: Colors.green, size: 6),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                // Тип котла
+                     // Тип котла
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                   decoration: BoxDecoration(
@@ -674,21 +663,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     boiler.boilerType.name,
                     style: TextStyle(
                       color: Colors.grey.shade700,
-                      fontSize: 8,
+                      fontSize: 10,
                       fontWeight: FontWeight.w500,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const BlinkingDot(color: Colors.green, size: 8),
+                    ),
+                  ],
+                ),              
+                const SizedBox(height: 5),
                 // Название котла
                 Expanded(
                   child: Text(
                     boiler.name,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                      fontSize: 14,
                       color: Colors.black87,
                     ),
                     maxLines: 3,
