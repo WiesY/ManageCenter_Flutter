@@ -171,9 +171,9 @@ void _promptToSaveCredentials() {
                 const SizedBox(height: 32),
                 // Заголовок
                 const Text(
-                  'Мониторинг\nобъектов водохозяйства',
+                  'Автоматизированная система контроля параметров объектов водоснабжения МУП Истринская теплосеть',
                   style: TextStyle(
-                    fontSize: 32,
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                     height: 1.2,
                   ),
