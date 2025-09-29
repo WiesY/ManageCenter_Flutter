@@ -10,9 +10,11 @@ import 'package:manage_center/bloc/app_bloc.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
 import 'package:manage_center/bloc/boiler_types_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
+import 'package:manage_center/bloc/change_password_bloc.dart';
 import 'package:manage_center/bloc/districts_bloc.dart';
 import 'package:manage_center/bloc/parameter_groups_bloc.dart';
 import 'package:manage_center/bloc/roles_bloc.dart';
+import 'package:manage_center/bloc/user_profile_bloc.dart';
 import 'package:manage_center/bloc/users_bloc.dart';
 import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/screens/navigation/main_navigation_screen.dart';
@@ -115,6 +117,18 @@ BlocProvider<AnalyticsBloc>(
               storageService: context.read<StorageService>(),
             ),
           ),
+          BlocProvider<ChangePasswordBloc>(
+    create: (context) => ChangePasswordBloc(
+    apiService: context.read<ApiService>(),
+    storageService: context.read<StorageService>(),
+    ),
+    ),
+    BlocProvider<UserProfileBloc>(
+  create: (context) => UserProfileBloc(
+    apiService: context.read<ApiService>(),
+    storageService: context.read<StorageService>(),
+  ),
+),
         ],
         child: const AppView(),
       ),

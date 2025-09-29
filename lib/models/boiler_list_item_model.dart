@@ -7,7 +7,7 @@ class BoilerListItem {
   final District district;
   final BoilerType boilerType;
   final bool hasConnection;
-  final bool? isEmergency;
+  final bool isEmergency;
 
   BoilerListItem({
     required this.id,
@@ -15,7 +15,7 @@ class BoilerListItem {
     required this.district,
     required this.boilerType,
     required this.hasConnection,
-    this.isEmergency,
+    required this.isEmergency,
   });
 
   factory BoilerListItem.fromJson(Map<String, dynamic> json) {
@@ -25,7 +25,7 @@ class BoilerListItem {
       district: District.fromJson(json['district'] as Map<String, dynamic>),
       boilerType: BoilerType.fromJson(json['boilerType'] as Map<String, dynamic>),
       hasConnection: json['hasConnectionToBoiler'] as bool,
-      //isEmergency: json['isEmergency'] as bool,
+      isEmergency: json['isEmergency'] as bool,
     );
   }
 }

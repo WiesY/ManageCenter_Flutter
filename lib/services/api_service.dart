@@ -84,6 +84,38 @@ class ApiService {
     }
   }
 
+  Future<void> changePassword(String token, String currentPassword, String newPassword) async {
+  try {
+    final response = await http.put(
+      Uri.parse('$baseUrl/Users/Me/ChangePassword'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: json.encode({
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      print('Password changed successfully');
+    } else if (response.statusCode == 400) {
+      print('Bad request: ${response.body}');
+      throw Exception('Invalid password data');
+    } else if (response.statusCode == 401) {
+      print('Unauthorized: Invalid current password');
+      throw Exception('Current password is incorrect');
+    } else {
+      print('Error changing password: ${response.statusCode}');
+      throw Exception('Failed to change password');
+    }
+  } catch (e) {
+    print('Exception during password change: $e');
+    rethrow;
+  }
+}
+
   Future<List<BoilerWithLastData>> getBoilersWithLastData(String token) async {
     try {
       print('Getting boilers with token: $token');

@@ -4,11 +4,13 @@ import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/screens/dashboard_screen.dart';
 import 'package:manage_center/screens/login_screen.dart';
+import 'package:manage_center/screens/settings/about_screen.dart';
 import 'package:manage_center/screens/settings/boiler_types_management_screen.dart';
 import 'package:manage_center/screens/settings/boilers_management_screen.dart';
 import 'package:manage_center/screens/settings/districts_management_screen.dart';
 import 'package:manage_center/screens/settings/param_groups_management_screen.dart';
 import 'package:manage_center/screens/settings/roles_management_screen.dart';
+import 'package:manage_center/screens/settings/user_info.dart';
 import 'package:manage_center/screens/settings/users_management_screen.dart';
 import 'package:manage_center/screens/settings/change_password_screen.dart';
 import 'package:manage_center/services/api_service.dart';
@@ -305,18 +307,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // Методы навигации к различным экранам настроек
-  void _navigateToProfileSettings(BuildContext context) {
-    // Реализация будет добавлена позже
-    _showComingSoonDialog(context, 'Личные данные');
-  }
+void _navigateToProfileSettings(BuildContext context) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => const UserProfileScreen(),
+    ),
+  );
+}
 
   void _navigateToChangePassword(BuildContext context) {
-    // Navigator.push(
-    //   context,
-    //   MaterialPageRoute(
-    //     builder: (context) => const ChangePasswordScreen(),
-    //   ),
-    // );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ChangePasswordScreen(),
+      ),
+    );
   }
 
   void _navigateToBoilersManagement(BuildContext context) {
@@ -380,9 +386,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _navigateToAbout(BuildContext context) {
-    // Реализация будет добавлена позже
-    _showComingSoonDialog(context, 'О приложении');
-  }
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => const AboutScreen(),
+    ),
+  );
+}
 
   void _showLogoutDialog(BuildContext context) {
     showDialog(

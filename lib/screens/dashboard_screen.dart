@@ -577,6 +577,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildBoilerCard(BuildContext context, BoilerListItem boiler) {
     // Highlight search matches
     print('boiler.hasConnection = ${boiler.hasConnection}');
+    print('boiler.isEmergency = ${boiler.isEmergency}');
     final isHighlighted = _searchQuery.isNotEmpty && (
       boiler.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
       boiler.district.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -643,7 +644,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Container(
                       padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
-                        color: boiler.hasConnection ? Colors.blue.shade600 : Colors.red.shade600,
+                        color: boiler.isEmergency ? Colors.red.shade600 : Colors.blue.shade600,
                         borderRadius: BorderRadius.circular(3),
                       ),
                       child: const Icon(
@@ -676,7 +677,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         color: Colors.green.shade100,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const BlinkingDot(color: Colors.green, size: 8),
+                      child: BlinkingDot(color: boiler.hasConnection ? Colors.green : Colors.red, size: 8),
                     ),
                   ],
                 ),              

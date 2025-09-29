@@ -1,219 +1,334 @@
-// import 'package:flutter/material.dart';
-// import 'package:flutter_bloc/flutter_bloc.dart';
-// import 'package:manage_center/bloc/user_bloc.dart';
-// import 'package:manage_center/services/api_service.dart';
-// import 'package:manage_center/services/storage_service.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:manage_center/bloc/change_password_bloc.dart';
 
-// class ChangePasswordScreen extends StatelessWidget {
-//   const ChangePasswordScreen({super.key});
+class ChangePasswordScreen extends StatefulWidget {
+  const ChangePasswordScreen({super.key});
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return BlocProvider(
-//       create: (context) => UserBloc(
-//         apiService: context.read<ApiService>(),
-//         storageService: context.read<StorageService>(),
-//       ),
-//       child: const ChangePasswordView(),
-//     );
-//   }
-// }
+  @override
+  State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
+}
 
-// class ChangePasswordView extends StatelessWidget {
-//   const ChangePasswordView({super.key});
+class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _currentPasswordController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  
+  bool _isCurrentPasswordVisible = false;
+  bool _isNewPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: Colors.white,
-//       appBar: AppBar(
-//         title: const Text('Изменить пароль'),
-//         backgroundColor: Colors.white,
-//         elevation: 0,
-//       ),
-//       body: BlocConsumer<UserBloc, UserState>(
-//         listener: (context, state) {
-//           if (state is UserOperationSuccess) {
-//             ScaffoldMessenger.of(context).showSnackBar(
-//               SnackBar(
-//                 content: Text(state.message),
-//                 backgroundColor: Colors.green,
-//               ),
-//             );
-//             // Возвращаемся на предыдущий экран после успешной смены пароля
-//             Navigator.of(context).pop();
-//           } else if (state is UserError) {
-//             ScaffoldMessenger.of(context).showSnackBar(
-//               SnackBar(
-//                 content: Text(state.error),
-//                 backgroundColor: Colors.red,
-//               ),
-//             );
-//           }
-//         },
-//         builder: (context, state) {
-//           if (state is UserOperationInProgress) {
-//             return Center(
-//               child: Column(
-//                 mainAxisAlignment: MainAxisAlignment.center,
-//                 children: [
-//                   const CircularProgressIndicator(),
-//                   const SizedBox(height: 16),
-//                   Text(state.operation),
-//                 ],
-//               ),
-//             );
-//           }
+  @override
+  void dispose() {
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
 
-//           return Padding(
-//             padding: const EdgeInsets.all(24.0),
-//             child: Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 // Заголовок и описание
-//                 const Text(
-//                   'Смена пароля',
-//                   style: TextStyle(
-//                     fontSize: 24,
-//                     fontWeight: FontWeight.bold,
-//                   ),
-//                 ),
-//                 const SizedBox(height: 8),
-//                 Text(
-//                   'Для безопасности вашего аккаунта рекомендуется регулярно менять пароль.',
-//                   style: TextStyle(
-//                     fontSize: 16,
-//                     color: Colors.grey.shade600,
-//                   ),
-//                 ),
-//                 const SizedBox(height: 32),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('Смена пароля'),
+        foregroundColor: Colors.white,
+        backgroundColor: Colors.blue,
+        elevation: 0,
+      ),
+      body: BlocListener<ChangePasswordBloc, ChangePasswordState>(
+        listener: (context, state) {
+          if (state is ChangePasswordSuccess) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text('Пароль успешно изменен'),
+                  ],
+                ),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            );
+            Navigator.pop(context);
+          } else if (state is ChangePasswordError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.error, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(state.error)),
+                  ],
+                ),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            );
+          }
+        },
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Информационная карточка
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.info_outline,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Для смены пароля введите текущий пароль и новый пароль дважды',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
 
-//                 // Карточка с формой
-//                 Card(
-//                   elevation: 2,
-//                   shape: RoundedRectangleBorder(
-//                     borderRadius: BorderRadius.circular(12),
-//                   ),
-//                   child: Padding(
-//                     padding: const EdgeInsets.all(24.0),
-//                     child: Column(
-//                       children: [
-//                         Icon(
-//                           Icons.lock_reset,
-//                           size: 48,
-//                           color: Colors.blue.shade600,
-//                         ),
-//                         const SizedBox(height: 16),
-//                         const Text(
-//                           'Введите данные для смены пароля',
-//                           style: TextStyle(
-//                             fontSize: 18,
-//                             fontWeight: FontWeight.w500,
-//                           ),
-//                         ),
-//                         const SizedBox(height: 24),
+                // Поле текущего пароля
+                Card(
+                  elevation: 1,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: TextFormField(
+                      controller: _currentPasswordController,
+                      obscureText: !_isCurrentPasswordVisible,
+                      decoration: InputDecoration(
+                        labelText: 'Текущий пароль',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isCurrentPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isCurrentPasswordVisible = !_isCurrentPasswordVisible;
+                            });
+                          },
+                        ),
+                        fillColor: Colors.grey[200],
+                        filled: true,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Введите текущий пароль';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ),
 
-//                         // Кнопка для открытия диалога смены пароля
-//                         SizedBox(
-//                           width: double.infinity,
-//                           child: ElevatedButton.icon(
-//                             onPressed: () => _showChangePasswordDialog(context),
-//                             icon: const Icon(Icons.edit, color: Colors.white),
-//                             label: const Text(
-//                               'Изменить пароль',
-//                               style: TextStyle(
-//                                 fontSize: 16,
-//                                 color: Colors.white,
-//                               ),
-//                             ),
-//                             style: ElevatedButton.styleFrom(
-//                               backgroundColor: Colors.blue,
-//                               padding: const EdgeInsets.symmetric(vertical: 16),
-//                               shape: RoundedRectangleBorder(
-//                                 borderRadius: BorderRadius.circular(8),
-//                               ),
-//                             ),
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                 ),
+                const SizedBox(height: 16),
 
-//                 const SizedBox(height: 24),
+                // Поле нового пароля
+                Card(
+                  elevation: 1,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: TextFormField(
+                      controller: _newPasswordController,
+                      obscureText: !_isNewPasswordVisible,
+                      decoration: InputDecoration(
+                        labelText: 'Новый пароль',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                        prefixIcon: const Icon(Icons.lock),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isNewPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isNewPasswordVisible = !_isNewPasswordVisible;
+                            });
+                          },
+                        ),
+                        fillColor: Colors.grey[200],
+                        filled: true,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Введите новый пароль';
+                        }
+                        // if (value.length < 6) {
+                        //   return 'Пароль должен содержать минимум 6 символов';
+                        // }
+                        return null;
+                      },
+                    ),
+                  ),
+                ),
 
-//                 // Советы по безопасности
-//                 Card(
-//                   elevation: 1,
-//                   shape: RoundedRectangleBorder(
-//                     borderRadius: BorderRadius.circular(12),
-//                   ),
-//                   child: Padding(
-//                     padding: const EdgeInsets.all(16.0),
-//                     child: Column(
-//                       crossAxisAlignment: CrossAxisAlignment.start,
-//                       children: [
-//                         Row(
-//                           children: [
-//                             Icon(
-//                               Icons.security,
-//                               color: Colors.orange.shade600,
-//                               size: 20,
-//                             ),
-//                             const SizedBox(width: 8),
-//                             const Text(
-//                               'Советы по безопасности',
-//                               style: TextStyle(
-//                                 fontSize: 16,
-//                                 fontWeight: FontWeight.w600,
-//                               ),
-//                             ),
-//                           ],
-//                         ),
-//                         const SizedBox(height: 12),
-//                         _buildSecurityTip('Используйте пароль длиной не менее 8 символов'),
-//                         _buildSecurityTip('Включите буквы, цифры и специальные символы'),
-//                         _buildSecurityTip('Не используйте личную информацию в пароле'),
-//                         _buildSecurityTip('Не сообщайте пароль другим людям'),
-//                       ],
-//                     ),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           );
-//         },
-//       ),
-//     );
-//   }
+                const SizedBox(height: 16),
 
-//   Widget _buildSecurityTip(String tip) {
-//     return Padding(
-//       padding: const EdgeInsets.only(bottom: 8.0),
-//       child: Row(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Icon(
-//             Icons.check_circle,
-//             color: Colors.green.shade600,
-//             size: 16,
-//           ),
-//           const SizedBox(width: 8),
-//           Expanded(
-//             child: Text(
-//               tip,
-//               style: TextStyle(
-//                 color: Colors.grey.shade700,
-//                 fontSize: 14,
-//               ),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
+                // Поле подтверждения пароля
+                Card(
+                  elevation: 1,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: TextFormField(
+                      controller: _confirmPasswordController,
+                      obscureText: !_isConfirmPasswordVisible,
+                      decoration: InputDecoration(
+                        labelText: 'Подтвердите новый пароль',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                        prefixIcon: const Icon(Icons.lock_reset),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isConfirmPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                            });
+                          },
+                        ),
+                        fillColor: Colors.grey[200],
+                        filled: true,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Подтвердите новый пароль';
+                        }
+                        if (value != _newPasswordController.text) {
+                          return 'Пароли не совпадают';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ),
 
-//   void _showChangePasswordDialog(BuildContext context) {
-   
-//   }
-// }
+                const SizedBox(height: 32),
+
+                // Кнопка смены пароля
+                BlocBuilder<ChangePasswordBloc, ChangePasswordState>(
+                  builder: (context, state) {
+                    final isLoading = state is ChangePasswordLoading;
+                    
+                    return ElevatedButton(
+                      onPressed: isLoading ? null : _changePassword,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Сменить пароль',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // Кнопка отмены
+                BlocBuilder<ChangePasswordBloc, ChangePasswordState>(
+                  builder: (context, state) {
+                    final isLoading = state is ChangePasswordLoading;
+                    
+                    return TextButton(
+                      onPressed: isLoading ? null : () => Navigator.pop(context),
+                      child: const Text(
+                        'Отмена',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _changePassword() {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    context.read<ChangePasswordBloc>().add(
+      ChangePasswordRequested(
+        currentPassword: _currentPasswordController.text,
+        newPassword: _newPasswordController.text,
+      ),
+    );
+  }
+}
