@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
+import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/models/boiler_parameter_model.dart';
 import 'package:manage_center/models/boiler_parameter_value_model.dart';
 import 'package:manage_center/models/groups_model.dart';
@@ -77,6 +78,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
     );
     _loadConfiguration();
     _checkPermissions();
+    _updateBoilerStatusFromBoilersBloc();
   }
 
   @override
@@ -99,6 +101,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   }
 
   Future<void> _loadCurrentValues() async {
+    _updateBoilerStatusFromBoilersBloc();
     _refreshController.forward().then((_) => _refreshController.reverse());
     final now = DateTime.now().toUtc();
     context.read<BoilerDetailBloc>().add(LoadBoilerParameterValues(
@@ -109,6 +112,39 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
       interval: 1,
     ));
   }
+
+  void _updateBoilerStatusFromBoilersBloc() {
+  final boilersState = context.read<BoilersBloc>().state;
+  if (boilersState is BoilersLoadSuccess) {
+    final boiler = boilersState.boilers.firstWhere(
+      (b) => b.id == widget.boilerId
+    );
+    
+    if (boiler != null) {
+      setState(() {
+        if (boiler.isEmergency) {
+          _boilerStatus = BoilerStatus.error;
+        } else if (!boiler.hasConnection) {
+          _boilerStatus = BoilerStatus.warning;
+        } else {
+          _boilerStatus = BoilerStatus.normal;
+        }
+      });
+    }
+  }
+}
+
+  void _updateBoilerStatus({required bool hasConnection, required bool isEmergency}) {
+  setState(() {
+    if (isEmergency) {
+      _boilerStatus = BoilerStatus.error;
+    } else if (!hasConnection) {
+      _boilerStatus = BoilerStatus.warning;
+    } else {
+      _boilerStatus = BoilerStatus.normal;
+    }
+  });
+}
 
   void _buildParameterValueMap(List<BoilerParameterValue> values) {
     _parameterValueMap.clear();
@@ -167,9 +203,34 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
 
   String get _statusText => switch (_boilerStatus) {
     BoilerStatus.normal => 'В работе',
-    BoilerStatus.warning => 'Внимание',
-    BoilerStatus.error => 'Авария',
+    BoilerStatus.warning => 'Нет связи',
+    BoilerStatus.error => 'Требуется внимание',
   };
+
+  bool _hasEmergencyInGroup(Group group) {
+  if (group.name.toLowerCase() != 'авария') return false;
+  
+  final parametersInGroup = _getParametersForGroup(group.id);
+  for (var parameter in parametersInGroup) {
+    final value = _parameterValueMap[parameter.id];
+    if (value != null && value.displayValue.toLowerCase() == 'да') {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool _isEmergencyParameter(BoilerParameter parameter) {
+  final group = _allGroups.firstWhere(
+    (g) => g.id == parameter.groupId,
+    orElse: () => _otherGroup,
+  );
+  
+  if (group.name.toLowerCase() != 'авария') return false;
+  
+  final value = _parameterValueMap[parameter.id];
+  return value != null && value.displayValue.toLowerCase() == 'да';
+}
 
   @override
   Widget build(BuildContext context) {
@@ -593,68 +654,79 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   }
 
   Widget _buildGroupCard(Group group) {
-    final parametersInGroup = _getParametersForGroup(group.id);
-    final groupColor = _parseGroupColor(group.color);
-    final isExpanded = _groupExpansion[group.id] ?? group.isExpanded;
+  final parametersInGroup = _getParametersForGroup(group.id);
+  final groupColor = _parseGroupColor(group.color);
+  final isExpanded = _groupExpansion[group.id] ?? group.isExpanded;
+  final hasEmergency = _hasEmergencyInGroup(group);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+  return Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.06),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: ExpansionTile(
+      initiallyExpanded: isExpanded,
+      onExpansionChanged: (expanded) {
+        setState(() {
+          _groupExpansion[group.id] = expanded;
+        });
+      },
+      leading: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: groupColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          Icons.folder_rounded,
+          color: groupColor,
+          size: 24,
+        ),
+      ),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              group.name,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: AppColors.textPrimary,
+              ),
+            ),
           ),
+          if (hasEmergency) ...[
+            const SizedBox(width: 8),
+            const BlinkingDot(color: Colors.red, size: 12),
+          ],
         ],
       ),
-      child: ExpansionTile(
-        initiallyExpanded: isExpanded,
-        onExpansionChanged: (expanded) {
-          setState(() {
-            _groupExpansion[group.id] = expanded;
-          });
-        },
-        leading: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: groupColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            Icons.folder_rounded,
-            color: groupColor,
-            size: 24,
-          ),
+      subtitle: Text(
+        parametersInGroup.isEmpty
+            ? 'Нет параметров в группе'
+            : '${parametersInGroup.length} параметров • Нажмите для просмотра графика',
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 13,
         ),
-        title: Text(
-          group.name,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        subtitle: Text(
-          parametersInGroup.isEmpty
-              ? 'Нет параметров в группе'
-              : '${parametersInGroup.length} параметров • Нажмите для просмотра графика',
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 13,
-          ),
-        ),
-        children: parametersInGroup.isEmpty
-            ? [_buildEmptyGroupMessage()]
-            : parametersInGroup
-                .map((parameter) => _buildParameterTile(
-                    parameter, _parameterValueMap[parameter.id]))
-                .toList(),
       ),
-    );
-  }
+      children: parametersInGroup.isEmpty
+          ? [_buildEmptyGroupMessage()]
+          : parametersInGroup
+              .map((parameter) => _buildParameterTile(
+                  parameter, _parameterValueMap[parameter.id]))
+              .toList(),
+    ),
+  );
+}
 
   Widget _buildEmptyGroupMessage() {
     return Padding(
@@ -671,90 +743,94 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   }
 
   Widget _buildParameterTile(BoilerParameter parameter, BoilerParameterValue? value) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(12),
+  final isEmergency = _isEmergencyParameter(parameter);
+  final valueColor = isEmergency ? Colors.red : (value != null ? AppColors.success : AppColors.textSecondary);
+  final valueBgColor = isEmergency ? Colors.red.withOpacity(0.1) : (value != null ? AppColors.success.withOpacity(0.1) : AppColors.textSecondary.withOpacity(0.1));
+  final valueBorderColor = isEmergency ? Colors.red.withOpacity(0.3) : (value != null ? AppColors.success.withOpacity(0.3) : AppColors.textSecondary.withOpacity(0.3));
+  
+  return Container(
+    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    decoration: BoxDecoration(
+      color: AppColors.background,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      onTap: () => _openParameterChart(parameter),
+      title: Text(
+        parameter.name.isNotEmpty
+            ? parameter.name
+            : 'Параметр ID: ${parameter.id}',
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textPrimary,
+        ),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        onTap: () => _openParameterChart(parameter),
-        title: Text(
-          parameter.name.isNotEmpty
-              ? parameter.name
-              : 'Параметр ID: ${parameter.id}',
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  _translateParameterType(parameter.valueType),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              //const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                child: Text(
-                  'ID: ${parameter.id}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: value != null ? AppColors.success.withOpacity(0.1) : AppColors.textSecondary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: value != null ? AppColors.success.withOpacity(0.3) : AppColors.textSecondary.withOpacity(0.3),
-                ),
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                value?.displayValue ?? 'Нет данных',
+                _translateParameterType(parameter.valueType),
                 style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: value != null ? AppColors.success : AppColors.textSecondary,
-                  fontSize: 13,
+                  fontSize: 11,
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            Icon(
-              Icons.trending_up_rounded,
-              size: 20,
-              color: AppColors.textSecondary.withOpacity(0.6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              child: Text(
+                'ID: ${parameter.id}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ),
           ],
         ),
       ),
-    );
-  }
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: valueBgColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: valueBorderColor,
+              ),
+            ),
+            child: Text(
+              value?.displayValue ?? 'Нет данных',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: valueColor,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Icon(
+            Icons.trending_up_rounded,
+            size: 20,
+            color: AppColors.textSecondary.withOpacity(0.6),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
   void _openParameterChart(BoilerParameter parameter) {
     Navigator.push(
