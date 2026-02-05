@@ -4,6 +4,7 @@ import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/screens/analitics_screen.dart';
 import 'package:manage_center/screens/dashboard_screen.dart';
+import 'package:manage_center/screens/incidents_screen.dart';
 import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/screens/settings/settings_menu_screen.dart';
 import 'package:manage_center/services/api_service.dart';
@@ -40,27 +41,27 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
-        if (state is AuthInitial) {
-          // Это состояние после успешного выхода
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
-            (Route<dynamic> route) => false
-          );
-        }
-      },
-      child: Scaffold(
-        body: _getCurrentScreen(),
-        bottomNavigationBar: CustomBottomNavigation(
-          currentIndex: _currentIndex,
-          onTap: _onTabTapped,
-        ),
+@override
+Widget build(BuildContext context) {
+  return BlocListener<AuthBloc, AuthState>(
+    listener: (context, state) {
+      if (state is AuthInitial) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (Route<dynamic> route) => false
+        );
+      }
+    },
+    child: Scaffold(
+      extendBody: true, // Важно для эффекта "плавающей" панели
+      body: _getCurrentScreen(),
+      bottomNavigationBar: CustomBottomNavigation(
+        currentIndex: _currentIndex,
+        onTap: _onTabTapped,
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _getCurrentScreen() {
     switch (_currentIndex) {
@@ -69,7 +70,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       case 1:
         return _buildTabNavigator(1, _buildUploadTab());
       case 2:
-        return _buildTabNavigator(2, _buildMessagesTab());
+        return _buildTabNavigator(2, _buildIncidentsTab());
       case 3:
         return _buildTabNavigator(3, _buildSettingsTab());
       default:
@@ -102,56 +103,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     return const AnalyticsScreen();
   }
 
-  Widget _buildMessagesTab() {
-    return const MessagesScreen();
+  Widget _buildIncidentsTab() {
+    return const IncidentsScreen();
   }
 
   Widget _buildSettingsTab() {
     return const SettingsScreen();
-  }
-}
-
-class MessagesScreen extends StatelessWidget {
-  const MessagesScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        //тут будут регистрироваться аварийные ситуации
-        title: const Text('Журнал'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-      ),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.message_outlined,
-              size: 64,
-              color: Colors.grey,
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Журнал',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey,
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Функционал в разработке',
-              style: TextStyle(
-                color: Colors.grey,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
