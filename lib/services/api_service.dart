@@ -6,6 +6,7 @@ import 'package:manage_center/models/boiler_history_model.dart';
 import 'package:manage_center/models/boiler_model.dart';
 import 'package:manage_center/models/boiler_type_model.dart';
 import 'package:manage_center/models/district_model.dart';
+import 'package:manage_center/models/incident_model.dart';
 import 'package:manage_center/models/parameter_group_model.dart';
 import 'package:manage_center/models/role_model.dart';
 import 'package:manage_center/models/user_info_model.dart';
@@ -424,6 +425,124 @@ Future<List<BoilerTypeCompareValues>> getBoilerParametersByTypeCompareValues(
   } catch (e) {
     print('Error in getBoilerParametersByTypeCompareValues: $e');
     throw Exception('Ошибка при получении значений параметров: $e');
+  }
+}
+
+//----управление инцидентами (журнал аварий)----
+
+// Получение списка инцидентов
+Future<List<IncidentModel>> getIncidents(
+  String token, {
+  bool onlyActive = true,
+  int? boilerId,
+  DateTime? fromDate,
+  DateTime? toDate,
+}) async {
+  try {
+    // Формируем параметры запроса
+    Map<String, String> queryParams = {
+      'onlyActive': onlyActive.toString(),
+    };
+    
+    if (boilerId != null) {
+      queryParams['boilerId'] = boilerId.toString();
+    }
+    
+    if (fromDate != null) {
+      queryParams['fromDate'] = fromDate.toIso8601String();
+    }
+    
+    if (toDate != null) {
+      queryParams['toDate'] = toDate.toIso8601String();
+    }
+    
+    final uri = Uri.parse('https://boiler-v2.nwwork.site/api/Incidents').replace(
+      queryParameters: queryParams,
+    );
+    
+    print('Getting incidents with params: $queryParams');
+    
+    final response = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    
+    print('Response status code: ${response.statusCode}');
+    
+    switch (response.statusCode) {
+      case 200:
+        final List<dynamic> data = json.decode(response.body);
+        print('Received ${data.length} incidents');
+        final incidents = data.map((json) => IncidentModel.fromJson(json)).toList();
+        
+        // Сортируем по дате начала (новые сначала)
+        incidents.sort((a, b) => b.startTime.compareTo(a.startTime));
+        
+        return incidents;
+      case 401:
+        throw Exception('Некорректный токен авторизации');
+      default:
+        throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error in getIncidents: $e');
+    throw Exception('Ошибка при получении списка инцидентов: $e');
+  }
+}
+
+// Сброс инцидента (перевод из активного в архив)
+Future<void> resetIncident(String token, int incidentId) async {
+  try {
+    print('Resetting incident $incidentId');
+    
+    final response = await http.post(
+      Uri.parse('https://boiler-v2.nwwork.site/api/Incidents/$incidentId/reset'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    
+    print('Response status code: ${response.statusCode}');
+    
+    switch (response.statusCode) {
+      case 200:
+        print('Incident $incidentId reset successfully');
+        return;
+      case 400:
+        // Получаем сообщение об ошибке из тела ответа
+        final errorMessage = response.body.isNotEmpty 
+            ? response.body 
+            : 'Некорректный запрос';
+        throw Exception(errorMessage);
+      case 401:
+        throw Exception('Некорректный токен авторизации');
+      case 404:
+        throw Exception('Инцидент не найден');
+      default:
+        throw Exception('Ошибка сервера: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error in resetIncident: $e');
+    rethrow;
+  }
+}
+
+// Получение количества активных инцидентов
+Future<int> getActiveIncidentsCount(String token, {int? boilerId}) async {
+  try {
+    final incidents = await getIncidents(
+      token,
+      onlyActive: true,
+      boilerId: boilerId,
+    );
+    return incidents.length;
+  } catch (e) {
+    print('Error in getActiveIncidentsCount: $e');
+    return 0;
   }
 }
 
