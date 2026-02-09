@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/incidents_bloc.dart';
 import 'package:manage_center/models/incident_model.dart';
 import 'package:manage_center/models/boiler_list_item_model.dart';
@@ -151,7 +152,7 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                     onPressed: () {
                       context.read<IncidentsBloc>().add(IncidentsInitEvent());
                     },
-                    child: const Text('Повторить'),
+                    child: const Text('Назад'),
                   ),
                 ],
               ),
@@ -561,6 +562,14 @@ Widget _buildBoilerFilter(BuildContext context, IncidentsLoadedState state) {
       BuildContext context, IncidentModel incident, bool isActive) {
     final cardColor = isActive ? AppColors.error : AppColors.archived;
 
+
+    final authState = context.read<AuthBloc>().state;
+    
+    final int? roleID =
+    authState is AuthSuccess ? authState.userInfo.role?.id : null;
+    
+    final canResetIncident = roleID == '1' || roleID == '3';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -686,26 +695,36 @@ Widget _buildBoilerFilter(BuildContext context, IncidentsLoadedState state) {
                     incident.resetUserName!,
                   ),
                 ],
-                if (isActive) ...[
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () =>
-                          _showResetConfirmation(context, incident),
-                      icon: const Icon(Icons.archive),
-                      label: const Text('Сбросить в архив'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.success,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+if (isActive && canResetIncident) ...[
+  const SizedBox(height: 16),
+  SizedBox(
+    width: double.infinity,
+    child: ElevatedButton.icon(
+      onPressed: () => _showResetConfirmation(context, incident),
+      icon: const Icon(Icons.archive),
+      label: const Text('Сбросить аварию'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.success,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    ),
+  ),
+] else if (isActive && !canResetIncident) ...[
+  //const SizedBox(height: 16),
+  // SizedBox(
+  //   width: double.infinity,
+  //   child: ElevatedButton.icon(
+  //     onPressed: null, // disabled
+  //     icon: const Icon(Icons.lock),
+  //     label: const Text('Недостаточно прав для сброса'),
+  //   ),
+  // ),
+  const SizedBox.shrink()
+],
               ],
             ),
           ),

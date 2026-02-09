@@ -16,6 +16,7 @@ import 'package:manage_center/screens/settings/change_password_screen.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'package:manage_center/widgets/custom_bottom_navigation.dart';
+import 'package:manage_center/bloc/auth_bloc.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});

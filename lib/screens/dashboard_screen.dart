@@ -126,7 +126,7 @@ Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            Icon(
+            const Icon(
               Icons.dashboard,
               color: Colors.white,
               size: 28,

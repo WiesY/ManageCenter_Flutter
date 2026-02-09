@@ -37,7 +37,7 @@ class CustomBottomNavigation extends StatelessWidget {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -90,8 +90,8 @@ class CustomBottomNavigation extends StatelessWidget {
         onTap: () => onTap(index),
         borderRadius: BorderRadius.circular(12),
         child: AnimatedContainer(
-          margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 0),
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
+          margin: const EdgeInsets.symmetric(vertical: 3),
+          padding: const EdgeInsets.symmetric(vertical: 6),
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           decoration: BoxDecoration(
