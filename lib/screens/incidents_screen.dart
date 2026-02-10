@@ -568,7 +568,7 @@ Widget _buildBoilerFilter(BuildContext context, IncidentsLoadedState state) {
     final int? roleID =
     authState is AuthSuccess ? authState.userInfo.role?.id : null;
     
-    final canResetIncident = roleID == '1' || roleID == '3';
+    final bool canResetIncident = roleID == 1 || roleID == 3;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
