@@ -4,21 +4,25 @@ class CustomBottomNavigation extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
 
+  /// Кол-во активных аварий для бейджа на вкладке "Журнал"
+  final int activeIncidentsCount;
+
   const CustomBottomNavigation({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.activeIncidentsCount = 0,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
         decoration: BoxDecoration(
-          color: isDark 
+          color: isDark
               ? Colors.grey[900]?.withOpacity(0.9)
               : Colors.white.withOpacity(0.9),
           borderRadius: BorderRadius.circular(30),
@@ -30,7 +34,7 @@ class CustomBottomNavigation extends StatelessWidget {
             ),
           ],
           border: Border.all(
-            color: isDark 
+            color: isDark
                 ? Colors.white.withOpacity(0.08)
                 : Colors.black.withOpacity(0.04),
             width: 0.5,
@@ -61,6 +65,7 @@ class CustomBottomNavigation extends StatelessWidget {
                 selectedIcon: Icons.message,
                 label: 'Журнал',
                 index: 2,
+                badgeCount: activeIncidentsCount,
               ),
               _buildNavItem(
                 context,
@@ -82,8 +87,11 @@ class CustomBottomNavigation extends StatelessWidget {
     required IconData selectedIcon,
     required String label,
     required int index,
+    int? badgeCount,
   }) {
     final isSelected = currentIndex == index;
+
+    final showBadge = (badgeCount ?? 0) > 0;
 
     return Expanded(
       child: InkWell(
@@ -103,27 +111,64 @@ class CustomBottomNavigation extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                isSelected ? selectedIcon : icon,
-                color: isSelected
-                    ? Colors.blue.shade700
-                    : Colors.grey[600],
-                size: 25,
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    isSelected ? selectedIcon : icon,
+                    color: isSelected ? Colors.blue.shade700 : Colors.grey[600],
+                    size: 25,
+                  ),
+                  if (showBadge)
+                    Positioned(
+                      right: -10,
+                      top: -6,
+                      child: _Badge(count: badgeCount!),
+                    ),
+                ],
               ),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
-                  color: isSelected
-                      ? Colors.blue.shade700
-                      : Colors.grey[600],
+                  color: isSelected ? Colors.blue.shade700 : Colors.grey[600],
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  final int count;
+
+  const _Badge({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final text = count > 99 ? '99+' : '$count';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.redAccent,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white, width: 1.5),
+      ),
+      constraints: const BoxConstraints(minWidth: 18),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );

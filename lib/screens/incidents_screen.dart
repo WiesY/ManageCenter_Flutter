@@ -5,9 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/incidents_bloc.dart';
 import 'package:manage_center/models/incident_model.dart';
-import 'package:manage_center/models/boiler_list_item_model.dart';
-import 'package:manage_center/services/api_service.dart';
-import 'package:manage_center/services/storage_service.dart';
 
 class AppColors {
   static const primary = Colors.blue;
@@ -27,16 +24,10 @@ class IncidentsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final apiService = context.read<ApiService>();
-    final storageService = context.read<StorageService>();
-
-    return BlocProvider(
-      create: (context) => IncidentsBloc(
-        apiService: apiService,
-        storageService: storageService,
-      )..add(IncidentsInitEvent()),
-      child: const _IncidentsScreenContent(),
-    );
+    // ВАЖНО:
+    // IncidentsBloc должен быть предоставлен выше по дереву (в MainNavigationScreen),
+    // чтобы экран и бейдж в навигации использовали один и тот же bloc.
+    return const _IncidentsScreenContent();
   }
 }
 
@@ -65,8 +56,6 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
   }
 
   void _onScroll() {
-    // Показываем плавающий поиск, когда прокрутили больше 200 пикселей
-    // (примерно после счетчика и переключателя статуса)
     final shouldShow = _scrollController.offset > 200;
     if (shouldShow != _showFloatingSearch) {
       setState(() {
@@ -117,9 +106,7 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                     ),
                   ),
                 ),
-                // Плавающий поиск
-                if (_showFloatingSearch)
-                  _buildFloatingSearch(context, state),
+                if (_showFloatingSearch) _buildFloatingSearch(context, state),
               ],
             );
           } else if (state is IncidentsErrorState) {
@@ -166,83 +153,88 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
   }
 
   Widget _buildFloatingSearch(BuildContext context, IncidentsLoadedState state) {
-  final controller = TextEditingController(text: state.boilerSearchQuery);
-  controller.selection = TextSelection.fromPosition(
-    TextPosition(offset: controller.text.length),
-  );
+    final controller = TextEditingController(text: state.boilerSearchQuery);
+    controller.selection = TextSelection.fromPosition(
+      TextPosition(offset: controller.text.length),
+    );
 
-  return Positioned(
-    top: 0,
-    left: 0,
-    right: 0,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.background.withOpacity(0.95),
-            AppColors.background.withOpacity(0.8),
-            AppColors.background.withOpacity(0.0),
-          ],
-          stops: const [0.0, 0.7, 1.0],
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppColors.background.withOpacity(0.95),
+              AppColors.background.withOpacity(0.8),
+              AppColors.background.withOpacity(0.0),
+            ],
+            stops: const [0.0, 0.7, 1.0],
+          ),
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: TextField(
-          controller: controller,
-          onChanged: (value) {
-            context
-                .read<IncidentsBloc>()
-                .add(IncidentsSearchBoilerEvent(value));
-          },
-          decoration: InputDecoration(
-            hintText: 'Введите название объекта...',
-            prefixIcon: const Icon(Icons.search, color: AppColors.primary),
-            suffixIcon: state.boilerSearchQuery.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear, color: AppColors.textSecondary),
-                    onPressed: () {
-                      controller.clear();
-                      context
-                          .read<IncidentsBloc>()
-                          .add(IncidentsSearchBoilerEvent(''));
-                    },
-                  )
-                : IconButton(
-                    icon: const Icon(Icons.arrow_upward, color: AppColors.primary),
-                    onPressed: () {
-                      _scrollController.animateTo(
-                        0,
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                  ),
-            filled: true,
-            fillColor: AppColors.surface,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.primary.withOpacity(0.3)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: TextField(
+            controller: controller,
+            onChanged: (value) {
+              context
+                  .read<IncidentsBloc>()
+                  .add(IncidentsSearchBoilerEvent(value));
+            },
+            decoration: InputDecoration(
+              hintText: 'Введите название объекта...',
+              prefixIcon: const Icon(Icons.search, color: AppColors.primary),
+              suffixIcon: state.boilerSearchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear,
+                          color: AppColors.textSecondary),
+                      onPressed: () {
+                        controller.clear();
+                        context
+                            .read<IncidentsBloc>()
+                            .add(IncidentsSearchBoilerEvent(''));
+                      },
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.arrow_upward,
+                          color: AppColors.primary),
+                      onPressed: () {
+                        _scrollController.animateTo(
+                          0,
+                          duration: const Duration(milliseconds: 500),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                    ),
+              filled: true,
+              fillColor: AppColors.surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide:
+                    BorderSide(color: AppColors.primary.withOpacity(0.3)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide:
+                    BorderSide(color: AppColors.primary.withOpacity(0.3)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.primary, width: 2),
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.primary.withOpacity(0.3)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.primary, width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
@@ -340,8 +332,7 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                       Icon(
                         Icons.warning,
                         size: 18,
-                        color:
-                            state.showActive ? Colors.white : AppColors.error,
+                        color: state.showActive ? Colors.white : AppColors.error,
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -374,8 +365,9 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                     Icon(
                       Icons.archive,
                       size: 18,
-                      color:
-                          !state.showActive ? Colors.white : AppColors.archived,
+                      color: !state.showActive
+                          ? Colors.white
+                          : AppColors.archived,
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -408,74 +400,79 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
     );
   }
 
-Widget _buildBoilerFilter(BuildContext context, IncidentsLoadedState state) {
-  if (_showFloatingSearch) {
-    return const SizedBox.shrink();
-  }
-  
-  final controller = TextEditingController(text: state.boilerSearchQuery);
-  controller.selection = TextSelection.fromPosition(
-    TextPosition(offset: controller.text.length),
-  );
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16),
-        child: Text(
-          'Поиск по объекту',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
+  Widget _buildBoilerFilter(BuildContext context, IncidentsLoadedState state) {
+    if (_showFloatingSearch) {
+      return const SizedBox.shrink();
+    }
+
+    final controller = TextEditingController(text: state.boilerSearchQuery);
+    controller.selection = TextSelection.fromPosition(
+      TextPosition(offset: controller.text.length),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'Поиск по объекту',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
           ),
         ),
-      ),
-      const SizedBox(height: 8),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: TextField(
-          controller: controller,
-          onChanged: (value) {
-            context
-                .read<IncidentsBloc>()
-                .add(IncidentsSearchBoilerEvent(value));
-          },
-          decoration: InputDecoration(
-            hintText: 'Введите название объекта...',
-            prefixIcon: const Icon(Icons.search, color: AppColors.primary),
-            suffixIcon: state.boilerSearchQuery.isNotEmpty
-                ? IconButton(
-                  icon: const Icon(Icons.clear, color: AppColors.textSecondary),
-                  onPressed: () {
-                  controller.clear();
-                  context
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: TextField(
+            controller: controller,
+            onChanged: (value) {
+              context
                   .read<IncidentsBloc>()
-                  .add(IncidentsSearchBoilerEvent(''));
-                  },
-                  )
-                : null,
-            filled: true,
-            fillColor: AppColors.surface,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.primary.withOpacity(0.3)),
+                  .add(IncidentsSearchBoilerEvent(value));
+            },
+            decoration: InputDecoration(
+              hintText: 'Введите название объекта...',
+              prefixIcon: const Icon(Icons.search, color: AppColors.primary),
+              suffixIcon: state.boilerSearchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear,
+                          color: AppColors.textSecondary),
+                      onPressed: () {
+                        controller.clear();
+                        context
+                            .read<IncidentsBloc>()
+                            .add(IncidentsSearchBoilerEvent(''));
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: AppColors.surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide:
+                    BorderSide(color: AppColors.primary.withOpacity(0.3)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide:
+                    BorderSide(color: AppColors.primary.withOpacity(0.3)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.primary, width: 2),
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.primary.withOpacity(0.3)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.primary, width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
         ),
-      ),
-    ],
-  );
-}
+      ],
+    );
+  }
 
   Widget _buildIncidentsList(BuildContext context, IncidentsLoadedState state) {
     final filteredIncidents = state.boilerSearchQuery.isEmpty
@@ -504,8 +501,8 @@ Widget _buildBoilerFilter(BuildContext context, IncidentsLoadedState state) {
         child: Column(
           children: [
             Icon(
-              state.boilerSearchQuery.isEmpty 
-                  ? Icons.check_circle_outline 
+              state.boilerSearchQuery.isEmpty
+                  ? Icons.check_circle_outline
                   : Icons.search_off,
               size: 64,
               color: AppColors.success.withOpacity(0.5),
@@ -513,7 +510,9 @@ Widget _buildBoilerFilter(BuildContext context, IncidentsLoadedState state) {
             const SizedBox(height: 16),
             Text(
               state.boilerSearchQuery.isEmpty
-                  ? (state.showActive ? 'Нет активных аварий' : 'Нет архивных аварий')
+                  ? (state.showActive
+                      ? 'Нет активных аварий'
+                      : 'Нет архивных аварий')
                   : 'Ничего не найдено',
               style: const TextStyle(
                 fontSize: 18,
@@ -550,8 +549,10 @@ Widget _buildBoilerFilter(BuildContext context, IncidentsLoadedState state) {
             ),
           ),
           const SizedBox(height: 12),
-          ...filteredIncidents.map((incident) =>
-              _buildIncidentCard(context, incident, state.showActive)),
+          ...filteredIncidents.map(
+            (incident) =>
+                _buildIncidentCard(context, incident, state.showActive),
+          ),
           const SizedBox(height: 16),
         ],
       ),
@@ -562,12 +563,10 @@ Widget _buildBoilerFilter(BuildContext context, IncidentsLoadedState state) {
       BuildContext context, IncidentModel incident, bool isActive) {
     final cardColor = isActive ? AppColors.error : AppColors.archived;
 
-
     final authState = context.read<AuthBloc>().state;
-    
     final int? roleID =
-    authState is AuthSuccess ? authState.userInfo.role?.id : null;
-    
+        authState is AuthSuccess ? authState.userInfo.role?.id : null;
+
     final bool canResetIncident = roleID == 1 || roleID == 3;
 
     return Container(
@@ -695,36 +694,27 @@ Widget _buildBoilerFilter(BuildContext context, IncidentsLoadedState state) {
                     incident.resetUserName!,
                   ),
                 ],
-if (isActive && canResetIncident) ...[
-  const SizedBox(height: 16),
-  SizedBox(
-    width: double.infinity,
-    child: ElevatedButton.icon(
-      onPressed: () => _showResetConfirmation(context, incident),
-      icon: const Icon(Icons.archive),
-      label: const Text('Сбросить аварию'),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.success,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    ),
-  ),
-] else if (isActive && !canResetIncident) ...[
-  //const SizedBox(height: 16),
-  // SizedBox(
-  //   width: double.infinity,
-  //   child: ElevatedButton.icon(
-  //     onPressed: null, // disabled
-  //     icon: const Icon(Icons.lock),
-  //     label: const Text('Недостаточно прав для сброса'),
-  //   ),
-  // ),
-  const SizedBox.shrink()
-],
+                if (isActive && canResetIncident) ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showResetConfirmation(context, incident),
+                      icon: const Icon(Icons.archive),
+                      label: const Text('Сбросить аварию'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.success,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ] else if (isActive && !canResetIncident) ...[
+                  const SizedBox.shrink()
+                ],
               ],
             ),
           ),
@@ -848,20 +838,12 @@ if (isActive && canResetIncident) ...[
         999,
       );
 
-      if (dateRange != null) {
-        context.read<IncidentsBloc>().add(
-              IncidentsSelectDateRangeEvent(
-                fromDate: fromDate,
-                toDate: toDate,
-              ),
-            );
-      } else {
-        // Если пользователь закрыл диалог, можно сбросить фильтр
-        // Раскомментируйте, если нужно:
-        // context.read<IncidentsBloc>().add(
-        //   IncidentsSelectDateRangeEvent(fromDate: null, toDate: null),
-        // );
-      }
+      context.read<IncidentsBloc>().add(
+            IncidentsSelectDateRangeEvent(
+              fromDate: fromDate,
+              toDate: toDate,
+            ),
+          );
     }
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
+import 'package:manage_center/bloc/incidents_bloc.dart';
 import 'package:manage_center/screens/analitics_screen.dart';
 import 'package:manage_center/screens/dashboard_screen.dart';
 import 'package:manage_center/screens/incidents_screen.dart';
@@ -21,47 +22,71 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
-  // Ключи для навигации каждого таба
+  late final IncidentsBloc _incidentsBloc;
+
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
-    GlobalKey<NavigatorState>(), // Главная
-    GlobalKey<NavigatorState>(), // Выгрузить
-    GlobalKey<NavigatorState>(), // Журнал аварий
-    GlobalKey<NavigatorState>(), // Настройки
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _incidentsBloc = IncidentsBloc(
+      apiService: context.read<ApiService>(),
+      storageService: context.read<StorageService>(),
+    )..add(IncidentsInitEvent());
+  }
+
+  @override
+  void dispose() {
+    _incidentsBloc.close();
+    super.dispose();
+  }
 
   void _onTabTapped(int index) {
     if (_currentIndex == index) {
-      // Если тапнули на текущий таб, возвращаемся к корню этого таба
       _navigatorKeys[index].currentState?.popUntil((route) => route.isFirst);
     } else {
-      // Переключаемся на новый таб
       setState(() {
         _currentIndex = index;
       });
     }
   }
 
-@override
-Widget build(BuildContext context) {
-  return BlocListener<AuthBloc, AuthState>(
-    listener: (context, state) {
-      if (state is AuthInitial) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-          (Route<dynamic> route) => false
-        );
-      }
-    },
-    child: Scaffold(
-      extendBody: true, // Важно для эффекта "плавающей" панели
-      body: _getCurrentScreen(),
-      bottomNavigationBar: CustomBottomNavigation(
-        currentIndex: _currentIndex,
-        onTap: _onTabTapped,
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthInitial) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (Route<dynamic> route) => false,
+          );
+        }
+      },
+      child: Scaffold(
+        extendBody: true,
+        body: _getCurrentScreen(),
+        bottomNavigationBar: BlocBuilder<IncidentsBloc, IncidentsState>(
+          bloc: _incidentsBloc,
+          builder: (context, state) {
+            final count = state is IncidentsLoadedState
+                ? state.activeIncidentsCount
+                : 0;
+
+            return CustomBottomNavigation(
+              currentIndex: _currentIndex,
+              onTap: _onTabTapped,
+              activeIncidentsCount: count,
+            );
+          },
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _getCurrentScreen() {
     switch (_currentIndex) {
@@ -82,9 +107,7 @@ Widget build(BuildContext context) {
     return Navigator(
       key: _navigatorKeys[index],
       onGenerateRoute: (routeSettings) {
-        return MaterialPageRoute(
-          builder: (context) => child,
-        );
+        return MaterialPageRoute(builder: (context) => child);
       },
     );
   }
@@ -99,15 +122,14 @@ Widget build(BuildContext context) {
     );
   }
 
-  Widget _buildUploadTab() {
-    return const AnalyticsScreen();
-  }
+  Widget _buildUploadTab() => const AnalyticsScreen();
 
   Widget _buildIncidentsTab() {
-    return const IncidentsScreen();
+    return BlocProvider.value(
+      value: _incidentsBloc,
+      child: const IncidentsScreen(),
+    );
   }
 
-  Widget _buildSettingsTab() {
-    return const SettingsScreen();
-  }
+  Widget _buildSettingsTab() => const SettingsScreen();
 }
