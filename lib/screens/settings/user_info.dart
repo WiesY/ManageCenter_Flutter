@@ -328,11 +328,13 @@ String _getAvatar(String fullName) {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Text(
-                  'Дополнительная информация',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                const Expanded(
+                  child: Text(
+                    'Дополнительная информация',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
