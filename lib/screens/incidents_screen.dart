@@ -24,9 +24,6 @@ class IncidentsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ВАЖНО:
-    // IncidentsBloc должен быть предоставлен выше по дереву (в MainNavigationScreen),
-    // чтобы экран и бейдж в навигации использовали один и тот же bloc.
     return const _IncidentsScreenContent();
   }
 }
@@ -69,85 +66,160 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: _buildAppBar(context),
-      body: BlocBuilder<IncidentsBloc, IncidentsState>(
-        builder: (context, state) {
-          if (state is IncidentsInitialState) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (state is IncidentsLoadingState) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (state is IncidentsLoadedState) {
-            return Stack(
-              children: [
-                RefreshIndicator(
-                  onRefresh: () async {
-                    context.read<IncidentsBloc>().add(IncidentsRefreshEvent());
-                    await Future.delayed(const Duration(milliseconds: 500));
-                  },
-                  child: Scrollbar(
-                    controller: _scrollController,
-                    thumbVisibility: false,
-                    thickness: 6,
-                    radius: const Radius.circular(10),
-                    child: SingleChildScrollView(
+      body: BlocListener<IncidentsBloc, IncidentsState>(
+        listener: (context, state) {
+          if (state is IncidentsLoadedState && state.errorMessage != null) {
+            _showErrorDialog(context, state.errorMessage!);
+            context.read<IncidentsBloc>().add(IncidentsClearErrorEvent());
+          }
+        },
+        child: BlocBuilder<IncidentsBloc, IncidentsState>(
+          builder: (context, state) {
+            if (state is IncidentsInitialState) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (state is IncidentsLoadingState) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (state is IncidentsLoadedState) {
+              return Stack(
+                children: [
+                  RefreshIndicator(
+                    onRefresh: () async {
+                      context.read<IncidentsBloc>().add(IncidentsRefreshEvent());
+                      await Future.delayed(const Duration(milliseconds: 500));
+                    },
+                    child: Scrollbar(
                       controller: _scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildActiveIncidentsCounter(context, state),
-                          const SizedBox(height: 6),
-                          _buildStatusToggle(context, state),
-                          const SizedBox(height: 16),
-                          _buildBoilerFilter(context, state),
-                          const SizedBox(height: 16),
-                          _buildIncidentsList(context, state),
-                        ],
+                      thumbVisibility: false,
+                      thickness: 6,
+                      radius: const Radius.circular(10),
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildActiveIncidentsCounter(context, state),
+                            const SizedBox(height: 6),
+                            _buildStatusToggle(context, state),
+                            const SizedBox(height: 16),
+                            _buildBoilerFilter(context, state),
+                            const SizedBox(height: 16),
+                            _buildIncidentsList(context, state),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                if (_showFloatingSearch) _buildFloatingSearch(context, state),
-              ],
-            );
-          } else if (state is IncidentsErrorState) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline,
-                      color: AppColors.error, size: 48),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Ошибка',
-                    style: TextStyle(
-                      color: AppColors.error,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(
-                      state.message,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.textSecondary),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () {
-                      context.read<IncidentsBloc>().add(IncidentsInitEvent());
-                    },
-                    child: const Text('Назад'),
-                  ),
+                  if (_showFloatingSearch) _buildFloatingSearch(context, state),
                 ],
-              ),
-            );
-          }
+              );
+            } else if (state is IncidentsErrorState) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        color: AppColors.error, size: 48),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Ошибка загрузки',
+                      style: TextStyle(
+                        color: AppColors.error,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Text(
+                        state.message,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: () {
+                        context.read<IncidentsBloc>().add(IncidentsInitEvent());
+                      },
+                      child: const Text('Повторить'),
+                    ),
+                  ],
+                ),
+              );
+            }
 
-          return const SizedBox.shrink();
-        },
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showErrorDialog(BuildContext context, String errorMessage) {
+    // Разделяем заголовок и тело по первому \n
+    final parts = errorMessage.split('\n');
+    final title = parts.first;
+    final body = parts.length > 1 ? parts.sublist(1).join('\n') : '';
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.error_outline, color: AppColors.error, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: body.isNotEmpty
+            ? Text(
+                body,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                ),
+              )
+            : null,
+        actions: [
+          TextButton(
+             onPressed: () {
+              Navigator.of(dialogContext).pop();
+              context.read<IncidentsBloc>().add(IncidentsRefreshEvent());
+            },
+            child: const Text(
+              'Закрыть',
+   
+            ),
+          ),
+          // ElevatedButton(
+          //   onPressed: () {
+          //     Navigator.of(dialogContext).pop();
+          //     context.read<IncidentsBloc>().add(IncidentsRefreshEvent());
+          //   },
+          //   style: ElevatedButton.styleFrom(
+          //     backgroundColor: AppColors.primary,
+          //     foregroundColor: Colors.white,
+          //     shape: RoundedRectangleBorder(
+          //       borderRadius: BorderRadius.circular(8),
+          //     ),
+          //   ),
+          //   child: const Text('Повторить'),
+          // ),
+        ],
       ),
     );
   }
@@ -225,7 +297,8 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                borderSide:
+                    const BorderSide(color: AppColors.primary, width: 2),
               ),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -279,7 +352,9 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
       child: Row(
         children: [
           Icon(
-            state.activeIncidentsCount > 0 ? Icons.warning : Icons.check_circle,
+            state.activeIncidentsCount > 0
+                ? Icons.warning
+                : Icons.check_circle,
             color: state.activeIncidentsCount > 0
                 ? AppColors.error
                 : AppColors.success,
@@ -332,7 +407,8 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                       Icon(
                         Icons.warning,
                         size: 18,
-                        color: state.showActive ? Colors.white : AppColors.error,
+                        color:
+                            state.showActive ? Colors.white : AppColors.error,
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -463,7 +539,8 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                borderSide:
+                    const BorderSide(color: AppColors.primary, width: 2),
               ),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -699,7 +776,8 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: () => _showResetConfirmation(context, incident),
+                      onPressed: () =>
+                          _showResetConfirmation(context, incident),
                       icon: const Icon(Icons.archive),
                       label: const Text('Сбросить аварию'),
                       style: ElevatedButton.styleFrom(
