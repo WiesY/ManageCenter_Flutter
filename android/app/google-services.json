@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "593071812050",
+    "project_id": "muptechapp",
+    "storage_bucket": "muptechapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:593071812050:android:acc19d8c8791374b88ac0b",
+        "android_client_info": {
+          "package_name": "com.mupit.manage_center"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCYrfyJu4pCyTNZ0rXSaL9vbhSzkSo9sss"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

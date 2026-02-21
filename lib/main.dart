@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 import 'dart:ui';
 
@@ -12,6 +13,7 @@ import 'package:manage_center/bloc/boiler_types_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/bloc/change_password_bloc.dart';
 import 'package:manage_center/bloc/districts_bloc.dart';
+import 'package:manage_center/bloc/incidents_bloc.dart';
 import 'package:manage_center/bloc/parameter_groups_bloc.dart';
 import 'package:manage_center/bloc/roles_bloc.dart';
 import 'package:manage_center/bloc/user_profile_bloc.dart';
@@ -20,21 +22,35 @@ import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/screens/navigation/main_navigation_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/api_service.dart';
+import 'services/push_notification_service.dart';
 import 'services/storage_service.dart';
 import 'bloc/auth_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final ValueNotifier<int?> switchTabNotifier = ValueNotifier<int?>(null);
+
 void main() async {
-  // Проверка, что все виджеты инициализированы до запуска приложения
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Инициализация сервисов
+  // --- ИНИЦИАЛИЗАЦИЯ FIREBASE ---
+  if (!Platform.isWindows) {
+    log("🏁 [MAIN] Запуск инициализации Firebase...");
+    try {
+      await PushNotificationService().initialize();
+    } catch (e) {
+      log("❌ [MAIN] Ошибка инициализации Firebase: $e");
+    }
+  } else {
+    log("🖥️ [MAIN] Запуск на Windows - Firebase отключен.");
+  }
+
   final prefs = await SharedPreferences.getInstance();
   final storageService = StorageService(prefs);
   final apiService = ApiService();
-  final _tokenTest = await storageService.getToken();
 
-  print(_tokenTest);
+  final tokenTest = await storageService.getToken();
+  log("🔑 Текущий токен API: $tokenTest");
 
   runApp(MyApp(
     storageService: storageService,
@@ -61,7 +77,6 @@ class MyApp extends StatelessWidget {
       ],
       child: MultiBlocProvider(
         providers: [
-          // AuthBloc теперь доступен во всем приложении
           BlocProvider<AuthBloc>(
             create: (context) => AuthBloc(
               apiService: apiService,
@@ -75,23 +90,22 @@ class MyApp extends StatelessWidget {
             ),
           ),
           BlocProvider<ParameterGroupsBloc>(
-  create: (context) => ParameterGroupsBloc(
-    apiService: context.read<ApiService>(),
-    storageService: context.read<StorageService>(),
-  ),
-),
-BlocProvider<AnalyticsBloc>(
+            create: (context) => ParameterGroupsBloc(
+              apiService: context.read<ApiService>(),
+              storageService: context.read<StorageService>(),
+            ),
+          ),
+          BlocProvider<AnalyticsBloc>(
             create: (context) => AnalyticsBloc(
               apiService: context.read<ApiService>(),
               storageService: context.read<StorageService>(),
             ),
           ),
-          // AppBloc зависит от AuthBloc и StorageService
           BlocProvider<AppBloc>(
             create: (context) => AppBloc(
               storageService: storageService,
               authBloc: context.read<AuthBloc>(),
-            )..add(AppStarted()), // <-- Запускаем проверку при создании блока
+            )..add(AppStarted()),
           ),
           BlocProvider<UsersBloc>(
             create: (context) => UsersBloc(
@@ -118,17 +132,23 @@ BlocProvider<AnalyticsBloc>(
             ),
           ),
           BlocProvider<ChangePasswordBloc>(
-    create: (context) => ChangePasswordBloc(
-    apiService: context.read<ApiService>(),
-    storageService: context.read<StorageService>(),
-    ),
-    ),
-    BlocProvider<UserProfileBloc>(
-  create: (context) => UserProfileBloc(
-    apiService: context.read<ApiService>(),
-    storageService: context.read<StorageService>(),
-  ),
-),
+            create: (context) => ChangePasswordBloc(
+              apiService: context.read<ApiService>(),
+              storageService: context.read<StorageService>(),
+            ),
+          ),
+          BlocProvider<UserProfileBloc>(
+            create: (context) => UserProfileBloc(
+              apiService: context.read<ApiService>(),
+              storageService: context.read<StorageService>(),
+            ),
+          ),
+          BlocProvider<IncidentsBloc>(
+            create: (context) => IncidentsBloc(
+              apiService: context.read<ApiService>(),
+              storageService: context.read<StorageService>(),
+            )..add(IncidentsInitEvent()),
+          ),
         ],
         child: const AppView(),
       ),
@@ -144,17 +164,20 @@ class AppView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppLifecycleManager(
-        //storageService: context.read<StorageService>(),
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         scrollBehavior: const MaterialScrollBehavior().copyWith(
-        dragDevices: {
-          PointerDeviceKind.mouse,
-          PointerDeviceKind.touch,
-          PointerDeviceKind.stylus,
-          PointerDeviceKind.unknown,
-        },
-        scrollbars: kIsWeb || Platform.isWindows || Platform.isLinux || Platform.isMacOS,
-      ),
+          dragDevices: {
+            PointerDeviceKind.mouse,
+            PointerDeviceKind.touch,
+            PointerDeviceKind.stylus,
+            PointerDeviceKind.unknown,
+          },
+          scrollbars: kIsWeb ||
+              Platform.isWindows ||
+              Platform.isLinux ||
+              Platform.isMacOS,
+        ),
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
@@ -184,7 +207,6 @@ class AppView extends StatelessWidget {
         ),
         home: BlocBuilder<AppBloc, AppState>(
           builder: (context, state) {
-            // В зависимости от статуса показываем нужный экран
             if (state.status == AppStatus.authenticated) {
               return BlocProvider<BoilersBloc>(
                 create: (context) => BoilersBloc(
@@ -197,7 +219,6 @@ class AppView extends StatelessWidget {
             if (state.status == AppStatus.unauthenticated) {
               return const LoginScreen();
             }
-            // Пока идет проверка, можно показывать сплэш-скрин или загрузчик
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             );

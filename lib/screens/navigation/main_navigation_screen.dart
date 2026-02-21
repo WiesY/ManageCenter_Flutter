@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/bloc/incidents_bloc.dart';
+import 'package:manage_center/main.dart';
 import 'package:manage_center/screens/analitics_screen.dart';
 import 'package:manage_center/screens/dashboard_screen.dart';
 import 'package:manage_center/screens/incidents_screen.dart';
@@ -38,12 +39,34 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       apiService: context.read<ApiService>(),
       storageService: context.read<StorageService>(),
     )..add(IncidentsInitEvent());
+
+    // ✅ Слушаем переключение вкладок из push-уведомлений
+    switchTabNotifier.addListener(_onSwitchTab);
+
+    // ✅ Проверяем — может уведомление уже пришло при холодном старте
+    if (switchTabNotifier.value != null) {
+      _currentIndex = switchTabNotifier.value!;
+      switchTabNotifier.value = null;
+    }
   }
 
   @override
   void dispose() {
+    switchTabNotifier.removeListener(_onSwitchTab);
     _incidentsBloc.close();
     super.dispose();
+  }
+
+  // ✅ Переключение вкладки по уведомлению
+  void _onSwitchTab() {
+    final tabIndex = switchTabNotifier.value;
+    if (tabIndex != null) {
+      setState(() {
+        _currentIndex = tabIndex;
+      });
+      // Сбрасываем чтобы не срабатывало повторно
+      switchTabNotifier.value = null;
+    }
   }
 
   void _onTabTapped(int index) {
@@ -73,9 +96,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         bottomNavigationBar: BlocBuilder<IncidentsBloc, IncidentsState>(
           bloc: _incidentsBloc,
           builder: (context, state) {
-            final count = state is IncidentsLoadedState
-                ? state.activeIncidentsCount
-                : 0;
+            final count =
+                state is IncidentsLoadedState ? state.activeIncidentsCount : 0;
 
             return CustomBottomNavigation(
               currentIndex: _currentIndex,

@@ -20,16 +20,23 @@ class AppColors {
 }
 
 class IncidentsScreen extends StatelessWidget {
-  const IncidentsScreen({super.key});
+  final String? initialSearchQuery;
+
+  const IncidentsScreen({
+    super.key, 
+    this.initialSearchQuery
+  });
 
   @override
   Widget build(BuildContext context) {
-    return const _IncidentsScreenContent();
+    return _IncidentsScreenContent(initialSearchQuery: initialSearchQuery);
   }
 }
 
 class _IncidentsScreenContent extends StatefulWidget {
-  const _IncidentsScreenContent();
+  final String? initialSearchQuery;
+  
+  const _IncidentsScreenContent({this.initialSearchQuery});
 
   @override
   State<_IncidentsScreenContent> createState() => _IncidentsScreenContentState();
@@ -43,6 +50,14 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    
+    if (widget.initialSearchQuery != null && widget.initialSearchQuery!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<IncidentsBloc>().add(
+          IncidentsSearchBoilerEvent(widget.initialSearchQuery!)
+        );
+      });
+    }
   }
 
   @override

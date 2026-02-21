@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:manage_center/models/user_info_model.dart';
+import 'package:manage_center/services/push_notification_service.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 
@@ -52,7 +54,7 @@ class BiometricNotEnrolled extends AuthState {}
 
 // Bloc
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  late ApiService _apiService;
+  final ApiService _apiService;
   final StorageService _storageService;
   final LocalAuthentication _localAuth = LocalAuthentication();
 
@@ -62,11 +64,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   })  : _apiService = apiService!,
         _storageService = storageService,
         super(AuthInitial()) {
-
+    // ==================== ОБЫЧНЫЙ ЛОГИН ====================
     on<LoginEvent>((event, emit) async {
       try {
-      emit(AuthLoading());
-        // Получаем токен
+        emit(AuthLoading());
         final tokenResponse = await _apiService.login(
           event.login,
           event.password,
@@ -75,19 +76,29 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         if (event.rememberMe) {
           await _storageService.saveToken(tokenResponse.token);
         }
-        
-       // Если включена биометрия, сохраняем токен как сессионный
-    if (event.enableBiometric) {
-      await _storageService.saveTokenType(true); // Сессионный токен
-      await _storageService.saveBiometricCredentials(event.login, event.password);
-      await _storageService.setBiometricEnabled(true);
-    } else {
-      await _storageService.saveTokenType(false); // Долгосрочный токен
-    }
 
-        // Получаем информацию о пользователе
+        if (event.enableBiometric) {
+          await _storageService.saveTokenType(true);
+          await _storageService.saveBiometricCredentials(
+              event.login, event.password);
+          await _storageService.setBiometricEnabled(true);
+        } else {
+          await _storageService.saveTokenType(false);
+        }
+
         final userInfo = await _apiService.getUserInfo(tokenResponse.token);
-        print('userInfo = ${userInfo.name}');
+        debugLog('userInfo = ${userInfo.name}');
+
+        // ✅ Сохраняем роль
+        if (userInfo.role != null) {
+          await _storageService.saveUserRoleId(userInfo.role!.id);
+          await _storageService.saveUserRoleName(userInfo.role!.name);
+          debugLog(
+              '💾 Роль сохранена: ${userInfo.role!.name} (ID: ${userInfo.role!.id})');
+        }
+
+        // ✅ Подписка на push-уведомления
+        await _subscribeToPushTopics(userInfo);
 
         emit(AuthSuccess(userInfo));
       } catch (e) {
@@ -95,17 +106,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
     });
 
+    // ==================== БИОМЕТРИЧЕСКИЙ ЛОГИН ====================
     on<BiometricLoginEvent>((event, emit) async {
-      // Проверяем, доступна ли биометрия
       bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
       bool isDeviceSupported = await _localAuth.isDeviceSupported();
-      
+
       if (!canCheckBiometrics || !isDeviceSupported) {
         emit(BiometricNotAvailable());
         return;
       }
 
-      // Проверяем, включена ли биометрия в настройках
       bool isBiometricEnabled = await _storageService.isBiometricEnabled();
       if (!isBiometricEnabled) {
         emit(AuthInitial());
@@ -113,32 +123,36 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
 
       emit(BiometricAuthLoading());
-      
+
       try {
-        // Запускаем биометрическую аутентификацию
         bool didAuthenticate = await _localAuth.authenticate(
           localizedReason: 'Пожалуйста, подтвердите свою личность для входа',
-          options: const AuthenticationOptions(
-            stickyAuth: true,
-            biometricOnly: true,
-          ),
         );
 
         if (didAuthenticate) {
-          // Получаем сохраненные учетные данные
           final credentials = await _storageService.getBiometricCredentials();
           final login = credentials['login'];
           final password = credentials['password'];
 
           if (login != null && password != null) {
-            // Выполняем вход с сохраненными учетными данными
             final tokenResponse = await _apiService.login(login, password);
             await _storageService.saveToken(tokenResponse.token);
-            
+
             final userInfo = await _apiService.getUserInfo(tokenResponse.token);
+
+            // ✅ Сохраняем роль
+            if (userInfo.role != null) {
+              await _storageService.saveUserRoleId(userInfo.role!.id);
+              await _storageService.saveUserRoleName(userInfo.role!.name);
+              debugLog(
+                  '💾 Роль сохранена: ${userInfo.role!.name} (ID: ${userInfo.role!.id})');
+            }
+
+            // ✅ Подписка на push-уведомления
+            await _subscribeToPushTopics(userInfo);
+
             emit(AuthSuccess(userInfo));
           } else {
-            // Если учетные данные не найдены
             await _storageService.setBiometricEnabled(false);
             emit(AuthFailure('Учетные данные для биометрии не найдены'));
           }
@@ -146,32 +160,92 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           emit(AuthFailure('Биометрическая аутентификация отменена'));
         }
       } catch (e) {
-        emit(AuthFailure('Ошибка биометрической аутентификации: ${e.toString()}'));
+        emit(AuthFailure(
+            'Ошибка биометрической аутентификации: ${e.toString()}'));
       }
     });
 
+    // ==================== ВЫХОД ====================
     on<LogoutEvent>((event, emit) async {
+      // ✅ Отписка от всех push-каналов
+      await _unsubscribeFromAllTopics();
+
       await _storageService.deleteToken();
       await _storageService.clearBiometricCredentials();
+      await _storageService.clearUserRole();
       emit(AuthInitial());
     });
 
+    // ==================== ВОССТАНОВЛЕНИЕ СЕССИИ ====================
     on<RestoreAuthEvent>((event, emit) async {
       final token = await _storageService.getToken();
       if (token != null) {
         emit(AuthLoading());
         try {
           final userInfo = await _apiService.getUserInfo(token);
+
+          // ✅ Сохраняем/обновляем роль
+          if (userInfo.role != null) {
+            await _storageService.saveUserRoleId(userInfo.role!.id);
+            await _storageService.saveUserRoleName(userInfo.role!.name);
+            debugLog(
+                '💾 Роль обновлена: ${userInfo.role!.name} (ID: ${userInfo.role!.id})');
+          }
+
+          // ✅ Подписка на push-уведомления
+          await _subscribeToPushTopics(userInfo);
+
           emit(AuthSuccess(userInfo));
         } catch (e) {
-          await _storageService.deleteToken(); // Удаляем invalid токен
-          emit(AuthFailure(e.toString())); // Эмитим ошибку
+          await _storageService.deleteToken();
+          emit(AuthFailure(e.toString()));
         }
       } else {
         emit(AuthInitial());
       }
     });
   }
+
+  // ==================== PUSH-ПОДПИСКА ====================
+
+  Future<void> _subscribeToPushTopics(UserInfo userInfo) async {
+    if (Platform.isWindows) return;
+    if (userInfo.role == null) {
+      debugLog('⚠️ [PUSH] Роль не указана, подписка пропущена');
+      return;
+    }
+
+    final roleId = userInfo.role!.id;
+    final roleName = userInfo.role!.name;
+    debugLog('🔔 [PUSH] Подписка для роли: $roleName (ID: $roleId)');
+
+    final pushService = PushNotificationService();
+
+    if (roleId == 1) {
+      // АДМИН — только свой канал
+      await pushService.subscribeToTopic('role_admin');
+    } else if (roleId == 2) {
+      // ДИСПЕТЧЕР — только свой канал
+      await pushService.subscribeToTopic('role_dispatcher');
+    } else if (roleId == 3) {
+      // МАСТЕР — только свой канал
+      await pushService.subscribeToTopic('role_master');
+    } else {
+      debugLog('⚠️ [PUSH] Неизвестная роль (ID: $roleId). Подписка пропущена.');
+    }
+  }
+
+  Future<void> _unsubscribeFromAllTopics() async {
+    if (Platform.isWindows) return;
+
+    debugLog('🚪 [PUSH] Отписка от всех каналов...');
+    final pushService = PushNotificationService();
+    await pushService.unsubscribeFromTopic('role_admin');
+    await pushService.unsubscribeFromTopic('role_dispatcher');
+    await pushService.unsubscribeFromTopic('role_master');
+  }
+
+  // ==================== УТИЛИТЫ ====================
 
   Future<bool> isBiometricAvailable() async {
     bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
@@ -185,5 +259,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   Future<List<BiometricType>> getAvailableBiometrics() async {
     return await _localAuth.getAvailableBiometrics();
+  }
+
+  void debugLog(String message) {
+    assert(() {
+      // ignore: avoid_print
+      print(message);
+      return true;
+    }());
   }
 }
