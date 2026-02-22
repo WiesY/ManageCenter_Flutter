@@ -12,6 +12,8 @@ import 'package:manage_center/screens/settings/settings_menu_screen.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'package:manage_center/widgets/custom_bottom_navigation.dart';
+import 'package:manage_center/services/app_update_service.dart';
+import 'package:manage_center/widgets/update_dialog.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -48,7 +50,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       _currentIndex = switchTabNotifier.value!;
       switchTabNotifier.value = null;
     }
+
+    _checkForUpdates();
   }
+
+  Future<void> _checkForUpdates() async {
+  // Ждём пока экран отрисуется
+  await Future.delayed(const Duration(seconds: 2));
+
+  final updateInfo = await AppUpdateService().checkForUpdate();
+
+  if (updateInfo != null && mounted) {
+    UpdateDialog.show(context, updateInfo);
+  }
+}
 
   @override
   void dispose() {
