@@ -36,6 +36,5 @@ import FirebaseMessaging
 
 extension AppDelegate: MessagingDelegate {
   func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
-    print("🔑 iOS FCM Token: \(fcmToken ?? "nil")")
   }
 }

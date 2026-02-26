@@ -322,21 +322,6 @@ void _promptToSaveCredentials() {
                 //   ),
 
                 const SizedBox(height: 32),
-                // в любом месте где есть context
-ElevatedButton(
-  onPressed: () async {
-    final apns = await FirebaseMessaging.instance.getAPNSToken();
-    final fcm = await FirebaseMessaging.instance.getToken();
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text('Tokens'),
-        content: Text('APNs: ${apns ?? "NULL"}\nFCM: ${fcm ?? "NULL"}'),
-      ),
-    );
-  },
-  child: Text('Show Tokens'),
-),
                 // Кнопка входа
                 SizedBox(
                   width: double.infinity,

@@ -273,7 +273,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // --- НОВЫЙ МЕТОД: Строка статистики ---
   Widget _buildStatsBar(int total, int alarm, int online, int offline) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,

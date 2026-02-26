@@ -264,7 +264,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   void debugLog(String message) {
     assert(() {
       // ignore: avoid_print
-      print(message);
+      //print(message);
       return true;
     }());
   }
