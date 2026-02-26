@@ -9,7 +9,6 @@ import 'package:manage_center/screens/incidents_screen.dart';
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print("🔥 [BACKGROUND] Сообщение ID: ${message.messageId}");
 }
 
 class PushNotificationService {
@@ -37,15 +36,11 @@ class PushNotificationService {
 
   Future<void> initialize() async {
     if (_isInitialized) {
-      print("⚠️ [PushService] Уже инициализирован");
       return;
     }
 
-    print("🚀 [PushService] НАЧАЛО ИНИЦИАЛИЗАЦИИ...");
-
     try {
       await Firebase.initializeApp();
-      print("✅ [PushService] Firebase Core запущен");
 
       _fcm = FirebaseMessaging.instance;
 
@@ -56,8 +51,6 @@ class PushNotificationService {
         provisional: false,
       );
 
-      print("🔒 [PushService] Права доступа: ${settings.authorizationStatus}");
-
       await _fcm.setForegroundNotificationPresentationOptions(
         alert: true,
         badge: true,
@@ -65,31 +58,28 @@ class PushNotificationService {
       );
 
       String? token = await _fcm.getToken();
-      print("==================================================");
-      print("🎟️ FCM TOKEN: $token");
-      print("==================================================");
 
-      String? apnsToken = await _fcm.getAPNSToken();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final ctx = navigatorKey.currentContext;
-        if (ctx != null) {
-          showDialog(
-            context: ctx,
-            builder: (_) => AlertDialog(
-              title: const Text('Push Debug'),
-              content: SelectableText(
-                'FCM: ${token ?? "NULL"}\n\nAPNs: ${apnsToken ?? "NULL"}',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
-        }
-      });
+      //String? apnsToken = await _fcm.getAPNSToken();
+      // WidgetsBinding.instance.addPostFrameCallback((_) {
+      //   final ctx = navigatorKey.currentContext;
+      //   if (ctx != null) {
+      //     showDialog(
+      //       context: ctx,
+      //       builder: (_) => AlertDialog(
+      //         title: const Text('Push Debug'),
+      //         content: SelectableText(
+      //           'FCM: ${token ?? "NULL"}\n\nAPNs: ${apnsToken ?? "NULL"}',
+      //         ),
+      //         actions: [
+      //           TextButton(
+      //             onPressed: () => Navigator.pop(ctx),
+      //             child: const Text('OK'),
+      //           ),
+      //         ],
+      //       ),
+      //     );
+      //   }
+      // });
 
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@android:drawable/ic_dialog_alert');
@@ -121,24 +111,21 @@ class PushNotificationService {
           _firebaseMessagingBackgroundHandler);
 
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        print(
-            "🔔 [FOREGROUND] Пришло сообщение: ${message.notification?.title}");
+        // print(
+        //     "🔔 [FOREGROUND] Пришло сообщение: ${message.notification?.title}");
         _showLocalNotification(message);
       });
 
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        print("👆 [CLICK] Клик из фона");
         _handleNavigation(message.data);
       });
 
       final initialMessage = await _fcm.getInitialMessage();
       if (initialMessage != null) {
-        print("👆 [CLICK] Клик при холодном старте");
         _handleNavigation(initialMessage.data);
       }
 
       _isInitialized = true;
-      print("🏁 [PushService] Инициализация завершена успешно!");
     } catch (e) {
       print("❌ [PushService] FATAL ERROR: $e");
     }
@@ -179,11 +166,11 @@ class PushNotificationService {
       payload: jsonEncode(message.data),
     );
 
-    print("📱 [LOCAL] Уведомление показано: $title");
+    //print("📱 [LOCAL] Уведомление показано: $title");
   }
 
   void _handleNavigation(Map<String, dynamic> data) {
-    print("➡️ Переключаемся на журнал аварий");
+    //print("➡️ Переключаемся на журнал аварий");
     switchTabNotifier.value = 2;
   }
 
@@ -191,7 +178,6 @@ class PushNotificationService {
     try {
       if (!_isInitialized) await initialize();
       await _fcm.subscribeToTopic(topic);
-      print("✅ [SUBSCRIBE] Подписан на: $topic");
     } catch (e) {
       print("❌ [SUBSCRIBE ERROR] $e");
     }
