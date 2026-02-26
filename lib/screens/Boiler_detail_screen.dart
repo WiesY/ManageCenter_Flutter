@@ -9,6 +9,8 @@ import 'package:manage_center/models/boiler_parameter_value_model.dart';
 import 'package:manage_center/models/groups_model.dart';
 import 'package:manage_center/screens/parameter_chart_screen.dart';
 import 'package:manage_center/widgets/blinking_dot.dart';
+import 'package:manage_center/services/api_service.dart'; // Добавлен импорт
+import 'package:manage_center/services/storage_service.dart'; // Добавлен импорт
 
 class AppColors {
   static const primary = Color(0xFF2E7D32);
@@ -78,13 +80,43 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
     );
     _loadConfiguration();
     _checkPermissions();
+    
+    // Сначала ставим статус из кэша (чтобы было быстро)
     _updateBoilerStatusFromBoilersBloc();
+    
+    // Сразу же запускаем загрузку АКТУАЛЬНОГО статуса с сервера
+    _refreshRealtimeStatus(); 
   }
 
   @override
   void dispose() {
     _refreshController.dispose();
     super.dispose();
+  }
+
+  // --- НОВЫЙ МЕТОД: Загрузка статуса напрямую с API ---
+  Future<void> _refreshRealtimeStatus() async {
+    try {
+      final token = await context.read<StorageService>().getToken();
+      if (token != null) {
+        // Запрашиваем данные через наш новый метод getBoilerById
+        final details = await context.read<ApiService>().getBoilerById(token, widget.boilerId);
+        
+        if (mounted) {
+          setState(() {
+            if (details.isEmergency) {
+              _boilerStatus = BoilerStatus.error;
+            } else if (!details.hasConnection) {
+              _boilerStatus = BoilerStatus.warning;
+            } else {
+              _boilerStatus = BoilerStatus.normal;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      print('Не удалось обновить статус котельной: $e');
+    }
   }
 
   void _checkPermissions() {
@@ -101,7 +133,10 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   }
 
   Future<void> _loadCurrentValues() async {
-    _updateBoilerStatusFromBoilersBloc();
+    // 1. Обновляем статус самой котельной (Авария/Норма)
+    await _refreshRealtimeStatus();
+    
+    // 2. Обновляем параметры (цифры)
     _refreshController.forward().then((_) => _refreshController.reverse());
     final now = DateTime.now().toUtc();
     context.read<BoilerDetailBloc>().add(LoadBoilerParameterValues(
@@ -114,37 +149,26 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   }
 
   void _updateBoilerStatusFromBoilersBloc() {
-  final boilersState = context.read<BoilersBloc>().state;
-  if (boilersState is BoilersLoadSuccess) {
-    final boiler = boilersState.boilers.firstWhere(
-      (b) => b.id == widget.boilerId
-    );
-    
-    if (boiler != null) {
-      setState(() {
-        if (boiler.isEmergency) {
-          _boilerStatus = BoilerStatus.error;
-        } else if (!boiler.hasConnection) {
-          _boilerStatus = BoilerStatus.warning;
-        } else {
-          _boilerStatus = BoilerStatus.normal;
-        }
-      });
+    final boilersState = context.read<BoilersBloc>().state;
+    if (boilersState is BoilersLoadSuccess) {
+      try {
+        final boiler = boilersState.boilers.firstWhere(
+          (b) => b.id == widget.boilerId
+        );
+        setState(() {
+          if (boiler.isEmergency) {
+            _boilerStatus = BoilerStatus.error;
+          } else if (!boiler.hasConnection) {
+            _boilerStatus = BoilerStatus.warning;
+          } else {
+            _boilerStatus = BoilerStatus.normal;
+          }
+        });
+      } catch (e) {
+        // Котельная не найдена в списке
+      }
     }
   }
-}
-
-  void _updateBoilerStatus({required bool hasConnection, required bool isEmergency}) {
-  setState(() {
-    if (isEmergency) {
-      _boilerStatus = BoilerStatus.error;
-    } else if (!hasConnection) {
-      _boilerStatus = BoilerStatus.warning;
-    } else {
-      _boilerStatus = BoilerStatus.normal;
-    }
-  });
-}
 
   void _buildParameterValueMap(List<BoilerParameterValue> values) {
     _parameterValueMap.clear();
@@ -204,7 +228,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   String get _statusText => switch (_boilerStatus) {
     BoilerStatus.normal => 'В работе',
     BoilerStatus.warning => 'Нет связи',
-    BoilerStatus.error => 'Требуется внимание',
+    BoilerStatus.error => 'Требуется внимание', // Изменил текст для наглядности
   };
 
   bool _hasEmergencyInGroup(Group group) {
@@ -255,20 +279,6 @@ bool _isEmergencyParameter(BoilerParameter parameter) {
           },
         ),
       ),
-      // floatingActionButton: AnimatedBuilder(
-      //   animation: _refreshAnimation,
-      //   builder: (context, child) {
-      //     return FloatingActionButton(
-      //       onPressed: _loadCurrentValues,
-      //       backgroundColor: AppColors.primary,
-      //       elevation: 8,
-      //       child: Transform.rotate(
-      //         angle: _refreshAnimation.value * 2 * 3.14159,
-      //         child: const Icon(Icons.refresh, color: Colors.white),
-      //       ),
-      //     );
-      //   },
-      // ),
     );
   }
 
@@ -345,7 +355,6 @@ bool _isEmergencyParameter(BoilerParameter parameter) {
   }
 
   Widget _buildStatusHeader() {
-    // Получаем общее количество параметров
     final totalParametersCount = _allParameters.length;
     
     return Container(

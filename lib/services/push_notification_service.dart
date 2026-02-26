@@ -69,6 +69,28 @@ class PushNotificationService {
       print("🎟️ FCM TOKEN: $token");
       print("==================================================");
 
+      String? apnsToken = await _fcm.getAPNSToken();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = navigatorKey.currentContext;
+        if (ctx != null) {
+          showDialog(
+            context: ctx,
+            builder: (_) => AlertDialog(
+              title: const Text('Push Debug'),
+              content: SelectableText(
+                'FCM: ${token ?? "NULL"}\n\nAPNs: ${apnsToken ?? "NULL"}',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
+      });
+
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@android:drawable/ic_dialog_alert');
 

@@ -6,13 +6,10 @@ import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/models/boiler_list_item_model.dart';
 import 'package:manage_center/screens/boiler_detail_screen.dart';
-import 'package:manage_center/screens/login_screen.dart';
-import 'package:manage_center/screens/settings/settings_menu_screen.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
 import 'package:manage_center/widgets/blinking_dot.dart';
-import 'package:manage_center/widgets/custom_bottom_navigation.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -103,147 +100,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           children: [
             // Header with search
-Container(
-  decoration: BoxDecoration(
-    gradient: LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Colors.blue.shade600, Colors.blue.shade800],
-    ),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.blue.shade200,
-        blurRadius: 8,
-        offset: const Offset(0, 2),
-      ),
-    ],
-  ),
-  padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
-  child: Column(
-    children: [
-      // Top bar with title and logout
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.dashboard,
-              color: Colors.white,
-              size: 28,
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Диспетчерская',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Spacer(),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: IconButton(
-                icon: Icon(
-                  _isSearchActive ? Icons.close : Icons.search,
-                  color: Colors.white,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _isSearchActive = !_isSearchActive;
-                    if (!_isSearchActive) {
-                      _searchController.clear();
-                      _searchQuery = '';
-                    }
-                  });
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.logout, color: Colors.white),
-                onPressed: () => _showLogoutDialog(context),
-              ),
-            ),
-          ],
-        ),
-      ),
-      // Search bar
-      AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        height: _isSearchActive ? 60 : 0,
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 300),
-          opacity: _isSearchActive ? 1.0 : 0.0,
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: _searchController,
-              autofocus: _isSearchActive,
-              decoration: InputDecoration(
-                hintText: 'Поиск по названию, району или типу...',
-                hintStyle: TextStyle(
-                  color: Colors.grey.shade500,
-                  fontSize: 14,
-                ),
-                prefixIcon: Icon(
-                  Icons.search,
-                  color: Colors.blue.shade600,
-                  size: 20,
-                ),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(
-                          Icons.clear,
-                          color: Colors.grey.shade500,
-                          size: 20,
-                        ),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _searchQuery = '';
-                          });
-                        },
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-              ),
-              style: const TextStyle(fontSize: 14),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-            ),
-          ),
-        ),
-      ),
-    ],
-  ),
-),
+            _buildHeader(context),
+            
             // Content
             Expanded(
               child: BlocBuilder<BoilersBloc, BoilersState>(
@@ -320,78 +178,16 @@ Container(
                     );
                   }
                   if (state is BoilersLoadSuccess) {
+                    // Считаем статистику
+                    final totalCount = state.boilers.length;
+                    final alarmCount = state.boilers.where((b) => b.isEmergency).length;
+                    final onlineCount = state.boilers.where((b) => b.hasConnection && !b.isEmergency).length;
+                    final offlineCount = state.boilers.where((b) => !b.hasConnection).length;
+
                     final filteredBoilers = _filterBoilers(state.boilers);
 
                     if (state.boilers.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.inbox_outlined,
-                              size: 64,
-                              color: Colors.grey.shade400,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Список объектов пуст',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-
-                    if (filteredBoilers.isEmpty && _searchQuery.isNotEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.search_off,
-                              size: 64,
-                              color: Colors.grey.shade400,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Ничего не найдено',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Попробуйте изменить поисковый запрос',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade500,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() {
-                                  _searchQuery = '';
-                                });
-                              },
-                              icon: const Icon(Icons.clear),
-                              label: const Text('Очистить поиск'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue.shade600,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
+                      return const Center(child: Text('Список объектов пуст'));
                     }
 
                     return RefreshIndicator(
@@ -406,11 +202,14 @@ Container(
                       },
                       child: Column(
                         children: [
+                          // --- ВСТАВЛЕНО: Блок статистики ---
+                          _buildStatsBar(totalCount, alarmCount, onlineCount, offlineCount),
+                          
                           // Search results info
                           if (_searchQuery.isNotEmpty)
                             Container(
-                              margin: const EdgeInsets.all(16),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // уменьшил отступ
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               decoration: BoxDecoration(
                                 color: Colors.blue.shade50,
                                 borderRadius: BorderRadius.circular(12),
@@ -434,9 +233,15 @@ Container(
                                 ],
                               ),
                             ),
-                          Expanded(
-                            child: _buildBoilerList(context, filteredBoilers),
-                          ),
+                            
+                          if (filteredBoilers.isEmpty && _searchQuery.isNotEmpty)
+                            const Expanded(
+                              child: Center(child: Text("Ничего не найдено")),
+                            )
+                          else
+                            Expanded(
+                              child: _buildBoilerList(context, filteredBoilers),
+                            ),
                         ],
                       ),
                     );
@@ -461,6 +266,204 @@ Container(
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // --- НОВЫЙ МЕТОД: Строка статистики ---
+  Widget _buildStatsBar(int total, int alarm, int online, int offline) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.shade100.withOpacity(0.3),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildStatItem('Всего', total, Colors.blue.shade800),
+          Container(width: 1, height: 24, color: Colors.grey.shade200),
+          _buildStatItem('Требуется внимание', alarm, Colors.red.shade600),
+          Container(width: 1, height: 24, color: Colors.grey.shade200),
+          _buildStatItem('В работе', online, Colors.green.shade600),
+          Container(width: 1, height: 24, color: Colors.grey.shade200),
+          _buildStatItem('Нет связи', offline, Colors.grey.shade500),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, int count, Color color) {
+    return Column(
+      children: [
+        Text(
+          count.toString(),
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- ДАЛЕЕ ВЕСЬ ТВОЙ СТАРЫЙ КОД БЕЗ ИЗМЕНЕНИЙ ---
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.blue.shade600, Colors.blue.shade800],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.shade200,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.dashboard,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Диспетчерская',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      _isSearchActive ? Icons.close : Icons.search,
+                      color: Colors.white,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isSearchActive = !_isSearchActive;
+                        if (!_isSearchActive) {
+                          _searchController.clear();
+                          _searchQuery = '';
+                        }
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.logout, color: Colors.white),
+                    onPressed: () => _showLogoutDialog(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            height: _isSearchActive ? 60 : 0,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: _isSearchActive ? 1.0 : 0.0,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  autofocus: _isSearchActive,
+                  decoration: InputDecoration(
+                    hintText: 'Поиск по названию, району или типу...',
+                    hintStyle: TextStyle(
+                      color: Colors.grey.shade500,
+                      fontSize: 14,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: Colors.blue.shade600,
+                      size: 20,
+                    ),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(
+                              Icons.clear,
+                              color: Colors.grey.shade500,
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {
+                                _searchQuery = '';
+                              });
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  style: const TextStyle(fontSize: 14),
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value;
+                    });
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -543,15 +546,14 @@ Container(
         ),
         LayoutBuilder(
           builder: (context, constraints) {
-            // Вычисляем количество колонок на основе ширины экрана
             final screenWidth = constraints.maxWidth;
-            const cardWidth = 76.0; // Желаемая ширина карточки
+            const cardWidth = 76.0; 
             const spacing = 6.0;
-            const horizontalPadding = 4.0; // 2 * 2 из padding
+            const horizontalPadding = 4.0;
             
             final availableWidth = screenWidth - horizontalPadding;
             int crossAxisCount = ((availableWidth + spacing) / (cardWidth + spacing)).floor();
-            crossAxisCount = crossAxisCount.clamp(2, 20); // Минимум 2, максимум 8 колонок
+            crossAxisCount = crossAxisCount.clamp(2, 20);
             
             return GridView.builder(
               shrinkWrap: true,
@@ -574,9 +576,6 @@ Container(
   }
 
   Widget _buildBoilerCard(BuildContext context, BoilerListItem boiler) {
-    // Highlight search matches
-    print('boiler.hasConnection = ${boiler.hasConnection}');
-    print('boiler.isEmergency = ${boiler.isEmergency}');
     final isHighlighted = _searchQuery.isNotEmpty && (
       boiler.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
       boiler.district.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -636,7 +635,6 @@ Container(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Верхняя строка с иконками
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -652,24 +650,23 @@ Container(
                         size: 10,
                       ),
                     ),
-                     // Тип котла
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: Text(
-                    boiler.boilerType.name,
-                    style: TextStyle(
-                      color: Colors.grey.shade700,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        boiler.boilerType.name,
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
                     Container(
                       padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
@@ -681,7 +678,6 @@ Container(
                   ],
                 ),              
                 const SizedBox(height: 5),
-                // Название котла
                 Expanded(
                   child: Text(
                     boiler.name,
