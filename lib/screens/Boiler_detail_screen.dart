@@ -94,6 +94,18 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
     super.dispose();
   }
 
+  String _formatValue(String displayValue, String valueType) {
+  final type = valueType.toLowerCase();
+  if (type == 'int' || type == 'integer' || type == 'long' || type == 'short' || type == 'byte') {
+    // Пробуем распарсить как double и привести к int
+    final parsed = double.tryParse(displayValue);
+    if (parsed != null) {
+      return parsed.toInt().toString();
+    }
+  }
+  return displayValue;
+}
+
   // --- НОВЫЙ МЕТОД: Загрузка статуса напрямую с API ---
   Future<void> _refreshRealtimeStatus() async {
     try {
@@ -611,7 +623,7 @@ bool _isEmergencyParameter(BoilerParameter parameter) {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 86),
       itemCount: visibleGroups.length,
       itemBuilder: (context, index) => _buildGroupCard(visibleGroups[index]),
     );
@@ -821,7 +833,7 @@ bool _isEmergencyParameter(BoilerParameter parameter) {
               ),
             ),
             child: Text(
-              value?.displayValue ?? 'Нет данных',
+              value != null ? _formatValue(value.displayValue, parameter.valueType) : 'Нет данных',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: valueColor,

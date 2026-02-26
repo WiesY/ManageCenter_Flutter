@@ -69,6 +69,7 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      
       backgroundColor: AppColors.background,
       appBar: _buildAppBar(context),
       body: BlocBuilder<AnalyticsBloc, AnalyticsState>(
@@ -89,6 +90,7 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
                   _buildParameterGroupSelector(context, state),
                  // const SizedBox(height: 1),
                   _buildParametersTable(context, state),
+                  const SizedBox(height: 80),
                 ],
               ),
             );

@@ -1,4 +1,4 @@
-// parameter_chart_screen.dart (обновленный)
+// parameter_chart_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +9,8 @@ import 'package:manage_center/models/boiler_parameter_value_model.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'dart:math' as math;
+
+// ==================== ЦВЕТА ====================
 
 class AppColors {
   static const primary = Color(0xFF2E7D32);
@@ -24,11 +26,20 @@ class AppColors {
   static const chartSecondary = Color(0xFF81C784);
 }
 
-enum ChartDataType {
-  numeric,
-  boolean,
-  unknown,
-}
+const List<Color> _multiColors = [
+  Color(0xFF2E7D32),
+  Color(0xFFFF5722),
+  Color(0xFF2196F3),
+  Color(0xFF9C27B0),
+  Color(0xFFFF9800),
+  Color(0xFF00BCD4),
+  Color(0xFFE91E63),
+  Color(0xFF607D8B),
+];
+
+// ==================== МОДЕЛИ ====================
+
+enum ChartDataType { numeric, boolean, unknown }
 
 class ChartValue {
   final double numericValue;
@@ -46,27 +57,7 @@ class ChartValue {
   });
 }
 
-class IntervalOption {
-  final String title;
-  final String subtitle;
-  final int interval;
-  final IconData icon;
-
-  IntervalOption({
-    required this.title,
-    required this.subtitle,
-    required this.interval,
-    required this.icon,
-  });
-}
-
-enum TimePeriod {
-  hour,
-  day,
-  week,
-  month,
-  custom,
-}
+enum TimePeriod { hour, day, week, month, custom }
 
 extension TimePeriodExtension on TimePeriod {
   String get displayName {
@@ -87,7 +78,7 @@ extension TimePeriodExtension on TimePeriod {
   Duration get duration {
     switch (this) {
       case TimePeriod.hour:
-        return const Duration(hours: 4);
+        return const Duration(hours: 1);
       case TimePeriod.day:
         return const Duration(days: 1);
       case TimePeriod.week:
@@ -102,13 +93,13 @@ extension TimePeriodExtension on TimePeriod {
   int get interval {
     switch (this) {
       case TimePeriod.hour:
-        return 5; // каждые 5 минут
+        return 5;
       case TimePeriod.day:
-        return 60; // каждые 30 минут
+        return 60;
       case TimePeriod.week:
-        return 480; // каждые 4 часа
+        return 480;
       case TimePeriod.month:
-        return 1440; // каждый день
+        return 1440;
       case TimePeriod.custom:
         return 60;
     }
@@ -130,16 +121,34 @@ extension TimePeriodExtension on TimePeriod {
   }
 }
 
+class IntervalOption {
+  final String title;
+  final String subtitle;
+  final int interval;
+  final IconData icon;
+
+  IntervalOption({
+    required this.title,
+    required this.subtitle,
+    required this.interval,
+    required this.icon,
+  });
+}
+
+// ==================== ЭКРАН ====================
+
 class ParameterChartScreen extends StatefulWidget {
   final int boilerId;
   final String boilerName;
   final BoilerParameter parameter;
+  final List<BoilerParameter>? additionalParameters;
 
   const ParameterChartScreen({
     super.key,
     required this.boilerId,
     required this.boilerName,
     required this.parameter,
+    this.additionalParameters,
   });
 
   @override
@@ -151,6 +160,7 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
   TimePeriod _selectedPeriod = TimePeriod.day;
   List<BoilerParameterValue> _chartData = [];
   List<ChartValue> _processedData = [];
+  Map<int, List<ChartValue>> _processedMultiData = {};
   ChartDataType _dataType = ChartDataType.unknown;
   bool _isLoading = false;
 
@@ -162,6 +172,21 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
   late Animation<double> _refreshAnimation;
   late ParameterChartBloc _parameterChartBloc;
 
+  // Зум
+  double _zoomLevel = 1.0;
+  double _zoomOffset = 0.0; // 0..1 — позиция центра зума
+  bool get _isZoomed => _zoomLevel > 1.05;
+
+  List<BoilerParameter> get _allParameters {
+    final list = [widget.parameter];
+    if (widget.additionalParameters != null) {
+      list.addAll(widget.additionalParameters!);
+    }
+    return list;
+  }
+
+  bool get _isMultiParam => _allParameters.length > 1;
+
   @override
   void initState() {
     super.initState();
@@ -172,13 +197,12 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
     _refreshAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _refreshController, curve: Curves.easeInOut),
     );
-    
-    // Создаем блок и инициализируем его
+
     _parameterChartBloc = ParameterChartBloc(
       apiService: context.read<ApiService>(),
       storageService: context.read<StorageService>(),
     );
-    
+
     _loadChartData();
   }
 
@@ -189,31 +213,21 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
     super.dispose();
   }
 
-  // Улучшенная функция обработки данных
+  // ==================== ОБРАБОТКА ДАННЫХ ====================
+
   List<ChartValue> _processChartData(List<BoilerParameterValue> rawData) {
     if (rawData.isEmpty) return [];
 
-    List<ChartValue> processedData = [];
-    ChartDataType detectedType = ChartDataType.unknown;
-    
-    // Анализируем тип данных
     bool hasNumeric = false;
     bool hasBoolean = false;
-    
+
     for (var item in rawData) {
-      final trimmedValue = item.value.trim().toLowerCase();
-      
-      if (trimmedValue == 'true' || trimmedValue == 'false' || 
-          trimmedValue == '1' || trimmedValue == '0') {
-        hasBoolean = true;
-      }
-      
-      if (double.tryParse(item.value) != null) {
-        hasNumeric = true;
-      }
+      final v = item.value.trim().toLowerCase();
+      if (v == 'true' || v == 'false') hasBoolean = true;
+      if (double.tryParse(item.value) != null) hasNumeric = true;
     }
 
-    // Определяем основной тип данных
+    ChartDataType detectedType;
     if (hasBoolean && !hasNumeric) {
       detectedType = ChartDataType.boolean;
     } else if (hasNumeric) {
@@ -224,49 +238,19 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
 
     _dataType = detectedType;
 
-    // Обрабатываем каждое значение
-    for (var item in rawData) {
-      final trimmedValue = item.value.trim().toLowerCase();
-      double numericValue = 0.0;
+    return rawData.map((item) {
+      final v = item.value.trim().toLowerCase();
+      double numericValue = 0;
       String displayValue = item.value;
 
       switch (detectedType) {
         case ChartDataType.boolean:
-          if (trimmedValue == 'true' || trimmedValue == '1') {
-            numericValue = 1.0;
-            displayValue = 'Да';
-          } else if (trimmedValue == 'false' || trimmedValue == '0') {
-            numericValue = 0.0;
-            displayValue = 'Нет';
-          } else {
-            // Попытка парсинга числа для смешанных данных
-            final parsed = double.tryParse(item.value);
-            if (parsed != null) {
-              numericValue = parsed > 0 ? 1.0 : 0.0;
-              displayValue = parsed > 0 ? 'Да' : 'Нет';
-            }
-          }
+          final isTrue = v == 'true' || v == '1';
+          numericValue = isTrue ? 1.0 : 0.0;
+          displayValue = isTrue ? 'Да' : 'Нет';
           break;
-        
         case ChartDataType.numeric:
-          final parsed = double.tryParse(item.value);
-          if (parsed != null) {
-            numericValue = parsed;
-            displayValue = _formatNumericValue(parsed);
-          } else {
-            // Обработка булевых значений в числовых данных
-            if (trimmedValue == 'true') {
-              numericValue = 1.0;
-              displayValue = '1';
-            } else if (trimmedValue == 'false') {
-              numericValue = 0.0;
-              displayValue = '0';
-            }
-          }
-          break;
-        
         case ChartDataType.unknown:
-          // Попытка обработать как число
           final parsed = double.tryParse(item.value);
           if (parsed != null) {
             numericValue = parsed;
@@ -275,67 +259,71 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
           break;
       }
 
-      processedData.add(ChartValue(
+      return ChartValue(
         numericValue: numericValue,
         displayValue: displayValue,
         originalValue: item.value,
         type: detectedType,
         timestamp: item.receiptDate,
-      ));
-    }
-
-    return processedData;
+      );
+    }).toList();
   }
 
   String _formatNumericValue(double value) {
-    // Форматируем числовые значения
-    if (value == value.roundToDouble()) {
-      return value.round().toString();
-    } else {
-      return value.toStringAsFixed(2);
-    }
+    if (value == value.roundToDouble()) return value.round().toString();
+    return value.toStringAsFixed(2);
   }
 
-  Future<void> _loadChartData() async {
-    setState(() {
-      _isLoading = true;
-    });
+  // ==================== ЗАГРУЗКА ====================
 
+  Future<void> _loadChartData() async {
+    setState(() => _isLoading = true);
     _refreshController.forward().then((_) => _refreshController.reverse());
+
+    // Сброс зума
+    _zoomLevel = 1.0;
+    _zoomOffset = 0.5;
 
     final now = DateTime.now();
     DateTime startDate;
     DateTime endDate;
     int interval;
 
-    if (_selectedPeriod == TimePeriod.custom) {
-      if (_customStartDate == null || _customEndDate == null) {
-        startDate = now.subtract(const Duration(days: 7));
-        endDate = now;
-        interval = 240;
-      } else {
-        startDate = _customStartDate!;
-        endDate = _customEndDate!;
-        interval = _customInterval;
-      }
+    if (_selectedPeriod == TimePeriod.custom &&
+        _customStartDate != null &&
+        _customEndDate != null) {
+      startDate = _customStartDate!;
+      endDate = _customEndDate!;
+      interval = _customInterval;
     } else {
       startDate = now.subtract(_selectedPeriod.duration);
       endDate = now;
       interval = _selectedPeriod.interval;
     }
 
-    // Используем блок для загрузки данных
-    _parameterChartBloc.add(LoadParameterValues(
-      boilerId: widget.boilerId,
-      parameterId: widget.parameter.id,
-      startDate: startDate,
-      endDate: endDate,
-      interval: interval,
-    ));
+    if (_isMultiParam) {
+      _parameterChartBloc.add(LoadMultipleParameterValues(
+        boilerId: widget.boilerId,
+        parameterIds: _allParameters.map((p) => p.id).toList(),
+        startDate: startDate,
+        endDate: endDate,
+        interval: interval,
+      ));
+    } else {
+      _parameterChartBloc.add(LoadParameterValues(
+        boilerId: widget.boilerId,
+        parameterId: widget.parameter.id,
+        startDate: startDate,
+        endDate: endDate,
+        interval: interval,
+      ));
+    }
   }
 
+  // ==================== КАСТОМНЫЙ ДИАПАЗОН ====================
+
   Future<void> _selectCustomDateRange() async {
-    final DateTimeRange? picked = await showDateRangePicker(
+    final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now(),
@@ -348,7 +336,7 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
+            colorScheme: const ColorScheme.light(
               primary: AppColors.primary,
               onPrimary: Colors.white,
               surface: Colors.white,
@@ -362,15 +350,14 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
 
     if (picked != null) {
       final selectedInterval = await _showIntervalDialog(picked);
-
       if (selectedInterval != null) {
         setState(() {
           _customStartDate = picked.start;
           _customEndDate = picked.end
               .add(const Duration(hours: 23, minutes: 59, seconds: 59));
           _customInterval = selectedInterval;
+          _selectedPeriod = TimePeriod.custom;
         });
-
         _loadChartData();
       }
     }
@@ -379,33 +366,30 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
   Future<int?> _showIntervalDialog(DateTimeRange dateRange) async {
     final duration =
         dateRange.end.difference(dateRange.start) + const Duration(days: 1);
-    List<IntervalOption> intervals = _getIntervalOptions(duration);
-    int recommendedInterval = _getRecommendedInterval(duration);
-    int selectedInterval = recommendedInterval;
+    final intervals = _getIntervalOptions(duration);
+    final recommended = _getRecommendedInterval(duration);
+    int selected = recommended;
 
     return showDialog<int>(
       context: context,
-      builder: (BuildContext context) {
+      builder: (context) {
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (context, setDialogState) {
             return AlertDialog(
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
               title: Row(
                 children: [
-                  Icon(Icons.tune, color: AppColors.primary),
+                  const Icon(Icons.tune, color: AppColors.primary),
                   const SizedBox(width: 12),
-                  const Text(
-                    'Настройка интервала',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
+                  const Text('Настройка интервала',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
                 ],
               ),
               content: SizedBox(
                 width: double.maxFinite,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -419,51 +403,47 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
                           Text(
                             'Период: ${DateFormat('dd.MM.yyyy').format(dateRange.start)} - ${DateFormat('dd.MM.yyyy').format(dateRange.end)}',
                             style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
+                                fontSize: 14, fontWeight: FontWeight.w500),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             'Длительность: ${duration.inDays} дн.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
-                            ),
+                            style: const TextStyle(
+                                fontSize: 13, color: AppColors.textSecondary),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Выберите интервал сбора данных:',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('Выберите интервал сбора данных:',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
                     const SizedBox(height: 12),
-                    ...intervals.map((option) {
-                      final isRecommended =
-                          option.interval == recommendedInterval;
+                    ...intervals.map((opt) {
+                      final isRec = opt.interval == recommended;
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: isRecommended
+                            color: isRec
                                 ? AppColors.primary.withOpacity(0.3)
                                 : Colors.transparent,
                           ),
-                          color: isRecommended
+                          color: isRec
                               ? AppColors.primary.withOpacity(0.05)
                               : null,
                         ),
                         child: RadioListTile<int>(
                           title: Row(
                             children: [
-                              Icon(option.icon,
+                              Icon(opt.icon,
                                   size: 18, color: AppColors.primary),
                               const SizedBox(width: 8),
-                              Text(option.title),
-                              if (isRecommended) ...[
+                              Text(opt.title),
+                              if (isRec) ...[
                                 const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
@@ -475,49 +455,42 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
                                   child: const Text(
                                     'Рекомендуется',
                                     style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                        fontSize: 10,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w500),
                                   ),
                                 ),
                               ],
                             ],
                           ),
                           subtitle: Text(
-                            '${option.subtitle}\n≈ ${_estimateDataPoints(duration, option.interval)} точек данных',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
+                            '${opt.subtitle}\n≈ ${_estimateDataPoints(duration, opt.interval)} точек данных',
+                            style: const TextStyle(
+                                fontSize: 12, color: AppColors.textSecondary),
                           ),
-                          value: option.interval,
-                          groupValue: selectedInterval,
+                          value: opt.interval,
+                          groupValue: selected,
                           activeColor: AppColors.primary,
-                          onChanged: (value) {
-                            setState(() {
-                              selectedInterval = value!;
-                            });
-                          },
+                          onChanged: (v) =>
+                              setDialogState(() => selected = v!),
                         ),
                       );
-                    }).toList(),
+                    }),
                   ],
                 ),
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(null),
+                  onPressed: () => Navigator.pop(context),
                   child: const Text('Отмена'),
                 ),
                 ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(selectedInterval),
+                  onPressed: () => Navigator.pop(context, selected),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                   child: const Text('Применить'),
                 ),
@@ -530,176 +503,245 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
   }
 
   List<IntervalOption> _getIntervalOptions(Duration duration) {
-    List<IntervalOption> options = [];
-
     if (duration.inHours <= 24) {
-      options.addAll([
-        // IntervalOption(
-        //     title: 'Каждую минуту',
-        //     subtitle: 'Максимальная детализация',
-        //     interval: 1,
-        //     icon: Icons.timer),
-        IntervalOption(
-            title: 'Каждые 5 минут',
-            subtitle: 'Высокая детализация',
-            interval: 5,
-            icon: Icons.schedule),
-        IntervalOption(
-            title: 'Каждые 15 минут',
-            subtitle: 'Средняя детализация',
-            interval: 15,
-            icon: Icons.access_time),
-        IntervalOption(
-            title: 'Каждые 30 минут',
-            subtitle: 'Низкая детализация',
-            interval: 30,
-            icon: Icons.hourglass_empty),
-        IntervalOption(
-            title: 'Каждый час',
-            subtitle: 'Минимальная детализация',
-            interval: 60,
-            icon: Icons.watch_later),
-      ]);
+      return [
+        IntervalOption(title: 'Каждые 5 минут', subtitle: 'Высокая детализация', interval: 5, icon: Icons.schedule),
+        IntervalOption(title: 'Каждые 15 минут', subtitle: 'Средняя детализация', interval: 15, icon: Icons.access_time),
+        IntervalOption(title: 'Каждые 30 минут', subtitle: 'Низкая детализация', interval: 30, icon: Icons.hourglass_empty),
+        IntervalOption(title: 'Каждый час', subtitle: 'Минимальная детализация', interval: 60, icon: Icons.watch_later),
+      ];
     } else if (duration.inDays <= 7) {
-      options.addAll([
-        IntervalOption(
-            title: 'Каждые 5 минут',
-            subtitle: 'Максимальная детализация',
-            interval: 5,
-            icon: Icons.timer),
-        IntervalOption(
-            title: 'Каждые 15 минут',
-            subtitle: 'Высокая детализация',
-            interval: 15,
-            icon: Icons.schedule),
-        IntervalOption(
-            title: 'Каждые 30 минут',
-            subtitle: 'Средняя детализация',
-            interval: 30,
-            icon: Icons.access_time),
-        IntervalOption(
-            title: 'Каждый час',
-            subtitle: 'Низкая детализация',
-            interval: 60,
-            icon: Icons.watch_later),
-        IntervalOption(
-            title: 'Каждые 4 часа',
-            subtitle: 'Минимальная детализация',
-            interval: 240,
-            icon: Icons.hourglass_full),
-      ]);
+      return [
+        IntervalOption(title: 'Каждые 5 минут', subtitle: 'Максимальная детализация', interval: 5, icon: Icons.timer),
+        IntervalOption(title: 'Каждые 15 минут', subtitle: 'Высокая детализация', interval: 15, icon: Icons.schedule),
+        IntervalOption(title: 'Каждые 30 минут', subtitle: 'Средняя детализация', interval: 30, icon: Icons.access_time),
+        IntervalOption(title: 'Каждый час', subtitle: 'Низкая детализация', interval: 60, icon: Icons.watch_later),
+        IntervalOption(title: 'Каждые 4 часа', subtitle: 'Минимальная детализация', interval: 240, icon: Icons.hourglass_full),
+      ];
     } else if (duration.inDays <= 30) {
-      options.addAll([
-        IntervalOption(
-            title: 'Каждые 30 минут',
-            subtitle: 'Максимальная детализация',
-            interval: 30,
-            icon: Icons.timer),
-        IntervalOption(
-            title: 'Каждый час',
-            subtitle: 'Высокая детализация',
-            interval: 60,
-            icon: Icons.schedule),
-        IntervalOption(
-            title: 'Каждые 4 часа',
-            subtitle: 'Средняя детализация',
-            interval: 240,
-            icon: Icons.access_time),
-        IntervalOption(
-            title: 'Каждые 12 часов',
-            subtitle: 'Низкая детализация',
-            interval: 720,
-            icon: Icons.watch_later),
-        IntervalOption(
-            title: 'Каждый день',
-            subtitle: 'Минимальная детализация',
-            interval: 1440,
-            icon: Icons.today),
-      ]);
+      return [
+        IntervalOption(title: 'Каждые 30 минут', subtitle: 'Максимальная детализация', interval: 30, icon: Icons.timer),
+        IntervalOption(title: 'Каждый час', subtitle: 'Высокая детализация', interval: 60, icon: Icons.schedule),
+        IntervalOption(title: 'Каждые 4 часа', subtitle: 'Средняя детализация', interval: 240, icon: Icons.access_time),
+        IntervalOption(title: 'Каждые 12 часов', subtitle: 'Низкая детализация', interval: 720, icon: Icons.watch_later),
+        IntervalOption(title: 'Каждый день', subtitle: 'Минимальная детализация', interval: 1440, icon: Icons.today),
+      ];
     } else {
-      options.addAll([
-        IntervalOption(
-            title: 'Каждый час',
-            subtitle: 'Максимальная детализация',
-            interval: 60,
-            icon: Icons.timer),
-        IntervalOption(
-            title: 'Каждые 4 часа',
-            subtitle: 'Высокая детализация',
-            interval: 240,
-            icon: Icons.schedule),
-        IntervalOption(
-            title: 'Каждые 12 часов',
-            subtitle: 'Средняя детализация',
-            interval: 720,
-            icon: Icons.access_time),
-        IntervalOption(
-            title: 'Каждый день',
-            subtitle: 'Низкая детализация',
-            interval: 1440,
-            icon: Icons.today),
-        IntervalOption(
-            title: 'Каждые 3 дня',
-            subtitle: 'Минимальная детализация',
-            interval: 4320,
-            icon: Icons.date_range),
-      ]);
+      return [
+        IntervalOption(title: 'Каждый час', subtitle: 'Максимальная детализация', interval: 60, icon: Icons.timer),
+        IntervalOption(title: 'Каждые 4 часа', subtitle: 'Высокая детализация', interval: 240, icon: Icons.schedule),
+        IntervalOption(title: 'Каждые 12 часов', subtitle: 'Средняя детализация', interval: 720, icon: Icons.access_time),
+        IntervalOption(title: 'Каждый день', subtitle: 'Низкая детализация', interval: 1440, icon: Icons.today),
+        IntervalOption(title: 'Каждые 3 дня', subtitle: 'Минимальная детализация', interval: 4320, icon: Icons.date_range),
+      ];
     }
-
-    return options;
   }
 
   int _getRecommendedInterval(Duration duration) {
-    if (duration.inHours <= 4) {
-      return 5;
-    } else if (duration.inHours <= 24) {
-      return 15;
-    } else if (duration.inDays <= 7) {
-      return 60;
-    } else if (duration.inDays <= 30) {
-      return 240;
-    } else {
-      return 1440;
-    }
+    if (duration.inHours <= 4) return 5;
+    if (duration.inHours <= 24) return 15;
+    if (duration.inDays <= 7) return 60;
+    if (duration.inDays <= 30) return 240;
+    return 1440;
   }
 
   int _estimateDataPoints(Duration duration, int intervalMinutes) {
-    final totalMinutes = duration.inMinutes;
-    return (totalMinutes / intervalMinutes).ceil();
+    return (duration.inMinutes / intervalMinutes).ceil();
   }
 
-  String _formatDateTime(DateTime dateTime) {
-    switch (_selectedPeriod) {
-      case TimePeriod.hour:
-        return DateFormat('HH:mm').format(dateTime.toLocal());
-      case TimePeriod.day:
-        return DateFormat('HH:mm').format(dateTime.toLocal());
-      case TimePeriod.week:
-        return DateFormat('dd.MM').format(dateTime.toLocal());
-      case TimePeriod.month:
-        return DateFormat('dd.MM').format(dateTime.toLocal());
-      case TimePeriod.custom:
-        if (_customStartDate != null && _customEndDate != null) {
-          final duration = _customEndDate!.difference(_customStartDate!);
-          if (duration.inDays <= 1) {
-            return DateFormat('HH:mm').format(dateTime.toLocal());
-          } else {
-            return DateFormat('dd.MM').format(dateTime.toLocal());
-          }
-        }
-        return DateFormat('dd.MM').format(dateTime.toLocal());
+  // ==================== ФОРМАТИРОВАНИЕ ====================
+
+  String _formatDateLabel(DateTime date) {
+    final duration = _selectedPeriod == TimePeriod.custom &&
+            _customStartDate != null &&
+            _customEndDate != null
+        ? _customEndDate!.difference(_customStartDate!)
+        : _selectedPeriod.duration;
+
+    if (duration.inHours <= 24) {
+      return DateFormat('HH:mm').format(date.toLocal());
     }
+    return DateFormat('dd.MM').format(date.toLocal());
   }
 
-  List<FlSpot> _getChartSpots() {
-    if (_processedData.isEmpty) return [];
-
-    return _processedData.asMap().entries.map((entry) {
-      final index = entry.key;
-      final value = entry.value;
-      return FlSpot(index.toDouble(), value.numericValue);
-    }).toList();
+  String _formatYLabel(double value) {
+    if (_dataType == ChartDataType.boolean) {
+      if ((value - 1.0).abs() < 0.01) return 'Да';
+      if (value.abs() < 0.01) return 'Нет';
+      return '';
+    }
+    if (value.abs() >= 10000) return '${(value / 1000).toStringAsFixed(1)}k';
+    if (value.abs() >= 1000) return '${(value / 1000).toStringAsFixed(1)}k';
+    if (value == value.roundToDouble()) return value.toInt().toString();
+    return value.toStringAsFixed(1);
   }
+
+  double _calculateOptimalYInterval(double minY, double maxY) {
+    if (_dataType == ChartDataType.boolean) return 0.5;
+    final range = (maxY - minY).abs();
+    if (range == 0) return 1.0;
+
+    const targetDivisions = 5;
+    var interval = range / targetDivisions;
+    final magnitude = math.pow(10, (math.log(interval) / math.ln10).floor());
+    final normalized = interval / magnitude;
+
+    if (normalized <= 1.5) {
+      interval = magnitude.toDouble();
+    } else if (normalized <= 3) {
+      interval = 2 * magnitude.toDouble();
+    } else if (normalized <= 7) {
+      interval = 5 * magnitude.toDouble();
+    } else {
+      interval = 10 * magnitude.toDouble();
+    }
+    return interval;
+  }
+
+  double _getXInterval(double xRangeMs) {
+    if (xRangeMs <= 3600000) return 600000; // 10 мин
+    if (xRangeMs <= 21600000) return 3600000; // 1 час
+    if (xRangeMs <= 86400000) return 14400000; // 4 часа
+    if (xRangeMs <= 604800000) return 86400000; // 1 день
+    return 432000000; // 5 дней
+  }
+
+  // ==================== UI ====================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.parameter.name.isNotEmpty
+                  ? widget.parameter.name
+                  : 'Параметр ${widget.parameter.id}',
+              style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white),
+            ),
+            Text(
+              widget.boilerName,
+              style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.white70,
+                  fontWeight: FontWeight.w400),
+            ),
+          ],
+        ),
+        centerTitle: true,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        actions: [
+          AnimatedBuilder(
+            animation: _refreshAnimation,
+            builder: (context, child) {
+              return IconButton(
+                icon: Transform.rotate(
+                  angle: _refreshAnimation.value * 2 * math.pi,
+                  child: const Icon(Icons.refresh, color: Colors.white),
+                ),
+                onPressed: _loadChartData,
+              );
+            },
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadChartData,
+        color: AppColors.primary,
+        child: BlocProvider.value(
+          value: _parameterChartBloc,
+          child: BlocListener<ParameterChartBloc, ParameterChartState>(
+            listener: (context, state) {
+              if (state is ParameterChartLoaded) {
+                setState(() {
+                  _chartData = state.values;
+                  _processedData = _processChartData(_chartData);
+                  if (_isMultiParam) {
+                    _processedMultiData = {};
+                    for (final entry in state.parameterValues.entries) {
+                      _processedMultiData[entry.key] =
+                          _processChartData(entry.value);
+                    }
+                  } else {
+                    _processedMultiData = {
+                      widget.parameter.id: _processedData
+                    };
+                  }
+                  _isLoading = false;
+                });
+              } else if (state is ParameterChartLoadFailure) {
+                setState(() => _isLoading = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.isAuthError
+                        ? 'Необходима авторизация'
+                        : 'Ошибка: ${state.error}'),
+                    backgroundColor: AppColors.error,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    action: SnackBarAction(
+                      label: 'Повторить',
+                      textColor: Colors.white,
+                      onPressed: _loadChartData,
+                    ),
+                  ),
+                );
+              } else if (state is ParameterChartEmpty) {
+                setState(() {
+                  _processedData = [];
+                  _processedMultiData = {};
+                  _isLoading = false;
+                });
+              }
+            },
+            child: BlocBuilder<ParameterChartBloc, ParameterChartState>(
+              builder: (context, state) {
+                if (_isLoading || state is ParameterChartLoadInProgress) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(color: AppColors.primary),
+                        SizedBox(height: 16),
+                        Text('Загрузка данных...',
+                            style:
+                                TextStyle(color: AppColors.textSecondary)),
+                      ],
+                    ),
+                  );
+                }
+
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    children: [
+                      _buildPeriodSelector(),
+                      if (_isMultiParam && state is ParameterChartLoaded)
+                        _buildLegend(state),
+                      _buildChart(),
+                      if (_isZoomed) _buildZoomResetButton(),
+                      _buildStatistics(),
+                      const SizedBox(height: 80),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== ПРЕСЕТЫ ====================
 
   Widget _buildPeriodSelector() {
     return Container(
@@ -719,18 +761,11 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
               onTap: () async {
                 if (period == TimePeriod.custom) {
                   await _selectCustomDateRange();
-                  if (_customStartDate != null && _customEndDate != null) {
-                    setState(() {
-                      _selectedPeriod = period;
-                    });
-                  }
-                } else {
-                  if (_selectedPeriod != period) {
-                    setState(() {
-                      _selectedPeriod = period;
-                    });
-                    _loadChartData();
-                  }
+                } else if (_selectedPeriod != period) {
+                  setState(() {
+                    _selectedPeriod = period;
+                  });
+                  _loadChartData();
                 }
               },
               child: AnimatedContainer(
@@ -740,7 +775,8 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(isSelected ? 0.15 : 0.08),
+                      color: Colors.black
+                          .withOpacity(isSelected ? 0.15 : 0.08),
                       blurRadius: isSelected ? 8 : 4,
                       offset: Offset(0, isSelected ? 4 : 2),
                     ),
@@ -749,19 +785,20 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      period.icon,
-                      color: isSelected ? Colors.white : AppColors.primary,
-                      size: 24,
-                    ),
+                    Icon(period.icon,
+                        color:
+                            isSelected ? Colors.white : AppColors.primary,
+                        size: 24),
                     const SizedBox(height: 8),
                     Text(
                       period.displayName,
                       style: TextStyle(
-                        color:
-                            isSelected ? Colors.white : AppColors.textPrimary,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w500,
+                        color: isSelected
+                            ? Colors.white
+                            : AppColors.textPrimary,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                         fontSize: 12,
                       ),
                       textAlign: TextAlign.center,
@@ -773,9 +810,8 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
                       Text(
                         '${DateFormat('dd.MM').format(_customStartDate!)} - ${DateFormat('dd.MM').format(_customEndDate!)}',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 9,
-                        ),
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 9),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -789,248 +825,318 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
     );
   }
 
+  // ==================== ЛЕГЕНДА ====================
+
+  Widget _buildLegend(ParameterChartLoaded state) {
+    int colorIdx = 0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 4,
+        children: state.parameters.entries.map((entry) {
+          final color = _multiColors[colorIdx % _multiColors.length];
+          colorIdx++;
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 14,
+                height: 3,
+                decoration: BoxDecoration(
+                    color: color, borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(width: 6),
+              Text(entry.value.name,
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textPrimary)),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ==================== ГРАФИК ====================
+
   Widget _buildChart() {
-    if (_processedData.isEmpty) {
+    if (_processedMultiData.isEmpty ||
+        _processedMultiData.values.every((v) => v.isEmpty)) {
       return _buildEmptyChart();
     }
 
-    final spots = _getChartSpots();
-    if (spots.isEmpty) return _buildEmptyChart();
+    // Собираем линии
+    final lineBars = <LineChartBarData>[];
+    double globalMinY = double.infinity;
+    double globalMaxY = double.negativeInfinity;
+    double globalMinX = double.infinity;
+    double globalMaxX = double.negativeInfinity;
 
-    // Улучшенная логика расчета границ графика
-    final values = spots.map((s) => s.y).toList();
-    double minY, maxY;
+    int colorIdx = 0;
+    for (final entry in _processedMultiData.entries) {
+      final values = entry.value;
+      final color = _isMultiParam
+          ? _multiColors[colorIdx % _multiColors.length]
+          : AppColors.chartPrimary;
+      colorIdx++;
 
-    if (_dataType == ChartDataType.boolean) {
-      // Для булевых значений используем фиксированные границы
-      minY = -0.1;
-      maxY = 1.1;
-    } else {
-      // Для числовых значений
-      final minVal = values.reduce(math.min);
-      final maxVal = values.reduce(math.max);
-      
-      if (minVal == maxVal) {
-        // Если все значения одинаковы
-        final center = minVal;
-        final padding = math.max(center.abs() * 0.1, 1.0);
-        minY = center - padding;
-        maxY = center + padding;
-      } else {
-        // Обычный случай с разными значениями
-        final range = maxVal - minVal;
-        final padding = range * 0.1;
-        minY = minVal - padding;
-        maxY = maxVal + padding;
+      final spots = <FlSpot>[];
+      for (final v in values) {
+        final x = v.timestamp.millisecondsSinceEpoch.toDouble();
+        final y = v.numericValue;
+        spots.add(FlSpot(x, y));
+        if (y < globalMinY) globalMinY = y;
+        if (y > globalMaxY) globalMaxY = y;
+        if (x < globalMinX) globalMinX = x;
+        if (x > globalMaxX) globalMaxX = x;
       }
+
+      if (spots.isEmpty) continue;
+
+      lineBars.add(LineChartBarData(
+        spots: spots,
+        isCurved: _dataType != ChartDataType.boolean,
+        curveSmoothness: 0.2,
+        color: color,
+        barWidth: 2.5,
+        isStrokeCapRound: true,
+        dotData: FlDotData(
+          show: _dataType == ChartDataType.boolean || spots.length < 40,
+          getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
+            radius: 3,
+            color: Colors.white,
+            strokeWidth: 2,
+            strokeColor: color,
+          ),
+        ),
+        belowBarData: BarAreaData(
+          show: !_isMultiParam,
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppColors.chartSecondary.withOpacity(0.3),
+              AppColors.chartSecondary.withOpacity(0.05),
+            ],
+          ),
+        ),
+      ));
     }
 
-    final minXVal = 0.0;
-    final maxXVal = math.max(1.0, (spots.length - 1).toDouble());
+    if (lineBars.isEmpty) return _buildEmptyChart();
 
-    // Оптимальные интервалы для осей
-    final bottomInterval = math.max(1, (spots.length / 1).ceil()).toDouble();
-    final leftInterval = _calculateOptimalInterval(minY, maxY);
+    // Границы Y
+    double minY, maxY;
+    if (_dataType == ChartDataType.boolean) {
+      minY = -0.1;
+      maxY = 1.1;
+    } else if (globalMinY == globalMaxY) {
+      final padding = math.max(globalMinY.abs() * 0.1, 1.0);
+      minY = globalMinY - padding;
+      maxY = globalMaxY + padding;
+    } else {
+      final range = globalMaxY - globalMinY;
+      minY = globalMinY - range * 0.1;
+      maxY = globalMaxY + range * 0.1;
+    }
 
-    return Container(
-      height: 350,
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: LineChart(
-        LineChartData(
-          minX: minXVal,
-          maxX: maxXVal,
-          minY: minY,
-          maxY: maxY,
-          clipData: const FlClipData.all(),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: true,
-            drawHorizontalLine: true,
-            horizontalInterval: 10,
-            getDrawingHorizontalLine: (value) => FlLine(
-              color: AppColors.textSecondary.withOpacity(0.2),
-              strokeWidth: 1,
+    // Зум по X
+    final fullRangeX = globalMaxX - globalMinX;
+    final visibleRange = fullRangeX / _zoomLevel;
+    final centerX = globalMinX + fullRangeX * _zoomOffset;
+    final displayMinX = math.max(globalMinX, centerX - visibleRange / 2);
+    final displayMaxX = math.min(globalMaxX, centerX + visibleRange / 2);
+    final xRange = displayMaxX - displayMinX;
+    final xInterval = _getXInterval(xRange);
+
+    return GestureDetector(
+      onScaleUpdate: (details) {
+        if (details.pointerCount < 2) return;
+        setState(() {
+          // Зум
+          _zoomLevel = (_zoomLevel * details.scale).clamp(1.0, 20.0);
+          // Панорамирование
+          final delta = details.focalPointDelta.dx;
+          if (delta.abs() > 0.5) {
+            _zoomOffset = (_zoomOffset - delta / 500).clamp(0.0, 1.0);
+          }
+        });
+      },
+      // Панорамирование одним пальцем при зуме
+      onHorizontalDragUpdate: _isZoomed
+          ? (details) {
+              setState(() {
+                _zoomOffset = (_zoomOffset - details.delta.dx / 500)
+                    .clamp(0.0, 1.0);
+              });
+            }
+          : null,
+      child: Container(
+        height: 350,
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(8, 20, 20, 12),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-            getDrawingVerticalLine: (value) => FlLine(
-              color: AppColors.textSecondary.withOpacity(0.2),
-              strokeWidth: 1,
+          ],
+        ),
+        child: LineChart(
+          LineChartData(
+            lineBarsData: lineBars,
+            minX: displayMinX,
+            maxX: displayMaxX,
+            minY: minY,
+            maxY: maxY,
+            clipData: const FlClipData.all(),
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: false,
+              horizontalInterval: _calculateOptimalYInterval(minY, maxY),
+              getDrawingHorizontalLine: (value) => FlLine(
+                color: AppColors.textSecondary.withOpacity(0.15),
+                strokeWidth: 1,
+              ),
             ),
-          ),
-          titlesData: FlTitlesData(
-            bottomTitles: AxisTitles( //настройка заголовков по оси X
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 20,
-                interval: bottomInterval,
-                getTitlesWidget: (value, meta) {
-                  final index = value.round();
-                  if (index >= 0 && index < _processedData.length) {
+            borderData: FlBorderData(
+              show: true,
+              border: Border(
+                bottom: BorderSide(
+                    color: AppColors.textSecondary.withOpacity(0.3)),
+                left: BorderSide(
+                    color: AppColors.textSecondary.withOpacity(0.3)),
+              ),
+            ),
+            titlesData: FlTitlesData(
+              topTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false)),
+              rightTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false)),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 28,
+                  interval: xInterval,
+                  getTitlesWidget: (value, meta) {
+                    if (value == meta.min || value == meta.max) {
+                      return const SizedBox.shrink();
+                    }
+                    final date = DateTime.fromMillisecondsSinceEpoch(
+                        value.toInt());
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        _formatDateTime(_processedData[index].timestamp),
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        textAlign: TextAlign.center,
+                        _formatDateLabel(date),
+                        style: const TextStyle(
+                            fontSize: 10,
+                            color: AppColors.textSecondary),
                       ),
                     );
-                  }
-                  return const SizedBox.shrink();
-                },
+                  },
+                ),
               ),
-            ),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles( //настройка заголовков по оси Y
-                showTitles: true,
-                reservedSize: 45,
-                interval: _dataType == ChartDataType.boolean ? 1 : 8,
-                getTitlesWidget: (value, meta) {
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Text(
-                      _formatAxisValue(value),
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w500,
+              leftTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 48,
+                  interval: _dataType == ChartDataType.boolean
+                      ? 1
+                      : _calculateOptimalYInterval(minY, maxY),
+                  getTitlesWidget: (value, meta) {
+                    if (value == meta.min || value == meta.max) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Text(
+                        _formatYLabel(value),
+                        style: const TextStyle(
+                            fontSize: 10,
+                            color: AppColors.textSecondary),
+                        textAlign: TextAlign.right,
                       ),
-                      textAlign: TextAlign.right,
-                    ),
-                  );
-                },
-              ),
-            ),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          ),
-          borderData: FlBorderData(
-            show: true,
-            border: Border.all(
-              color: AppColors.textSecondary.withOpacity(0.2),
-              width: 1,
-            ),
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: _dataType != ChartDataType.boolean,
-              curveSmoothness: 0.2,
-              color: AppColors.chartPrimary,
-              barWidth: 3,
-              dotData: FlDotData(
-                show: _dataType == ChartDataType.boolean,
-                getDotPainter: (spot, percent, barData, index) {
-                  return FlDotCirclePainter(
-                    radius: 4,
-                    color: AppColors.chartPrimary,
-                    strokeWidth: 2,
-                    strokeColor: Colors.white,
-                  );
-                },
-              ),
-              belowBarData: BarAreaData(
-                show: true,
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppColors.chartSecondary.withOpacity(0.3),
-                    AppColors.chartSecondary.withOpacity(0.1),
-                    AppColors.chartSecondary.withOpacity(0.05),
-                  ],
+                    );
+                  },
                 ),
               ),
             ),
-          ],
-          lineTouchData: LineTouchData(
-            touchTooltipData: LineTouchTooltipData(
-              fitInsideHorizontally: true,
-              fitInsideVertically: true,
-              getTooltipColor: (touchedSpot) => AppColors.textPrimary,
-              tooltipBorderRadius: BorderRadius.circular(12),
-              tooltipPadding: const EdgeInsets.all(12),
-              getTooltipItems: (touchedSpots) {
-                return touchedSpots.map((spot) {
-                  final index = spot.x.toInt();
-                  if (index >= 0 && index < _processedData.length) {
-                    final data = _processedData[index];
+            lineTouchData: LineTouchData(
+              enabled: true,
+              touchTooltipData: LineTouchTooltipData(
+                fitInsideHorizontally: true,
+                fitInsideVertically: true,
+                tooltipPadding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 8),
+                getTooltipColor: (_) => AppColors.textPrimary,
+                getTooltipItems: (touchedSpots) {
+                  return touchedSpots.map((spot) {
+                    final date = DateTime.fromMillisecondsSinceEpoch(
+                        spot.x.toInt());
+                    final dateStr = DateFormat('dd.MM.yyyy HH:mm')
+                        .format(date.toLocal());
+                    final color = spot.bar.color ?? Colors.white;
+
+                    String prefix = '';
+                    if (_isMultiParam) {
+                      final paramId = _processedMultiData.keys
+                          .elementAt(spot.barIndex);
+                      final bloc = _parameterChartBloc.state;
+                      if (bloc is ParameterChartLoaded) {
+                        prefix =
+                            '${bloc.parameters[paramId]?.name ?? ''}\n';
+                      }
+                    }
+
+                    final valueStr = _dataType == ChartDataType.boolean
+                        ? (spot.y == 1.0 ? 'Да' : 'Нет')
+                        : _formatNumericValue(spot.y);
+
                     return LineTooltipItem(
-                      '${data.displayValue}\n${_formatDateTime(data.timestamp)}',
-                      const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
+                      '$prefix$valueStr\n$dateStr',
+                      TextStyle(
+                        color: color,
                         fontWeight: FontWeight.w600,
+                        fontSize: 12,
                       ),
                     );
-                  }
-                  return null;
-                }).toList();
-              },
+                  }).toList();
+                },
+              ),
+              handleBuiltInTouches: true,
             ),
           ),
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
         ),
       ),
     );
   }
 
-  double _calculateOptimalInterval(double minY, double maxY) {
-    if (_dataType == ChartDataType.boolean) {
-      return 0.5; // Для булевых значений: 0, 0.5, 1.0
-    }
-
-    final range = (maxY - minY).abs();
-    if (range == 0) return 1.0;
-
-    // Целимся на 4-6 делений
-    const targetDivisions = 5;
-    var interval = range / targetDivisions;
-
-    // Округляем до красивых чисел
-    final magnitude = math.pow(10, (math.log(interval) / math.ln10).floor());
-    final normalized = interval / magnitude;
-
-    if (normalized <= 1.5) {
-      interval = magnitude.toDouble();
-    } else if (normalized <= 3) {
-      interval = 2 * magnitude.toDouble();
-    } else if (normalized <= 7) {
-      interval = 5 * magnitude.toDouble();
-    } else {
-      interval = 10 * magnitude.toDouble();
-    }
-
-    return interval;
-  }
-
-  String _formatAxisValue(double value) {
-    if (_dataType == ChartDataType.boolean) {
-      if ((value - 1.0).abs() < 0.01) return 'Да';
-      if (value.abs() < 0.01) return 'Нет';
-      if ((value - 0.5).abs() < 0.01) return '';
-      return '';
-    }
-
-    // Для числовых значений
-    if (value == value.roundToDouble()) {
-      return value.round().toString();
-    } else {
-      return value.toStringAsFixed(1);
-    }
+  Widget _buildZoomResetButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: TextButton.icon(
+          onPressed: () => setState(() {
+            _zoomLevel = 1.0;
+            _zoomOffset = 0.5;
+          }),
+          icon: const Icon(Icons.zoom_out_map, size: 16),
+          label: const Text('Сбросить зум', style: TextStyle(fontSize: 12)),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildEmptyChart() {
@@ -1052,42 +1158,139 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.show_chart,
-              size: 64,
-              color: AppColors.textSecondary.withOpacity(0.5),
-            ),
+            Icon(Icons.show_chart,
+                size: 64,
+                color: AppColors.textSecondary.withOpacity(0.5)),
             const SizedBox(height: 16),
-            Text(
-              'Нет данных для отображения',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textSecondary,
-              ),
-            ),
+            const Text('Нет данных для отображения',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary)),
             const SizedBox(height: 8),
-            Text(
-              'Попробуйте выбрать другой период',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary.withOpacity(0.7),
-              ),
-            ),
+            Text('Попробуйте выбрать другой период',
+                style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary.withOpacity(0.7))),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatistics() {
-    if (_processedData.isEmpty) return const SizedBox.shrink();
+  // ==================== СТАТИСТИКА ====================
 
-    if (_dataType == ChartDataType.boolean) {
-      return _buildBooleanStatistics();
-    } else {
-      return _buildNumericStatistics();
+  Widget _buildStatistics() {
+    if (_processedMultiData.isEmpty ||
+        _processedMultiData.values.every((v) => v.isEmpty)) {
+      return const SizedBox.shrink();
     }
+
+    if (_isMultiParam) return _buildMultiParamStatistics();
+    if (_processedData.isEmpty) return const SizedBox.shrink();
+    if (_dataType == ChartDataType.boolean) return _buildBooleanStatistics();
+    return _buildNumericStatistics();
+  }
+
+  Widget _buildMultiParamStatistics() {
+    final bloc = _parameterChartBloc.state;
+    if (bloc is! ParameterChartLoaded) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.analytics,
+                  color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(_getPeriodTitle(),
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ..._processedMultiData.entries.map((entry) {
+            final paramId = entry.key;
+            final values = entry.value;
+            final paramName =
+                bloc.parameters[paramId]?.name ?? 'Параметр';
+            final numericValues = values
+                .map((v) => v.numericValue)
+                .where((v) => v.isFinite)
+                .toList();
+
+            if (numericValues.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text('$paramName: нет данных',
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textSecondary)),
+              );
+            }
+
+            final min = numericValues.reduce(math.min);
+            final max = numericValues.reduce(math.max);
+            final avg = numericValues.reduce((a, b) => a + b) /
+                numericValues.length;
+            final sorted = [...numericValues]..sort();
+            final median = sorted.length.isOdd
+                ? sorted[sorted.length ~/ 2]
+                : (sorted[sorted.length ~/ 2 - 1] +
+                        sorted[sorted.length ~/ 2]) /
+                    2;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(paramName,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                          child: _buildStatItem('Мин',
+                              _formatNumericValue(min), AppColors.success, Icons.south)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: _buildStatItem('Макс',
+                              _formatNumericValue(max), AppColors.error, Icons.north)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: _buildStatItem('Среднее',
+                              _formatNumericValue(avg), AppColors.warning, Icons.show_chart)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: _buildStatItem('Медиана',
+                              _formatNumericValue(median), AppColors.primary, Icons.linear_scale)),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
   }
 
   Widget _buildNumericStatistics() {
@@ -1101,9 +1304,11 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
     final min = numericValues.reduce(math.min);
     final max = numericValues.reduce(math.max);
     final avg = numericValues.reduce((a, b) => a + b) / numericValues.length;
-    final current = numericValues.isNotEmpty ? numericValues.last : 0.0;
-
-    String periodTitle = _getPeriodTitle();
+    final current = numericValues.last;
+    final sorted = [...numericValues]..sort();
+    final median = sorted.length.isOdd
+        ? sorted[sorted.length ~/ 2]
+        : (sorted[sorted.length ~/ 2 - 1] + sorted[sorted.length ~/ 2]) / 2;
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -1124,17 +1329,15 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
         children: [
           Row(
             children: [
-              Icon(Icons.analytics, color: AppColors.primary, size: 20),
+              const Icon(Icons.analytics,
+                  color: AppColors.primary, size: 20),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  periodTitle,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
+                child: Text(_getPeriodTitle(),
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary)),
               ),
             ],
           ),
@@ -1142,44 +1345,36 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
           Row(
             children: [
               Expanded(
-                child: _buildStatItem(
-                  'Текущее',
-                  _formatNumericValue(current),
-                  AppColors.primary,
-                  Icons.trending_up,
-                ),
-              ),
+                  child: _buildStatItem('Текущее',
+                      _formatNumericValue(current), AppColors.primary, Icons.trending_up)),
               const SizedBox(width: 12),
               Expanded(
-                child: _buildStatItem(
-                  'Среднее',
-                  _formatNumericValue(avg),
-                  AppColors.warning,
-                  Icons.show_chart,
-                ),
-              ),
+                  child: _buildStatItem('Среднее',
+                      _formatNumericValue(avg), AppColors.warning, Icons.show_chart)),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: _buildStatItem(
-                  'Минимум',
-                  _formatNumericValue(min),
-                  AppColors.success,
-                  Icons.south,
-                ),
-              ),
+                  child: _buildStatItem('Минимум',
+                      _formatNumericValue(min), AppColors.success, Icons.south)),
               const SizedBox(width: 12),
               Expanded(
-                child: _buildStatItem(
-                  'Максимум',
-                  _formatNumericValue(max),
-                  AppColors.error,
-                  Icons.north,
-                ),
-              ),
+                  child: _buildStatItem('Максимум',
+                      _formatNumericValue(max), AppColors.error, Icons.north)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                  child: _buildStatItem('Медиана',
+                      _formatNumericValue(median), AppColors.primary, Icons.linear_scale)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: _buildStatItem('Точек',
+                      '${numericValues.length}', AppColors.textSecondary, Icons.data_usage)),
             ],
           ),
         ],
@@ -1188,14 +1383,14 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
   }
 
   Widget _buildBooleanStatistics() {
-    final trueCount = _processedData.where((v) => v.numericValue == 1.0).length;
-    final falseCount = _processedData.where((v) => v.numericValue == 0.0).length;
+    final trueCount =
+        _processedData.where((v) => v.numericValue == 1.0).length;
+    final falseCount =
+        _processedData.where((v) => v.numericValue == 0.0).length;
     final totalCount = _processedData.length;
-    final current = _processedData.isNotEmpty 
+    final current = _processedData.isNotEmpty
         ? (_processedData.last.numericValue == 1.0 ? 'Да' : 'Нет')
         : 'Нет данных';
-
-    String periodTitle = _getPeriodTitle();
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -1216,17 +1411,15 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
         children: [
           Row(
             children: [
-              Icon(Icons.analytics, color: AppColors.primary, size: 20),
+              const Icon(Icons.analytics,
+                  color: AppColors.primary, size: 20),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  periodTitle,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
+                child: Text(_getPeriodTitle(),
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary)),
               ),
             ],
           ),
@@ -1234,44 +1427,34 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
           Row(
             children: [
               Expanded(
-                child: _buildStatItem(
-                  'Текущее',
-                  current,
-                  AppColors.primary,
-                  Icons.info,
-                ),
-              ),
+                  child: _buildStatItem(
+                      'Текущее', current, AppColors.primary, Icons.info)),
               const SizedBox(width: 12),
               Expanded(
-                child: _buildStatItem(
-                  'Всего записей',
-                  totalCount.toString(),
-                  AppColors.warning,
-                  Icons.data_usage,
-                ),
-              ),
+                  child: _buildStatItem('Всего записей',
+                      totalCount.toString(), AppColors.warning, Icons.data_usage)),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: _buildStatItem(
-                  'Да',
-                  '$trueCount (${(trueCount / totalCount * 100).round()}%)',
-                  AppColors.success,
-                  Icons.check_circle,
-                ),
-              ),
+                  child: _buildStatItem(
+                      'Да',
+                      totalCount > 0
+                          ? '$trueCount (${(trueCount / totalCount * 100).round()}%)'
+                          : '0',
+                      AppColors.success,
+                      Icons.check_circle)),
               const SizedBox(width: 12),
               Expanded(
-                child: _buildStatItem(
-                  'Нет',
-                  '$falseCount (${(falseCount / totalCount * 100).round()}%)',
-                  AppColors.error,
-                  Icons.cancel,
-                ),
-              ),
+                  child: _buildStatItem(
+                      'Нет',
+                      totalCount > 0
+                          ? '$falseCount (${(falseCount / totalCount * 100).round()}%)'
+                          : '0',
+                      AppColors.error,
+                      Icons.cancel)),
             ],
           ),
         ],
@@ -1284,9 +1467,8 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
         _customStartDate != null &&
         _customEndDate != null) {
       return 'Статистика за ${DateFormat('dd.MM.yyyy').format(_customStartDate!)} - ${DateFormat('dd.MM.yyyy').format(_customEndDate!)}';
-    } else {
-      return 'Статистика за ${_selectedPeriod.displayName.toLowerCase()}';
     }
+    return 'Статистика за ${_selectedPeriod.displayName.toLowerCase()}';
   }
 
   Widget _buildStatItem(
@@ -1307,11 +1489,10 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
               Expanded(
                 child: Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500),
                 ),
               ),
             ],
@@ -1320,124 +1501,11 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
           Text(
             value,
             style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
+                fontSize: 14, fontWeight: FontWeight.w700, color: color),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              widget.parameter.name.isNotEmpty
-                  ? widget.parameter.name
-                  : 'Параметр ${widget.parameter.id}',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-            Text(
-              widget.boilerName,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.white70,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-        centerTitle: true,
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        actions: [
-          AnimatedBuilder(
-            animation: _refreshAnimation,
-            builder: (context, child) {
-              return IconButton(
-                icon: Transform.rotate(
-                  angle: _refreshAnimation.value * 2 * 3.14159,
-                  child: const Icon(Icons.refresh, color: Colors.white),
-                ),
-                onPressed: _loadChartData,
-              );
-            },
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadChartData,
-        color: AppColors.primary,
-        child: BlocProvider.value(
-          value: _parameterChartBloc,
-          child: BlocListener<ParameterChartBloc, ParameterChartState>(
-            listener: (context, state) {
-              if (state is ParameterChartLoaded) {
-                setState(() {
-                  _chartData = state.values;
-                  _processedData = _processChartData(_chartData);
-                  _isLoading = false;
-                });
-              } else if (state is ParameterChartLoadFailure) {
-                setState(() {
-                  _isLoading = false;
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Ошибка: ${state.error}'),
-                    backgroundColor: AppColors.error,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                );
-              }
-            },
-            child: BlocBuilder<ParameterChartBloc, ParameterChartState>(
-              builder: (context, state) {
-                return _isLoading || state is ParameterChartLoadInProgress
-                    ? const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(color: AppColors.primary),
-                            SizedBox(height: 16),
-                            Text(
-                              'Загрузка данных...',
-                              style: TextStyle(color: AppColors.textSecondary),
-                            ),
-                          ],
-                        ),
-                      )
-                    : SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        child: Column(
-                          children: [
-                            _buildPeriodSelector(),
-                            _buildChart(),
-                            _buildStatistics(),
-                            const SizedBox(height: 20),
-                          ],
-                        ),
-                      );
-              },
-            ),
-          ),
-        ),
       ),
     );
   }

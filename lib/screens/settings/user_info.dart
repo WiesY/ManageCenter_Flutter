@@ -131,6 +131,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
         // Карточка с дополнительной информацией
         _buildAdditionalInfoCard(userInfo),
+        const SizedBox(height: 80),
       ],
     ),
   );

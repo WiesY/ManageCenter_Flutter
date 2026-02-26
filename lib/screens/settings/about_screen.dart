@@ -61,6 +61,7 @@ class _AboutScreenState extends State<AboutScreen> {
                   _buildFeaturesCard(),
                   const SizedBox(height: 24),
                   _buildTechnicalInfoCard(),
+                  const SizedBox(height: 80),
                 ],
               ),
             ),

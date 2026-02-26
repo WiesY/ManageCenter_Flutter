@@ -120,6 +120,7 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                             _buildBoilerFilter(context, state),
                             const SizedBox(height: 16),
                             _buildIncidentsList(context, state),
+                            const SizedBox(height: 80),
                           ],
                         ),
                       ),

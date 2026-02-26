@@ -291,9 +291,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           _buildStatItem('Всего', total, Colors.blue.shade800),
           Container(width: 1, height: 24, color: Colors.grey.shade200),
-          _buildStatItem('Требуется внимание', alarm, Colors.red.shade600),
+          _buildStatItem('Норма', online, Colors.green.shade600),
           Container(width: 1, height: 24, color: Colors.grey.shade200),
-          _buildStatItem('В работе', online, Colors.green.shade600),
+          _buildStatItem('Требуется внимание', alarm, Colors.red.shade600),
           Container(width: 1, height: 24, color: Colors.grey.shade200),
           _buildStatItem('Нет связи', offline, Colors.grey.shade500),
         ],
@@ -477,7 +477,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final sortedDistrictIds = boilersByDistrict.keys.toList()..sort();
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(12,8,12,80),
       itemCount: sortedDistrictIds.length,
       itemBuilder: (context, index) {
         final districtId = sortedDistrictIds[index];
