@@ -51,11 +51,14 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
     return Scaffold(
       appBar: _buildAppBar(),
       body: _buildBody(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showParameterGroupForm(context),
-        backgroundColor: Colors.blueAccent,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
+      floatingActionButton: Padding(
+              padding: const EdgeInsets.only(bottom: 100),
+        child: FloatingActionButton(
+          onPressed: () => _showParameterGroupForm(context),
+          backgroundColor: Colors.blueAccent,
+          foregroundColor: Colors.white,
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }
@@ -184,7 +187,7 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
   // Построение списка групп
   Widget _buildGroupsListView(List<ParameterGroup> groups, ParameterGroupsBloc bloc) {
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 200),
       itemCount: groups.length,
       itemBuilder: (context, index) {
         final group = groups[index];

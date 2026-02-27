@@ -129,7 +129,7 @@ class _BoilersManagementScreenState extends State<BoilersManagementScreen> {
                       return const Center(child: Text('Нет объектов или ничего не найдено.'));
                     }
                     return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 200),
                       itemCount: filteredBoilers.length,
                       itemBuilder: (context, index) {
                         final boiler = filteredBoilers[index];
@@ -187,11 +187,14 @@ class _BoilersManagementScreenState extends State<BoilersManagementScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showBoilerForm(context),
-        backgroundColor: Colors.blueAccent,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
+      floatingActionButton: Padding(
+             padding: const EdgeInsets.only(bottom: 100),
+        child: FloatingActionButton(
+          onPressed: () => _showBoilerForm(context),
+          backgroundColor: Colors.blueAccent,
+          foregroundColor: Colors.white,
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }

@@ -91,7 +91,7 @@ class _DistrictsManagementScreenState extends State<DistrictsManagementScreen> {
                       return const Center(child: Text('Нет районов или ничего не найдено.'));
                     }
                     return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 200),
                       itemCount: filteredDistricts.length,
                       itemBuilder: (context, index) {
                         final district = filteredDistricts[index];
@@ -142,11 +142,14 @@ class _DistrictsManagementScreenState extends State<DistrictsManagementScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showDistrictForm(context),
-        backgroundColor: Colors.blueAccent,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
+      floatingActionButton: Padding(
+              padding: const EdgeInsets.only(bottom: 100),
+        child: FloatingActionButton(
+          onPressed: () => _showDistrictForm(context),
+          backgroundColor: Colors.blueAccent,
+          foregroundColor: Colors.white,
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }

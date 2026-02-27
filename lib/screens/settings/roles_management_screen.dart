@@ -91,7 +91,7 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
                       return const Center(child: Text('Нет ролей или ничего не найдено.'));
                     }
                     return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 200),
                       itemCount: filteredRoles.length,
                       itemBuilder: (context, index) {
                         final role = filteredRoles[index];
@@ -148,11 +148,14 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showRoleForm(context),
-        backgroundColor: Colors.blueAccent,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
+      floatingActionButton: Padding(
+              padding: const EdgeInsets.only(bottom: 100),
+        child: FloatingActionButton(
+          onPressed: () => _showRoleForm(context),
+          backgroundColor: Colors.blueAccent,
+          foregroundColor: Colors.white,
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }

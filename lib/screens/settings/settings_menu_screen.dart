@@ -177,6 +177,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onTap: () => _showLogoutDialog(context),
                 ),
               ),
+                 const SizedBox(height: 80),
             ],
           ),
         );

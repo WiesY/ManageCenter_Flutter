@@ -113,7 +113,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                               Text('Нет пользователей или ничего не найдено.'));
                     }
                     return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 200),
                       itemCount: filteredUsers.length,
                       itemBuilder: (context, index) {
                         final user = filteredUsers[index];
@@ -164,11 +164,14 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showUserForm(context),
-        foregroundColor: Colors.white,
-        backgroundColor: Colors.blueAccent,
-        child: const Icon(Icons.add),
+      floatingActionButton: Padding(
+              padding: const EdgeInsets.only(bottom: 100),
+        child: FloatingActionButton(
+          onPressed: () => _showUserForm(context),
+          foregroundColor: Colors.white,
+          backgroundColor: Colors.blueAccent,
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }

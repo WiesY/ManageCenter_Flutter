@@ -95,13 +95,13 @@ extension TimePeriodExtension on TimePeriod {
       case TimePeriod.hour:
         return 5;
       case TimePeriod.day:
-        return 60;
+        return 5;
       case TimePeriod.week:
-        return 480;
+        return 5;
       case TimePeriod.month:
-        return 1440;
+        return 5;
       case TimePeriod.custom:
-        return 60;
+        return 5;
     }
   }
 
@@ -898,14 +898,14 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
         isCurved: _dataType != ChartDataType.boolean,
         curveSmoothness: 0.2,
         color: color,
-        barWidth: 2.5,
+        barWidth: 2,
         isStrokeCapRound: true,
         dotData: FlDotData(
           show: _dataType == ChartDataType.boolean || spots.length < 40,
           getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
-            radius: 3,
+            radius: 0,
             color: Colors.white,
-            strokeWidth: 2,
+            strokeWidth: 1,
             strokeColor: color,
           ),
         ),
@@ -1079,7 +1079,7 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
                         spot.x.toInt());
                     final dateStr = DateFormat('dd.MM.yyyy HH:mm')
                         .format(date.toLocal());
-                    final color = spot.bar.color ?? Colors.white;
+                    final color =Colors.white;
 
                     String prefix = '';
                     if (_isMultiParam) {

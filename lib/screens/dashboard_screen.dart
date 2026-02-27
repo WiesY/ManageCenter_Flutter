@@ -63,7 +63,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               backgroundColor: Colors.red.shade600,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             child: const Text('Выйти', style: TextStyle(fontSize: 16)),
           ),
@@ -77,8 +78,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return boilers.where((boiler) {
       return boiler.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-             boiler.district.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-             boiler.boilerType.name.toLowerCase().contains(_searchQuery.toLowerCase());
+          boiler.district.name
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase()) ||
+          boiler.boilerType.name
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase());
     }).toList();
   }
 
@@ -101,7 +106,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             // Header with search
             _buildHeader(context),
-            
+
             // Content
             Expanded(
               child: BlocBuilder<BoilersBloc, BoilersState>(
@@ -112,7 +117,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.blue.shade600),
                             strokeWidth: 3,
                           ),
                           const SizedBox(height: 16),
@@ -162,14 +168,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                             const SizedBox(height: 20),
                             ElevatedButton.icon(
-                              onPressed: () => context.read<BoilersBloc>().add(FetchBoilers()),
+                              onPressed: () => context
+                                  .read<BoilersBloc>()
+                                  .add(FetchBoilers()),
                               icon: const Icon(Icons.refresh),
                               label: const Text('Попробовать снова'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.red.shade600,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 24, vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8)),
                               ),
                             ),
                           ],
@@ -180,9 +190,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   if (state is BoilersLoadSuccess) {
                     // Считаем статистику
                     final totalCount = state.boilers.length;
-                    final alarmCount = state.boilers.where((b) => b.isEmergency).length;
-                    final onlineCount = state.boilers.where((b) => b.hasConnection && !b.isEmergency).length;
-                    final offlineCount = state.boilers.where((b) => !b.hasConnection).length;
+                    final alarmCount =
+                        state.boilers.where((b) => b.isEmergency).length;
+                    final onlineCount = state.boilers
+                        .where((b) => b.hasConnection && !b.isEmergency)
+                        .length;
+                    final offlineCount =
+                        state.boilers.where((b) => !b.hasConnection).length;
 
                     final filteredBoilers = _filterBoilers(state.boilers);
 
@@ -203,13 +217,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Column(
                         children: [
                           // --- ВСТАВЛЕНО: Блок статистики ---
-                          _buildStatsBar(totalCount, alarmCount, onlineCount, offlineCount),
-                          
+                          _buildStatsBar(totalCount, alarmCount, onlineCount,
+                              offlineCount),
+
                           // Search results info
                           if (_searchQuery.isNotEmpty)
                             Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // уменьшил отступ
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              margin: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8), // уменьшил отступ
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
                               decoration: BoxDecoration(
                                 color: Colors.blue.shade50,
                                 borderRadius: BorderRadius.circular(12),
@@ -233,8 +251,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ],
                               ),
                             ),
-                            
-                          if (filteredBoilers.isEmpty && _searchQuery.isNotEmpty)
+
+                          if (filteredBoilers.isEmpty &&
+                              _searchQuery.isNotEmpty)
                             const Expanded(
                               child: Center(child: Text("Ничего не найдено")),
                             )
@@ -251,7 +270,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.blue.shade600),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -477,7 +497,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final sortedDistrictIds = boilersByDistrict.keys.toList()..sort();
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(12,8,12,80),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 92),
       itemCount: sortedDistrictIds.length,
       itemBuilder: (context, index) {
         final districtId = sortedDistrictIds[index];
@@ -547,14 +567,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         LayoutBuilder(
           builder: (context, constraints) {
             final screenWidth = constraints.maxWidth;
-            const cardWidth = 76.0; 
+            const cardWidth = 76.0;
             const spacing = 6.0;
             const horizontalPadding = 4.0;
-            
+
             final availableWidth = screenWidth - horizontalPadding;
-            int crossAxisCount = ((availableWidth + spacing) / (cardWidth + spacing)).floor();
+            int crossAxisCount =
+                ((availableWidth + spacing) / (cardWidth + spacing)).floor();
             crossAxisCount = crossAxisCount.clamp(2, 20);
-            
+
             return GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -566,7 +587,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 mainAxisSpacing: 6,
               ),
               itemCount: boilers.length,
-              itemBuilder: (context, index) => _buildBoilerCard(context, boilers[index]),
+              itemBuilder: (context, index) =>
+                  _buildBoilerCard(context, boilers[index]),
             );
           },
         ),
@@ -576,11 +598,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildBoilerCard(BuildContext context, BoilerListItem boiler) {
-    final isHighlighted = _searchQuery.isNotEmpty && (
-      boiler.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-      boiler.district.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-      boiler.boilerType.name.toLowerCase().contains(_searchQuery.toLowerCase())
-    );
+    final isHighlighted = _searchQuery.isNotEmpty &&
+        (boiler.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            boiler.district.name
+                .toLowerCase()
+                .contains(_searchQuery.toLowerCase()) ||
+            boiler.boilerType.name
+                .toLowerCase()
+                .contains(_searchQuery.toLowerCase()));
 
     return Material(
       elevation: 0,
@@ -616,7 +641,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isHighlighted ? Colors.yellow.shade400 : Colors.blue.shade100,
+              color:
+                  isHighlighted ? Colors.yellow.shade400 : Colors.blue.shade100,
               width: isHighlighted ? 2 : 1,
             ),
             boxShadow: [
@@ -641,7 +667,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Container(
                       padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
-                        color: boiler.isEmergency ? Colors.red.shade600 : Colors.blue.shade600,
+                        color: boiler.isEmergency
+                            ? Colors.red.shade600
+                            : Colors.blue.shade600,
                         borderRadius: BorderRadius.circular(3),
                       ),
                       child: const Icon(
@@ -651,7 +679,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 3, vertical: 1),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(3),
@@ -673,10 +702,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         color: Colors.green.shade100,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: BlinkingDot(color: boiler.hasConnection ? Colors.green : Colors.red, size: 8),
+                      child: BlinkingDot(
+                          color:
+                              boiler.hasConnection ? Colors.green : Colors.red,
+                          size: 8),
                     ),
                   ],
-                ),              
+                ),
                 const SizedBox(height: 5),
                 Expanded(
                   child: Text(
