@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -113,7 +114,7 @@ class PushNotificationService {
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         // print(
         //     "🔔 [FOREGROUND] Пришло сообщение: ${message.notification?.title}");
-        _showLocalNotification(message);
+        if (Platform.isAndroid) _showLocalNotification(message);
       });
 
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
