@@ -9,11 +9,16 @@ import 'package:manage_center/screens/dashboard_screen.dart';
 import 'package:manage_center/screens/incidents_screen.dart';
 import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/screens/settings/settings_menu_screen.dart';
+import 'package:manage_center/screens/water_losses_screen.dart';
 import 'package:manage_center/services/api_service.dart';
+import 'package:manage_center/services/signalr_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'package:manage_center/widgets/custom_bottom_navigation.dart';
 import 'package:manage_center/services/app_update_service.dart';
+import 'package:manage_center/widgets/notification_toast.dart';
 import 'package:manage_center/widgets/update_dialog.dart';
+
+enum _NotificationType { alarm, resolved, connection, disconnection }
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -26,8 +31,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
   late final IncidentsBloc _incidentsBloc;
+  late final SignalRService _signalRService;
+  late final BoilersBloc _boilersBloc;
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
+    GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
@@ -37,49 +45,48 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
+    _boilersBloc = BoilersBloc(
+      apiService: context.read<ApiService>(),
+      storageService: context.read<StorageService>(),
+    )..add(FetchBoilers());
+
     _incidentsBloc = IncidentsBloc(
       apiService: context.read<ApiService>(),
       storageService: context.read<StorageService>(),
     )..add(IncidentsInitEvent());
 
-    // ✅ Слушаем переключение вкладок из push-уведомлений
     switchTabNotifier.addListener(_onSwitchTab);
 
-    // ✅ Проверяем — может уведомление уже пришло при холодном старте
     if (switchTabNotifier.value != null) {
       _currentIndex = switchTabNotifier.value!;
       switchTabNotifier.value = null;
     }
-
-    _checkForUpdates();
+    _initSignalR();
   }
-
-  Future<void> _checkForUpdates() async {
-  // Ждём пока экран отрисуется
-  await Future.delayed(const Duration(seconds: 2));
-
-  final updateInfo = await AppUpdateService().checkForUpdate();
-
-  if (updateInfo != null && mounted) {
-    UpdateDialog.show(context, updateInfo);
-  }
-}
 
   @override
   void dispose() {
+    // 1) синхронно убираем колбэки — старые сообщения SignalR пойдут "в никуда"
+    _signalRService.onNewBoilerParametersData = null;
+    _signalRService.onNewAlarm = null;
+    _signalRService.onDeviceStatusChanged = null;
+    _signalRService.onAlarmResolved = null;
+
+    // 2) запускаем дисконнект (fire-and-forget — dispose не может быть async)
+    _signalRService.disconnect();
+
     switchTabNotifier.removeListener(_onSwitchTab);
     _incidentsBloc.close();
+    _boilersBloc.close();
     super.dispose();
   }
 
-  // ✅ Переключение вкладки по уведомлению
   void _onSwitchTab() {
     final tabIndex = switchTabNotifier.value;
     if (tabIndex != null) {
       setState(() {
         _currentIndex = tabIndex;
       });
-      // Сбрасываем чтобы не срабатывало повторно
       switchTabNotifier.value = null;
     }
   }
@@ -92,6 +99,158 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         _currentIndex = index;
       });
     }
+  }
+
+  // Безопасно достаём int из payload (приходит int / num / String)
+  int? _asInt(dynamic v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString());
+  }
+
+  Future<void> _initSignalR() async {
+    _signalRService = context.read<SignalRService>();
+    final token = await context.read<StorageService>().getToken();
+    if (token != null) {
+      // 1. Параметры котельных
+      _signalRService.onNewBoilerParametersData = (boilerId, newData) {
+        if (!mounted || _boilersBloc.isClosed) return;
+        print('[SignalR] Котельная $boilerId: $newData');
+        _boilersBloc.add(BoilerParametersUpdatedEvent(boilerId, newData));
+      };
+
+      // 2. Новая авария
+      _signalRService.onNewAlarm = (alarmData) {
+        print('[SignalR] Новая авария в UI: $alarmData');
+        _incidentsBloc.add(IncidentsNewAlarmReceivedEvent(alarmData));
+
+        final boilerId = _asInt(alarmData['boilerId']);
+        print('[Main] onNewAlarm parsed boilerId=$boilerId');
+        if (boilerId != null) {
+          _boilersBloc.add(BoilerEmergencyStatusChangedEvent(boilerId, true));
+        }
+
+        final boilerName = alarmData['boilerName']?.toString() ?? 'Объект';
+        final description = alarmData['description']?.toString() ?? 'Авария';
+        _showNotification(
+          title: boilerName,
+          message: description,
+          type: _NotificationType.alarm,
+        );
+      };
+
+      // 3. Изменение статуса связи
+      _signalRService.onDeviceStatusChanged = (statusData) {
+        print('[SignalR] Статус изменился в UI: $statusData');
+
+        final boilerId = _asInt(statusData['boilerId']);
+        final status = statusData['status']?.toString().toLowerCase() ?? '';
+        final hasConnection = status != 'offline';
+        print(
+            '[Main] onDeviceStatusChanged boilerId=$boilerId hasConnection=$hasConnection');
+
+        if (boilerId != null) {
+          _boilersBloc.add(
+            BoilerConnectionStatusChangedEvent(boilerId, hasConnection),
+          );
+        }
+
+        final name = statusData['name']?.toString() ?? 'Объект';
+        final statusRaw = statusData['status']?.toString() ?? '';
+        _showNotification(
+          title: name,
+          message: statusRaw,
+          type: hasConnection
+              ? _NotificationType.connection
+              : _NotificationType.disconnection,
+        );
+      };
+
+      // 4. Авария закрыта
+      _signalRService.onAlarmResolved = (resolvedData) {
+        print('[SignalR] Авария закрыта в UI: $resolvedData');
+        _incidentsBloc.add(IncidentsAlarmResolvedEvent(resolvedData));
+
+        final boilerId = _asInt(resolvedData['boilerId']);
+        final hasActiveAlarms = resolvedData['hasActiveAlarms'] == true;
+        print(
+            '[Main] onAlarmResolved boilerId=$boilerId hasActiveAlarms=$hasActiveAlarms');
+
+        if (boilerId != null) {
+          _boilersBloc.add(
+            BoilerEmergencyStatusChangedEvent(boilerId, hasActiveAlarms),
+          );
+        }
+
+        final boilerName = resolvedData['boilerName']?.toString() ?? 'Объект';
+        final paramName = resolvedData['parameterName']?.toString() ?? '';
+        _showNotification(
+          title: boilerName,
+          message: paramName.isNotEmpty
+              ? '$paramName — авария устранена'
+              : 'Авария устранена',
+          type: _NotificationType.resolved,
+        );
+      };
+
+      await _signalRService.connect(token);
+    }
+  }
+
+  void _showNotification({
+    required String title,
+    required String message,
+    required _NotificationType type,
+  }) {
+    if (!mounted) return;
+
+    final Color bgColor;
+    final Color borderColor;
+    final IconData icon;
+    final Color iconColor;
+
+    switch (type) {
+      case _NotificationType.alarm:
+        bgColor = const Color(0xFFFFF5F5);
+        borderColor = const Color(0xFFE53E3E);
+        icon = Icons.warning_rounded;
+        iconColor = const Color(0xFFE53E3E);
+        break;
+      case _NotificationType.resolved:
+        bgColor = const Color(0xFFF0FFF4);
+        borderColor = Colors.green;
+        icon = Icons.check_circle_rounded;
+        iconColor = Colors.green;
+        break;
+      case _NotificationType.connection:
+        bgColor = const Color(0xFFEBF8FF);
+        borderColor = Colors.blue;
+        icon = Icons.wifi_rounded;
+        iconColor = Colors.blue;
+        break;
+      case _NotificationType.disconnection:
+        bgColor = const Color(0xFFFFFAF0);
+        borderColor = const Color(0xFFFF8C00);
+        icon = Icons.wifi_off_rounded;
+        iconColor = const Color(0xFFFF8C00);
+        break;
+    }
+
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (ctx) => NotificationToast(
+        title: title,
+        message: message,
+        icon: icon,
+        iconColor: iconColor,
+        bgColor: bgColor,
+        borderColor: borderColor,
+        onDismiss: () => entry.remove(),
+      ),
+    );
+    overlay.insert(entry);
   }
 
   @override
@@ -134,7 +293,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       case 2:
         return _buildTabNavigator(2, _buildIncidentsTab());
       case 3:
-        return _buildTabNavigator(3, _buildSettingsTab());
+        return _buildTabNavigator(3, _buildWaterLoosesTab());
+      case 4:
+        return _buildTabNavigator(4, _buildSettingsTab());
       default:
         return _buildTabNavigator(0, _buildHomeTab());
     }
@@ -150,11 +311,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   Widget _buildHomeTab() {
-    return BlocProvider<BoilersBloc>(
-      create: (context) => BoilersBloc(
-        apiService: context.read<ApiService>(),
-        storageService: context.read<StorageService>(),
-      )..add(FetchBoilers()),
+    return BlocProvider.value(
+      value: _boilersBloc,
       child: const DashboardScreen(),
     );
   }
@@ -167,6 +325,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       child: const IncidentsScreen(),
     );
   }
+
+  Widget _buildWaterLoosesTab() => const WaterLossesScreen();
 
   Widget _buildSettingsTab() => const SettingsScreen();
 }

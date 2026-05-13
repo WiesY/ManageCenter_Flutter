@@ -28,4 +28,22 @@ class BoilerListItem {
       isEmergency: json['isEmergency'] as bool,
     );
   }
+
+  BoilerListItem copyWith({
+    int? id,
+    String? name,
+    District? district,
+    BoilerType? boilerType,
+    bool? hasConnection,
+    bool? isEmergency,
+  }) {
+    return BoilerListItem(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      district: district ?? this.district,
+      boilerType: boilerType ?? this.boilerType,
+      hasConnection: hasConnection ?? this.hasConnection,
+      isEmergency: isEmergency ?? this.isEmergency,
+    );
+  }
 }

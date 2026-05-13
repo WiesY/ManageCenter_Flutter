@@ -42,11 +42,18 @@ class LoadBoilerParameterValues extends BoilerDetailEvent {
 class UpdateParametersGroup extends BoilerDetailEvent {
   final int groupId;
   final List<int> parameterIds;
-  
+
   UpdateParametersGroup({
     required this.groupId,
     required this.parameterIds,
   });
+}
+
+// Событие от SignalR: пришли новые данные параметров
+class SignalRParametersUpdated extends BoilerDetailEvent {
+  final int boilerId;
+  final Map<String, dynamic> newData;
+  SignalRParametersUpdated(this.boilerId, this.newData);
 }
 
 // --- СОСТОЯНИЯ ---
@@ -114,130 +121,137 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
   BoilerDetailBloc({
     required ApiService apiService,
     required StorageService storageService,
-  }) : _apiService = apiService,
+  })  : _apiService = apiService,
         _storageService = storageService,
         super(BoilerDetailInitial()) {
-
     on<LoadBoilerConfiguration>(_onLoadBoilerConfiguration);
     on<LoadBoilerParameterValues>(_onLoadBoilerParameterValues);
     on<UpdateParametersGroup>(_onUpdateParametersGroup);
+    on<SignalRParametersUpdated>(_onSignalRParametersUpdated);
   }
 
   // В блоке нужно изменить методы:
 
-Future<void> _onLoadBoilerConfiguration(
-  LoadBoilerConfiguration event,
-  Emitter<BoilerDetailState> emit,
-) async {
-  emit(BoilerDetailLoadInProgress());
+  Future<void> _onLoadBoilerConfiguration(
+    LoadBoilerConfiguration event,
+    Emitter<BoilerDetailState> emit,
+  ) async {
+    emit(BoilerDetailLoadInProgress());
 
-  try {
-    final token = await _storageService.getToken();
-    if (token == null) {
-      throw Exception('Токен не найден. Авторизуйтесь.');
-    }
+    try {
+      final token = await _storageService.getToken();
+      if (token == null) {
+        throw Exception('Токен не найден. Авторизуйтесь.');
+      }
 
-    print('Loading configuration for boiler ${event.boilerId}');
-    
-    // Используем исправленный метод getBoilerParameters
-    final configuration = await _apiService.getBoilerParameters(token, event.boilerId);
+      print('Loading configuration for boiler ${event.boilerId}');
 
-    _cachedParameters = configuration.boilerParameters;
-    _cachedGroups = configuration.groups;
-    _currentBoilerId = event.boilerId;
+      // Используем исправленный метод getBoilerParameters
+      final configuration =
+          await _apiService.getBoilerParameters(token, event.boilerId);
 
-    print('Loaded ${configuration.boilerParameters.length} parameters and ${configuration.groups.length} groups');
-
-    emit(BoilerDetailConfigurationLoaded(
-      parameters: configuration.boilerParameters,
-      groups: configuration.groups,
-    ));
-  } catch (e) {
-    print('Error loading configuration: $e');
-    emit(BoilerDetailLoadFailure(error: e.toString()));
-  }
-}
-
-Future<void> _onLoadBoilerParameterValues(
-  LoadBoilerParameterValues event,
-  Emitter<BoilerDetailState> emit,
-) async {
-  emit(BoilerDetailLoadInProgress());
-
-  try {
-    final token = await _storageService.getToken();
-    if (token == null) {
-      throw Exception('Токен не найден. Авторизуйтесь.');
-    }
-
-    // Если конфигурация не загружена, загружаем её
-    if (_cachedParameters == null || _cachedGroups == null || _currentBoilerId != event.boilerId) {
-      print('Loading configuration first...');
-      final configuration = await _apiService.getBoilerParameters(token, event.boilerId);
       _cachedParameters = configuration.boilerParameters;
       _cachedGroups = configuration.groups;
       _currentBoilerId = event.boilerId;
+
+      print(
+          'Loaded ${configuration.boilerParameters.length} parameters and ${configuration.groups.length} groups');
+
+      emit(BoilerDetailConfigurationLoaded(
+        parameters: configuration.boilerParameters,
+        groups: configuration.groups,
+      ));
+    } catch (e) {
+      print('Error loading configuration: $e');
+      emit(BoilerDetailLoadFailure(error: e.toString()));
     }
-
-    print('Loading parameter values for boiler ${event.boilerId}');
-    
-    // Используем исправленный метод getBoilerParameterValues
-    final historyResponse = await _apiService.getBoilerParameterValues(
-      token,
-      event.boilerId,
-      event.startDate,
-      event.endDate,
-      event.interval,
-      parameterIds: event.selectedParameterIds,
-    );
-
-    // Обновляем группы, если они пришли в ответе
-    if (historyResponse.groups.isNotEmpty) {
-      _cachedGroups = historyResponse.groups;
-    }
-
-    final values = historyResponse.historyNodeValues;
-    print('Loaded ${values.length} parameter values from API');
-
-    // Фильтруем значения только для выбранных параметров
-    final filteredValues = values.where((value) =>
-        event.selectedParameterIds.contains(value.parameter.id)
-    ).toList();
-
-    emit(BoilerDetailValuesLoaded(
-      parameters: _cachedParameters!,
-      groups: _cachedGroups!,
-      values: filteredValues,
-      selectedParameterIds: event.selectedParameterIds,
-      selectedDateTime: event.startDate,
-    ));
-  } catch (e) {
-    print('Error loading parameter values: $e');
-    emit(BoilerDetailLoadFailure(error: e.toString()));
   }
-}
 
-Future<void> _onUpdateParametersGroup(
-  UpdateParametersGroup event,
-  Emitter<BoilerDetailState> emit,
-) async {
-  try {
-    final token = await _storageService.getToken();
-    if (token == null) {
-      throw Exception('Токен не найден. Авторизуйтесь.');
+  Future<void> _onLoadBoilerParameterValues(
+    LoadBoilerParameterValues event,
+    Emitter<BoilerDetailState> emit,
+  ) async {
+    emit(BoilerDetailLoadInProgress());
+
+    try {
+      final token = await _storageService.getToken();
+      if (token == null) {
+        throw Exception('Токен не найден. Авторизуйтесь.');
+      }
+
+      // Если конфигурация не загружена, загружаем её
+      if (_cachedParameters == null ||
+          _cachedGroups == null ||
+          _currentBoilerId != event.boilerId) {
+        print('Loading configuration first...');
+        final configuration =
+            await _apiService.getBoilerParameters(token, event.boilerId);
+        _cachedParameters = configuration.boilerParameters;
+        _cachedGroups = configuration.groups;
+        _currentBoilerId = event.boilerId;
+      }
+
+      print('Loading parameter values for boiler ${event.boilerId}');
+
+      // Используем исправленный метод getBoilerParameterValues
+      final historyResponse = await _apiService.getBoilerParameterValues(
+        token,
+        event.boilerId,
+        event.startDate,
+        event.endDate,
+        event.interval,
+        parameterIds: event.selectedParameterIds,
+      );
+
+      // Обновляем группы, если они пришли в ответе
+      if (historyResponse.groups.isNotEmpty) {
+        _cachedGroups = historyResponse.groups;
+      }
+
+      final values = historyResponse.historyNodeValues;
+      print('Loaded ${values.length} parameter values from API');
+
+      // Фильтруем значения только для выбранных параметров
+      final filteredValues = values
+          .where((value) =>
+              event.selectedParameterIds.contains(value.parameter.id))
+          .toList();
+
+      emit(BoilerDetailValuesLoaded(
+        parameters: _cachedParameters!,
+        groups: _cachedGroups!,
+        values: filteredValues,
+        selectedParameterIds: event.selectedParameterIds,
+        selectedDateTime: event.startDate,
+      ));
+    } catch (e) {
+      print('Error loading parameter values: $e');
+      emit(BoilerDetailLoadFailure(error: e.toString()));
     }
-    print('==== ${token}, ${event.groupId}, ${event.parameterIds}');
-    await _apiService.updateParametersGroup(token, event.groupId, event.parameterIds);
-    
-    // После успешного обновления перезагружаем конфигурацию
-    if (_currentBoilerId != null) {
-      add(LoadBoilerConfiguration(_currentBoilerId!));
-    }
-  } catch (e) {
-    print('Error updating parameters group: $e');
-    emit(BoilerDetailLoadFailure(error: e.toString()));
   }
-}
+
+  Future<void> _onUpdateParametersGroup(
+    UpdateParametersGroup event,
+    Emitter<BoilerDetailState> emit,
+  ) async {
+    try {
+      final token = await _storageService.getToken();
+      if (token == null) {
+        throw Exception('Токен не найден. Авторизуйтесь.');
+      }
+      print('==== ${token}, ${event.groupId}, ${event.parameterIds}');
+      await _apiService.updateParametersGroup(
+          token, event.groupId, event.parameterIds);
+
+      // После успешного обновления перезагружаем конфигурацию
+      if (_currentBoilerId != null) {
+        add(LoadBoilerConfiguration(_currentBoilerId!));
+      }
+    } catch (e) {
+      print('Error updating parameters group: $e');
+      emit(BoilerDetailLoadFailure(error: e.toString()));
+    }
+  }
 
   // Вспомогательный метод для получения временного диапазона выбранной минуты
   static Map<String, DateTime> getMinuteRange(DateTime selectedDateTime) {
@@ -250,7 +264,9 @@ Future<void> _onUpdateParametersGroup(
       0, // секунды = 0
     );
 
-    final endOfMinute = startOfMinute.add(const Duration(minutes: 1)).subtract(const Duration(seconds: 1));
+    final endOfMinute = startOfMinute
+        .add(const Duration(minutes: 1))
+        .subtract(const Duration(seconds: 1));
 
     return {
       'start': startOfMinute,
@@ -270,7 +286,9 @@ Future<void> _onUpdateParametersGroup(
   }
 
   // Метод для загрузки данных за выбранную минуту
-  void loadDataForSelectedMinute(int boilerId, DateTime selectedDateTime, List<int> selectedParameterIds, {int interval = 60}) {
+  void loadDataForSelectedMinute(
+      int boilerId, DateTime selectedDateTime, List<int> selectedParameterIds,
+      {int interval = 60}) {
     final timeRange = getMinuteRange(selectedDateTime);
     add(LoadBoilerParameterValues(
       boilerId: boilerId,
@@ -282,7 +300,8 @@ Future<void> _onUpdateParametersGroup(
   }
 
   // Метод для загрузки данных за текущую минуту
-  void loadCurrentMinuteData(int boilerId, List<int> selectedParameterIds, {int interval = 60}) {
+  void loadCurrentMinuteData(int boilerId, List<int> selectedParameterIds,
+      {int interval = 60}) {
     final timeRange = getCurrentMinuteRange();
     add(LoadBoilerParameterValues(
       boilerId: boilerId,
@@ -294,13 +313,15 @@ Future<void> _onUpdateParametersGroup(
   }
 
   void updateParametersGroup(int groupId, List<int> parameterIds) {
-  add(UpdateParametersGroup(groupId: groupId, parameterIds: parameterIds));
-}
+    add(UpdateParametersGroup(groupId: groupId, parameterIds: parameterIds));
+  }
 
   // Вспомогательные методы для работы с группами
   List<BoilerParameter> getParametersByGroup(int groupId) {
     if (_cachedParameters == null) return [];
-    return _cachedParameters!.where((param) => param.groupId == groupId).toList();
+    return _cachedParameters!
+        .where((param) => param.groupId == groupId)
+        .toList();
   }
 
   Group? getGroupById(int groupId) {
@@ -309,6 +330,49 @@ Future<void> _onUpdateParametersGroup(
       return _cachedGroups!.firstWhere((group) => group.id == groupId);
     } catch (e) {
       return null;
+    }
+  }
+
+  Future<void> _onSignalRParametersUpdated(
+    SignalRParametersUpdated event,
+    Emitter<BoilerDetailState> emit,
+  ) async {
+    // Обновляем только если это наша котельная и конфигурация уже загружена
+    if (_currentBoilerId != event.boilerId) return;
+    if (_cachedParameters == null || _cachedGroups == null) return;
+
+    try {
+      final token = await _storageService.getToken();
+      if (token == null) return;
+
+      final now = DateTime.now().toUtc();
+      final historyResponse = await _apiService.getBoilerParameterValues(
+        token,
+        event.boilerId,
+        now.subtract(const Duration(minutes: 5)),
+        now,
+        1,
+        parameterIds: _cachedParameters!.map((p) => p.id).toList(),
+      );
+
+      if (historyResponse.groups.isNotEmpty) {
+        _cachedGroups = historyResponse.groups;
+      }
+
+      final values = historyResponse.historyNodeValues;
+      final allParamIds = _cachedParameters!.map((p) => p.id).toList();
+      final filteredValues =
+          values.where((v) => allParamIds.contains(v.parameter.id)).toList();
+
+      emit(BoilerDetailValuesLoaded(
+        parameters: _cachedParameters!,
+        groups: _cachedGroups!,
+        values: filteredValues,
+        selectedParameterIds: allParamIds,
+        selectedDateTime: now,
+      ));
+    } catch (e) {
+      print('[SignalR] Ошибка обновления параметров: $e');
     }
   }
 

@@ -52,9 +52,9 @@ class PushNotificationService {
       );
 
       await _fcm.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
+        alert: false,
+        badge: false,
+        sound: false,
       );
 
       String? token = await _fcm.getToken();
@@ -112,7 +112,12 @@ class PushNotificationService {
 
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         // print(
-        //     "🔔 [FOREGROUND] Пришло сообщение: ${message.notification?.title}");
+        // Если приложение активно — не показываем пуш
+        final state = WidgetsBinding.instance.lifecycleState;
+        if (state == AppLifecycleState.resumed) {
+          // приложение открыто и на переднем плане — игнорируем
+          return;
+        }
         _showLocalNotification(message);
       });
 

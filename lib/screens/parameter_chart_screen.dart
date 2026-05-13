@@ -7,6 +7,7 @@ import 'package:manage_center/bloc/parameter_chart_bloc.dart';
 import 'package:manage_center/models/boiler_parameter_model.dart';
 import 'package:manage_center/models/boiler_parameter_value_model.dart';
 import 'package:manage_center/services/api_service.dart';
+import 'package:manage_center/services/signalr_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'dart:math' as math;
 
@@ -171,6 +172,7 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
   late AnimationController _refreshController;
   late Animation<double> _refreshAnimation;
   late ParameterChartBloc _parameterChartBloc;
+  late final VoidCallback _signalRListener;
 
   // Зум
   double _zoomLevel = 1.0;
@@ -204,12 +206,21 @@ class _ParameterChartScreenState extends State<ParameterChartScreen>
     );
 
     _loadChartData();
+
+   _signalRListener = () {
+  final updatedBoilerId = boilerParamsUpdateNotifier.value;
+  if (updatedBoilerId == widget.boilerId && mounted) {
+    _parameterChartBloc.add(SignalRChartParameterUpdated(updatedBoilerId!));
+  }
+};
+boilerParamsUpdateNotifier.addListener(_signalRListener);
   }
 
   @override
   void dispose() {
     _refreshController.dispose();
     _parameterChartBloc.close();
+    boilerParamsUpdateNotifier.removeListener(_signalRListener);
     super.dispose();
   }
 

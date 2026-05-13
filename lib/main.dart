@@ -20,6 +20,7 @@ import 'package:manage_center/bloc/user_profile_bloc.dart';
 import 'package:manage_center/bloc/users_bloc.dart';
 import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/screens/navigation/main_navigation_screen.dart';
+import 'package:manage_center/services/signalr_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/api_service.dart';
 import 'services/push_notification_service.dart';
@@ -148,6 +149,9 @@ class MyApp extends StatelessWidget {
               apiService: context.read<ApiService>(),
               storageService: context.read<StorageService>(),
             )..add(IncidentsInitEvent()),
+          ),
+          RepositoryProvider<SignalRService>(
+            create: (_) => SignalRService(),
           ),
         ],
         child: const AppView(),

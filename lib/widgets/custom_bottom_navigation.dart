@@ -69,10 +69,17 @@ class CustomBottomNavigation extends StatelessWidget {
               ),
               _buildNavItem(
                 context,
+  icon: Icons.water_drop_outlined,
+  selectedIcon: Icons.water_drop,
+  label: 'Потери',
+  index: 3,
+),
+              _buildNavItem(
+                context,
                 icon: Icons.settings_outlined,
                 selectedIcon: Icons.settings,
                 label: 'Настройки',
-                index: 3,
+                index: 4,
               ),
             ],
           ),

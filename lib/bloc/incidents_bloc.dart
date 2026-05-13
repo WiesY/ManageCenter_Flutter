@@ -16,18 +16,18 @@ class IncidentsInitEvent extends IncidentsEvent {}
 
 class IncidentsToggleStatusEvent extends IncidentsEvent {
   final bool showActive;
-  
+
   IncidentsToggleStatusEvent(this.showActive);
-  
+
   @override
   List<Object?> get props => [showActive];
 }
 
 class IncidentsSelectBoilerEvent extends IncidentsEvent {
   final int? boilerId;
-  
+
   IncidentsSelectBoilerEvent(this.boilerId);
-  
+
   @override
   List<Object?> get props => [boilerId];
 }
@@ -35,18 +35,18 @@ class IncidentsSelectBoilerEvent extends IncidentsEvent {
 class IncidentsSelectDateRangeEvent extends IncidentsEvent {
   final DateTime? fromDate;
   final DateTime? toDate;
-  
+
   IncidentsSelectDateRangeEvent({this.fromDate, this.toDate});
-  
+
   @override
   List<Object?> get props => [fromDate, toDate];
 }
 
 class IncidentsResetEvent extends IncidentsEvent {
   final int incidentId;
-  
+
   IncidentsResetEvent(this.incidentId);
-  
+
   @override
   List<Object?> get props => [incidentId];
 }
@@ -55,14 +55,34 @@ class IncidentsRefreshEvent extends IncidentsEvent {}
 
 class IncidentsSearchBoilerEvent extends IncidentsEvent {
   final String searchQuery;
-  
+
   IncidentsSearchBoilerEvent(this.searchQuery);
-  
+
   @override
   List<Object?> get props => [searchQuery];
 }
 
 class IncidentsClearErrorEvent extends IncidentsEvent {}
+
+// НОВОЕ: пришла новая авария по SignalR
+class IncidentsNewAlarmReceivedEvent extends IncidentsEvent {
+  final Map<String, dynamic> alarmData;
+
+  IncidentsNewAlarmReceivedEvent(this.alarmData);
+
+  @override
+  List<Object?> get props => [alarmData];
+}
+
+// НОВОЕ: пришло закрытие аварии по SignalR
+class IncidentsAlarmResolvedEvent extends IncidentsEvent {
+  final Map<String, dynamic> resolvedData;
+
+  IncidentsAlarmResolvedEvent(this.resolvedData);
+
+  @override
+  List<Object?> get props => [resolvedData];
+}
 
 // Состояния
 abstract class IncidentsState extends Equatable {
@@ -84,7 +104,7 @@ class IncidentsLoadedState extends IncidentsState {
   final int activeIncidentsCount;
   final String boilerSearchQuery;
   final String? errorMessage;
-  
+
   IncidentsLoadedState({
     required this.incidents,
     required this.boilers,
@@ -96,20 +116,20 @@ class IncidentsLoadedState extends IncidentsState {
     this.boilerSearchQuery = '',
     this.errorMessage,
   });
-  
+
   @override
   List<Object?> get props => [
-    incidents,
-    boilers,
-    showActive,
-    selectedBoilerId,
-    fromDate,
-    toDate,
-    activeIncidentsCount,
-    boilerSearchQuery,
-    errorMessage,
-  ];
-  
+        incidents,
+        boilers,
+        showActive,
+        selectedBoilerId,
+        fromDate,
+        toDate,
+        activeIncidentsCount,
+        boilerSearchQuery,
+        errorMessage,
+      ];
+
   IncidentsLoadedState copyWith({
     List<IncidentModel>? incidents,
     List<BoilerListItem>? boilers,
@@ -128,7 +148,8 @@ class IncidentsLoadedState extends IncidentsState {
       incidents: incidents ?? this.incidents,
       boilers: boilers ?? this.boilers,
       showActive: showActive ?? this.showActive,
-      selectedBoilerId: clearBoilerId ? null : (selectedBoilerId ?? this.selectedBoilerId),
+      selectedBoilerId:
+          clearBoilerId ? null : (selectedBoilerId ?? this.selectedBoilerId),
       fromDate: clearDateRange ? null : (fromDate ?? this.fromDate),
       toDate: clearDateRange ? null : (toDate ?? this.toDate),
       activeIncidentsCount: activeIncidentsCount ?? this.activeIncidentsCount,
@@ -140,9 +161,9 @@ class IncidentsLoadedState extends IncidentsState {
 
 class IncidentsErrorState extends IncidentsState {
   final String message;
-  
+
   IncidentsErrorState(this.message);
-  
+
   @override
   List<Object?> get props => [message];
 }
@@ -160,14 +181,13 @@ String _cleanErrorMessage(Object e) {
 class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
   final ApiService _apiService;
   final StorageService _storageService;
-  
+
   IncidentsBloc({
     required ApiService apiService,
     required StorageService storageService,
-  }) : 
-    _apiService = apiService,
-    _storageService = storageService,
-    super(IncidentsInitialState()) {
+  })  : _apiService = apiService,
+        _storageService = storageService,
+        super(IncidentsInitialState()) {
     on<IncidentsInitEvent>(_onInit);
     on<IncidentsToggleStatusEvent>(_onToggleStatus);
     on<IncidentsSelectDateRangeEvent>(_onSelectDateRange);
@@ -175,23 +195,26 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
     on<IncidentsRefreshEvent>(_onRefresh);
     on<IncidentsSearchBoilerEvent>(_onSearchBoiler);
     on<IncidentsClearErrorEvent>(_onClearError);
+    on<IncidentsNewAlarmReceivedEvent>(_onNewAlarmReceived);
+    on<IncidentsAlarmResolvedEvent>(_onAlarmResolved);
   }
-  
-  Future<void> _onInit(IncidentsInitEvent event, Emitter<IncidentsState> emit) async {
+
+  Future<void> _onInit(
+      IncidentsInitEvent event, Emitter<IncidentsState> emit) async {
     emit(IncidentsLoadingState());
-    
+
     try {
       final token = await _storageService.getToken();
-      
+
       final boilers = await _apiService.getBoilers(token ?? '');
-      
+
       final incidents = await _apiService.getIncidents(
         token ?? '',
         onlyActive: true,
       );
-      
+
       final activeCount = await _apiService.getActiveIncidentsCount(token ?? '');
-      
+
       emit(IncidentsLoadedState(
         incidents: incidents,
         boilers: boilers,
@@ -199,19 +222,21 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
         activeIncidentsCount: activeCount,
       ));
     } catch (e) {
-      emit(IncidentsErrorState('Ошибка при загрузке данных\n${_cleanErrorMessage(e)}'));
+      emit(IncidentsErrorState(
+          'Ошибка при загрузке данных\n${_cleanErrorMessage(e)}'));
     }
   }
-  
-  Future<void> _onToggleStatus(IncidentsToggleStatusEvent event, Emitter<IncidentsState> emit) async {
+
+  Future<void> _onToggleStatus(
+      IncidentsToggleStatusEvent event, Emitter<IncidentsState> emit) async {
     if (state is IncidentsLoadedState) {
       final currentState = state as IncidentsLoadedState;
-      
+
       emit(IncidentsLoadingState());
-      
+
       try {
         final token = await _storageService.getToken();
-        
+
         final incidents = await _apiService.getIncidents(
           token ?? '',
           onlyActive: event.showActive,
@@ -219,7 +244,7 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
           fromDate: currentState.fromDate,
           toDate: currentState.toDate,
         );
-        
+
         emit(currentState.copyWith(
           incidents: incidents,
           showActive: event.showActive,
@@ -227,21 +252,23 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
         ));
       } catch (e) {
         emit(currentState.copyWith(
-          errorMessage: 'Ошибка при загрузке инцидентов\n${_cleanErrorMessage(e)}',
+          errorMessage:
+              'Ошибка при загрузке инцидентов\n${_cleanErrorMessage(e)}',
         ));
       }
     }
   }
-  
-  Future<void> _onSelectDateRange(IncidentsSelectDateRangeEvent event, Emitter<IncidentsState> emit) async {
+
+  Future<void> _onSelectDateRange(IncidentsSelectDateRangeEvent event,
+      Emitter<IncidentsState> emit) async {
     if (state is IncidentsLoadedState) {
       final currentState = state as IncidentsLoadedState;
-      
+
       emit(IncidentsLoadingState());
-      
+
       try {
         final token = await _storageService.getToken();
-        
+
         final incidents = await _apiService.getIncidents(
           token ?? '',
           onlyActive: currentState.showActive,
@@ -249,7 +276,7 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
           fromDate: event.fromDate,
           toDate: event.toDate,
         );
-        
+
         emit(currentState.copyWith(
           incidents: incidents,
           fromDate: event.fromDate,
@@ -259,21 +286,23 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
         ));
       } catch (e) {
         emit(currentState.copyWith(
-          errorMessage: 'Ошибка при загрузке инцидентов\n${_cleanErrorMessage(e)}',
+          errorMessage:
+              'Ошибка при загрузке инцидентов\n${_cleanErrorMessage(e)}',
         ));
       }
     }
   }
-  
-  Future<void> _onReset(IncidentsResetEvent event, Emitter<IncidentsState> emit) async {
+
+  Future<void> _onReset(
+      IncidentsResetEvent event, Emitter<IncidentsState> emit) async {
     if (state is IncidentsLoadedState) {
       final currentState = state as IncidentsLoadedState;
-      
+
       try {
         final token = await _storageService.getToken();
-        
+
         await _apiService.resetIncident(token ?? '', event.incidentId);
-        
+
         final incidents = await _apiService.getIncidents(
           token ?? '',
           onlyActive: currentState.showActive,
@@ -281,9 +310,10 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
           fromDate: currentState.fromDate,
           toDate: currentState.toDate,
         );
-        
-        final activeCount = await _apiService.getActiveIncidentsCount(token ?? '');
-        
+
+        final activeCount =
+            await _apiService.getActiveIncidentsCount(token ?? '');
+
         emit(currentState.copyWith(
           incidents: incidents,
           activeIncidentsCount: activeCount,
@@ -291,19 +321,21 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
         ));
       } catch (e) {
         emit(currentState.copyWith(
-          errorMessage: 'Ошибка при сбросе инцидента\n${_cleanErrorMessage(e)}',
+          errorMessage:
+              'Ошибка при сбросе инцидента\n${_cleanErrorMessage(e)}',
         ));
       }
     }
   }
-  
-  Future<void> _onRefresh(IncidentsRefreshEvent event, Emitter<IncidentsState> emit) async {
+
+  Future<void> _onRefresh(
+      IncidentsRefreshEvent event, Emitter<IncidentsState> emit) async {
     if (state is IncidentsLoadedState) {
       final currentState = state as IncidentsLoadedState;
-      
+
       try {
         final token = await _storageService.getToken();
-        
+
         final incidents = await _apiService.getIncidents(
           token ?? '',
           onlyActive: currentState.showActive,
@@ -311,11 +343,12 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
           fromDate: currentState.fromDate,
           toDate: currentState.toDate,
         );
-        
-        final activeCount = await _apiService.getActiveIncidentsCount(token ?? '');
-        
+
+        final activeCount =
+            await _apiService.getActiveIncidentsCount(token ?? '');
+
         final boilers = await _apiService.getBoilers(token ?? '');
-        
+
         emit(currentState.copyWith(
           incidents: incidents,
           boilers: boilers,
@@ -324,25 +357,96 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
         ));
       } catch (e) {
         emit(currentState.copyWith(
-          errorMessage: 'Ошибка при обновлении данных\n${_cleanErrorMessage(e)}',
+          errorMessage:
+              'Ошибка при обновлении данных\n${_cleanErrorMessage(e)}',
         ));
       }
     }
   }
 
-  Future<void> _onSearchBoiler(IncidentsSearchBoilerEvent event, Emitter<IncidentsState> emit) async {
+  Future<void> _onSearchBoiler(IncidentsSearchBoilerEvent event,
+      Emitter<IncidentsState> emit) async {
     if (state is IncidentsLoadedState) {
       final currentState = state as IncidentsLoadedState;
-      
+
       emit(currentState.copyWith(
         boilerSearchQuery: event.searchQuery,
       ));
     }
   }
 
-  void _onClearError(IncidentsClearErrorEvent event, Emitter<IncidentsState> emit) {
+  void _onClearError(
+      IncidentsClearErrorEvent event, Emitter<IncidentsState> emit) {
     if (state is IncidentsLoadedState) {
       emit((state as IncidentsLoadedState).copyWith(clearError: true));
+    }
+  }
+
+  // НОВОЕ: пришла новая авария по SignalR -> просто перезагружаем список
+  Future<void> _onNewAlarmReceived(IncidentsNewAlarmReceivedEvent event,
+      Emitter<IncidentsState> emit) async {
+    if (state is IncidentsLoadedState) {
+      final currentState = state as IncidentsLoadedState;
+
+      try {
+        final token = await _storageService.getToken();
+
+        final incidents = await _apiService.getIncidents(
+          token ?? '',
+          onlyActive: currentState.showActive,
+          boilerId: currentState.selectedBoilerId,
+          fromDate: currentState.fromDate,
+          toDate: currentState.toDate,
+        );
+
+        final activeCount =
+            await _apiService.getActiveIncidentsCount(token ?? '');
+
+        emit(currentState.copyWith(
+          incidents: incidents,
+          activeIncidentsCount: activeCount,
+          clearError: true,
+        ));
+      } catch (e) {
+        emit(currentState.copyWith(
+          errorMessage:
+              'Ошибка обновления после новой аварии\n${_cleanErrorMessage(e)}',
+        ));
+      }
+    }
+  }
+
+  // НОВОЕ: пришло закрытие аварии по SignalR -> перезагружаем список
+  Future<void> _onAlarmResolved(IncidentsAlarmResolvedEvent event,
+      Emitter<IncidentsState> emit) async {
+    if (state is IncidentsLoadedState) {
+      final currentState = state as IncidentsLoadedState;
+
+      try {
+        final token = await _storageService.getToken();
+
+        final incidents = await _apiService.getIncidents(
+          token ?? '',
+          onlyActive: currentState.showActive,
+          boilerId: currentState.selectedBoilerId,
+          fromDate: currentState.fromDate,
+          toDate: currentState.toDate,
+        );
+
+        final activeCount =
+            await _apiService.getActiveIncidentsCount(token ?? '');
+
+        emit(currentState.copyWith(
+          incidents: incidents,
+          activeIncidentsCount: activeCount,
+          clearError: true,
+        ));
+      } catch (e) {
+        emit(currentState.copyWith(
+          errorMessage:
+              'Ошибка обновления после закрытия аварии\n${_cleanErrorMessage(e)}',
+        ));
+      }
     }
   }
 }

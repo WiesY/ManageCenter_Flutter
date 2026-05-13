@@ -1,6 +1,6 @@
 [Setup]
 AppName=АСКП МУПИТ
-AppVersion=1.0.1
+AppVersion=1.1.0
 AppPublisher=МУПИТ
 AppPublisherURL=https://mupit.ru
 AppSupportURL=https://mupit.ru/support
@@ -12,19 +12,19 @@ LicenseFile=
 InfoBeforeFile=
 InfoAfterFile=
 OutputDir=installer_output
-OutputBaseFilename=АСКП_МУПИТ_Setup_v1.0.4
+OutputBaseFilename=АСКП_МУПИТ_Setup_v1.1.0
 SetupIconFile=lib\assets\icon\icon.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64
 UninstallDisplayIcon={app}\manage_center.exe
-VersionInfoVersion=1.0.1.0
+VersionInfoVersion=1.1.1.0
 VersionInfoCompany=МУПИТ
 VersionInfoDescription=Автоматизированная система контроля и управления производством
 VersionInfoCopyright=© 2025 МУПИТ
 VersionInfoProductName=АСКП МУПИТ
-VersionInfoProductVersion=1.0.1
+VersionInfoProductVersion=1.1.0
 
 [Languages]
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
@@ -62,7 +62,7 @@ Type: filesandordirs; Name: "{app}\data\flutter_assets"
 
 [Registry]
 Root: HKCU; Subkey: "Software\MUPIT\ASKP"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"
-Root: HKCU; Subkey: "Software\MUPIT\ASKP"; ValueType: string; ValueName: "Version"; ValueData: "1.0.1"
+Root: HKCU; Subkey: "Software\MUPIT\ASKP"; ValueType: string; ValueName: "Version"; ValueData: "1.1.0"
 Root: HKCU; Subkey: "Software\MUPIT\ASKP"; ValueType: string; ValueName: "AppName"; ValueData: "АСКП МУПИТ"
 
 [Code]

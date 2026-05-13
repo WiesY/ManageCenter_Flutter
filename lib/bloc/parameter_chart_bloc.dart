@@ -5,7 +5,7 @@ import 'package:manage_center/models/boiler_parameter_value_model.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 
-// ==================== СОБЫТИЯ ====================
+// ==== СОБЫТИЯ ====
 
 abstract class ParameterChartEvent {}
 
@@ -14,7 +14,7 @@ class LoadParameterValues extends ParameterChartEvent {
   final int parameterId;
   final DateTime startDate;
   final DateTime endDate;
-  final int? interval; // null = автоподбор
+  final int? interval;
 
   LoadParameterValues({
     required this.boilerId,
@@ -41,7 +41,12 @@ class LoadMultipleParameterValues extends ParameterChartEvent {
   });
 }
 
-// ==================== СОСТОЯНИЯ ====================
+class SignalRChartParameterUpdated extends ParameterChartEvent {
+  final int boilerId;
+  SignalRChartParameterUpdated(this.boilerId);
+}
+
+// ==== СОСТОЯНИЯ ====
 
 abstract class ParameterChartState {}
 
@@ -50,24 +55,16 @@ class ParameterChartInitial extends ParameterChartState {}
 class ParameterChartLoadInProgress extends ParameterChartState {}
 
 class ParameterChartLoaded extends ParameterChartState {
-  /// Для одного параметра — обратная совместимость
   final List<BoilerParameterValue> values;
-
-  /// Для нескольких параметров: parameterId -> список значений
   final Map<int, List<BoilerParameterValue>> parameterValues;
-
-  /// parameterId -> BoilerParameter
   final Map<int, BoilerParameter> parameters;
-
   final DateTime startDate;
   final DateTime endDate;
   final int interval;
 
-  /// Обратная совместимость: parameter из первого параметра
-  BoilerParameter get parameter =>
-      parameters.values.isNotEmpty
-          ? parameters.values.first
-          : BoilerParameter(id: 0, name: '', valueType: '');
+  BoilerParameter get parameter => parameters.values.isNotEmpty
+      ? parameters.values.first
+      : BoilerParameter(id: 0, name: '', valueType: '');
 
   ParameterChartLoaded({
     required this.values,
@@ -94,12 +91,20 @@ class ParameterChartLoadFailure extends ParameterChartState {
   });
 }
 
-// ==================== БЛОК ====================
+// ==== БЛОК ====
 
 class ParameterChartBloc
     extends Bloc<ParameterChartEvent, ParameterChartState> {
   final ApiService _apiService;
   final StorageService _storageService;
+
+  // Кэш последнего запроса
+  int? _lastBoilerId;
+  List<int>? _lastParameterIds;
+  int? _lastSingleParameterId;
+  int _lastInterval = 5;
+  DateTime? _lastStartDate;
+  DateTime? _lastEndDate;
 
   ParameterChartBloc({
     required ApiService apiService,
@@ -109,9 +114,9 @@ class ParameterChartBloc
         super(ParameterChartInitial()) {
     on<LoadParameterValues>(_onLoadParameterValues);
     on<LoadMultipleParameterValues>(_onLoadMultipleParameterValues);
+    on<SignalRChartParameterUpdated>(_onSignalRChartParameterUpdated);
   }
 
-  /// Автоподбор интервала: целимся на 200–500 точек
   int _calculateOptimalInterval(DateTime start, DateTime end) {
     final totalMinutes = end.difference(start).inMinutes;
     if (totalMinutes <= 60) return 1;
@@ -138,8 +143,8 @@ class ParameterChartBloc
         return;
       }
 
-      final interval =
-          event.interval ?? _calculateOptimalInterval(event.startDate, event.endDate);
+      final interval = event.interval ??
+          _calculateOptimalInterval(event.startDate, event.endDate);
 
       final values = await _apiService.getParameterHistoryValues(
         token,
@@ -155,7 +160,6 @@ class ParameterChartBloc
         return;
       }
 
-      // Убираем дубликаты по времени и сортируем
       final seen = <int>{};
       final filtered = values
           .where((v) => seen.add(v.receiptDate.millisecondsSinceEpoch))
@@ -163,6 +167,13 @@ class ParameterChartBloc
         ..sort((a, b) => a.receiptDate.compareTo(b.receiptDate));
 
       final parameter = filtered.first.parameter;
+
+      _lastBoilerId = event.boilerId;
+      _lastSingleParameterId = event.parameterId;
+      _lastParameterIds = null;
+      _lastInterval = interval;
+      _lastStartDate = event.startDate;
+      _lastEndDate = event.endDate;
 
       emit(ParameterChartLoaded(
         values: filtered,
@@ -199,19 +210,18 @@ class ParameterChartBloc
         return;
       }
 
-      final interval =
-          event.interval ?? _calculateOptimalInterval(event.startDate, event.endDate);
+      final interval = event.interval ??
+          _calculateOptimalInterval(event.startDate, event.endDate);
 
-      // Параллельная загрузка
-      final futures = event.parameterIds.map((paramId) =>
-          _apiService.getParameterHistoryValues(
-            token,
-            event.boilerId,
-            paramId,
-            event.startDate,
-            event.endDate,
-            interval,
-          ));
+      final futures = event.parameterIds
+          .map((paramId) => _apiService.getParameterHistoryValues(
+                token,
+                event.boilerId,
+                paramId,
+                event.startDate,
+                event.endDate,
+                interval,
+              ));
 
       final results = await Future.wait(futures);
 
@@ -243,6 +253,13 @@ class ParameterChartBloc
 
       allValues.sort((a, b) => a.receiptDate.compareTo(b.receiptDate));
 
+      _lastBoilerId = event.boilerId;
+      _lastParameterIds = event.parameterIds;
+      _lastSingleParameterId = null;
+      _lastInterval = interval;
+      _lastStartDate = event.startDate;
+      _lastEndDate = event.endDate;
+
       emit(ParameterChartLoaded(
         values: allValues,
         parameterValues: parameterValues,
@@ -259,6 +276,96 @@ class ParameterChartBloc
             errorStr.contains('auth') ||
             errorStr.contains('Токен'),
       ));
+    }
+  }
+
+  Future<void> _onSignalRChartParameterUpdated(
+    SignalRChartParameterUpdated event,
+    Emitter<ParameterChartState> emit,
+  ) async {
+    if (_lastBoilerId != event.boilerId) return;
+    if (_lastParameterIds == null && _lastSingleParameterId == null) return;
+    if (_lastStartDate == null || _lastEndDate == null) return;
+
+    try {
+      final token = await _storageService.getToken();
+      if (token == null) return;
+
+      // Сохраняем длину периода, сдвигаем окно на now
+      final now = DateTime.now().toUtc();
+      final periodDuration = _lastEndDate!.difference(_lastStartDate!);
+      final endDate = now;
+      final startDate = now.subtract(periodDuration);
+
+      if (_lastParameterIds != null) {
+        final futures = _lastParameterIds!
+            .map((paramId) => _apiService.getParameterHistoryValues(
+                  token,
+                  event.boilerId,
+                  paramId,
+                  startDate,
+                  endDate,
+                  _lastInterval,
+                ));
+        final results = await Future.wait(futures);
+
+        final parameterValues = <int, List<BoilerParameterValue>>{};
+        final parameters = <int, BoilerParameter>{};
+        final allValues = <BoilerParameterValue>[];
+
+        for (int i = 0; i < _lastParameterIds!.length; i++) {
+          final paramId = _lastParameterIds![i];
+          final seen = <int>{};
+          final filtered = results[i]
+              .where((v) => seen.add(v.receiptDate.millisecondsSinceEpoch))
+              .toList()
+            ..sort((a, b) => a.receiptDate.compareTo(b.receiptDate));
+          parameterValues[paramId] = filtered;
+          if (filtered.isNotEmpty) {
+            parameters[paramId] = filtered.first.parameter;
+          }
+          allValues.addAll(filtered);
+        }
+
+        if (allValues.isEmpty) return;
+        allValues.sort((a, b) => a.receiptDate.compareTo(b.receiptDate));
+
+        emit(ParameterChartLoaded(
+          values: allValues,
+          parameterValues: parameterValues,
+          parameters: parameters,
+          startDate: startDate,
+          endDate: endDate,
+          interval: _lastInterval,
+        ));
+      } else {
+        final values = await _apiService.getParameterHistoryValues(
+          token,
+          event.boilerId,
+          _lastSingleParameterId!,
+          startDate,
+          endDate,
+          _lastInterval,
+        );
+        if (values.isEmpty) return;
+
+        final seen = <int>{};
+        final filtered = values
+            .where((v) => seen.add(v.receiptDate.millisecondsSinceEpoch))
+            .toList()
+          ..sort((a, b) => a.receiptDate.compareTo(b.receiptDate));
+
+        emit(ParameterChartLoaded(
+          values: filtered,
+          parameterValues: {_lastSingleParameterId!: filtered},
+          parameters: {_lastSingleParameterId!: filtered.first.parameter},
+          startDate: startDate,
+          endDate: endDate,
+          interval: _lastInterval,
+        ));
+      }
+    } catch (e) {
+      print('[SignalR Chart] Ошибка тихого обновления: $e');
     }
   }
 }
