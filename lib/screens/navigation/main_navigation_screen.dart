@@ -41,7 +41,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
-    GlobalKey<NavigatorState>(),
+    //GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
   ];
 
@@ -305,10 +305,10 @@ if (type == _NotificationType.alarm) {
         return _buildTabNavigator(1, _buildUploadTab());
       case 2:
         return _buildTabNavigator(2, _buildIncidentsTab());
+      // case 3:
+      //   return _buildTabNavigator(3, _buildWaterLoosesTab());
       case 3:
-        return _buildTabNavigator(3, _buildWaterLoosesTab());
-      case 4:
-        return _buildTabNavigator(4, _buildSettingsTab());
+        return _buildTabNavigator(3, _buildSettingsTab());
       default:
         return _buildTabNavigator(0, _buildHomeTab());
     }
@@ -342,7 +342,7 @@ Widget _buildIncidentsTab() {
   );
 }
 
-  Widget _buildWaterLoosesTab() => const WaterLossesScreen();
+  //Widget _buildWaterLoosesTab() => const WaterLossesScreen();
 
   Widget _buildSettingsTab() => const SettingsScreen();
 }
