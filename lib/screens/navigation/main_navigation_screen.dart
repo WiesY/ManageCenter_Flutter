@@ -332,12 +332,15 @@ if (type == _NotificationType.alarm) {
 
   Widget _buildUploadTab() => const AnalyticsScreen();
 
-  Widget _buildIncidentsTab() {
-    return BlocProvider.value(
-      value: _incidentsBloc,
-      child: const IncidentsScreen(),
-    );
-  }
+Widget _buildIncidentsTab() {
+  return MultiBlocProvider(
+    providers: [
+      BlocProvider.value(value: _incidentsBloc),
+      BlocProvider.value(value: _boilersBloc), // добавить
+    ],
+    child: const IncidentsScreen(),
+  );
+}
 
   Widget _buildWaterLoosesTab() => const WaterLossesScreen();
 

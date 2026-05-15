@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
+import 'package:manage_center/bloc/boiler_detail_bloc.dart';
+import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/bloc/incidents_bloc.dart';
 import 'package:manage_center/models/incident_model.dart';
+import 'package:manage_center/screens/Boiler_detail_screen.dart';
 
 class AppColors {
   static const primary = Colors.blue;
@@ -787,28 +790,62 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                     incident.resetUserName!,
                   ),
                 ],
-                if (isActive && canResetIncident) ...[
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () =>
-                          _showResetConfirmation(context, incident),
-                      icon: const Icon(Icons.archive),
-                      label: const Text('Сбросить аварию'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.success,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ] else if (isActive && !canResetIncident) ...[
-                  const SizedBox.shrink()
-                ],
+               if (isActive && canResetIncident) ...[
+  const SizedBox(height: 16),
+  Row(
+    children: [
+      Expanded(
+        child: ElevatedButton.icon(
+          onPressed: () => _showResetConfirmation(context, incident),
+          icon: const Icon(Icons.archive, size: 18),
+          label: const Text('Сбросить'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.success,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: ElevatedButton.icon(
+          onPressed: () => _openBoilerDetail(context, incident),
+          icon: const Icon(Icons.info_outline, size: 18),
+          label: const Text('Подробнее'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      ),
+    ],
+  ),
+] else if (isActive && !canResetIncident) ...[
+  const SizedBox(height: 16),
+  SizedBox(
+    width: double.infinity,
+    child: ElevatedButton.icon(
+      onPressed: () => _openBoilerDetail(context, incident),
+      icon: const Icon(Icons.info_outline, size: 18),
+      label: const Text('Подробнее'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    ),
+  ),
+],
               ],
             ),
           ),
@@ -854,6 +891,30 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
       ],
     );
   }
+
+  void _openBoilerDetail(BuildContext context, IncidentModel incident) {
+  // BoilerDetailBloc уже зарегистрирован глобально в main.dart
+  // Просто сбрасываем его состояние и открываем экран
+  context.read<BoilerDetailBloc>().add(
+    LoadBoilerConfiguration(incident.boilerId),
+  );
+
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => BlocProvider.value(
+        value: context.read<BoilerDetailBloc>(),
+        child: BlocProvider.value(
+          value: context.read<BoilersBloc>(),
+          child: BoilerDetailScreen(
+            boilerId: incident.boilerId,
+            boilerName: incident.boilerName,
+          ),
+        ),
+      ),
+    ),
+  );
+}
 
   Future<void> _showResetConfirmation(
       BuildContext context, IncidentModel incident) async {
