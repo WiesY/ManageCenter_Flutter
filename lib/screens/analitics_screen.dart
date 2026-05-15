@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:manage_center/bloc/analytics_bloc.dart';
+import 'package:manage_center/constants/app_colors.dart';
 import 'package:manage_center/models/BoilerTypeCompareValues.dart';
 import 'package:manage_center/models/boiler_list_item_model.dart';
 import 'package:manage_center/models/boiler_type_model.dart';
@@ -10,20 +11,6 @@ import 'package:manage_center/models/groups_model.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'dart:math' as math;
-
-class AppColors {
-  // static const primary = Color(0xFF2E7D32);
-  // static const primaryLight = Color(0xFF4CAF50);
-  static const primary = Colors.blue;
-  static const primaryLight = Colors.lightBlue;
-  static const background = Color(0xFFF5F5F5);
-  static const surface = Colors.white;
-  static const error = Color(0xFFE53E3E);
-  static const warning = Color(0xFFFF8C00);
-  static const success = Colors.green;
-  static const textPrimary = Color(0xFF2D3748);
-  static const textSecondary = Color(0xFF718096);
-}
 
 enum SortDirection { asc, desc, none }
 

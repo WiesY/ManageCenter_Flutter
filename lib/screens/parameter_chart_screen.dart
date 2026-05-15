@@ -4,28 +4,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:manage_center/bloc/parameter_chart_bloc.dart';
+import 'package:manage_center/constants/app_colors.dart';
 import 'package:manage_center/models/boiler_parameter_model.dart';
 import 'package:manage_center/models/boiler_parameter_value_model.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/signalr_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'dart:math' as math;
-
-// ==================== ЦВЕТА ====================
-
-class AppColors {
-  static const primary = Color(0xFF2E7D32);
-  static const primaryLight = Color(0xFF4CAF50);
-  static const background = Color(0xFFF5F5F5);
-  static const surface = Colors.white;
-  static const error = Color(0xFFE53E3E);
-  static const warning = Color(0xFFFF8C00);
-  static const success = Color(0xFF38A169);
-  static const textPrimary = Color(0xFF2D3748);
-  static const textSecondary = Color(0xFF718096);
-  static const chartPrimary = Color(0xFF2E7D32);
-  static const chartSecondary = Color(0xFF81C784);
-}
 
 const List<Color> _multiColors = [
   Color(0xFF2E7D32),

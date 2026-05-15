@@ -6,21 +6,9 @@ import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/bloc/incidents_bloc.dart';
+import 'package:manage_center/constants/app_colors.dart';
 import 'package:manage_center/models/incident_model.dart';
 import 'package:manage_center/screens/Boiler_detail_screen.dart';
-
-class AppColors {
-  static const primary = Colors.blue;
-  static const primaryLight = Colors.lightBlue;
-  static const background = Color(0xFFF5F5F5);
-  static const surface = Colors.white;
-  static const error = Color(0xFFE53E3E);
-  static const warning = Color(0xFFFF8C00);
-  static const success = Colors.green;
-  static const textPrimary = Color(0xFF2D3748);
-  static const textSecondary = Color(0xFF718096);
-  static const archived = Color(0xFF9E9E9E);
-}
 
 class IncidentsScreen extends StatelessWidget {
   final String? initialSearchQuery;

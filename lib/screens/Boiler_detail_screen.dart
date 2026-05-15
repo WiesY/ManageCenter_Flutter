@@ -4,26 +4,17 @@ import 'package:intl/intl.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
+import 'package:manage_center/constants/app_colors.dart';
 import 'package:manage_center/models/boiler_parameter_model.dart';
 import 'package:manage_center/models/boiler_parameter_value_model.dart';
 import 'package:manage_center/models/groups_model.dart';
 import 'package:manage_center/screens/parameter_chart_screen.dart';
 import 'package:manage_center/services/signalr_service.dart';
+import 'package:manage_center/utils/parameter_utils.dart';
 import 'package:manage_center/widgets/blinking_dot.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
-
-class AppColors {
-  static const primary = Color(0xFF2E7D32);
-  static const primaryLight = Color(0xFF4CAF50);
-  static const background = Color(0xFFF5F5F5);
-  static const surface = Colors.white;
-  static const error = Colors.red;
-  static const warning = Color(0xFFFF8C00);
-  static const success = Colors.green;
-  static const textPrimary = Color(0xFF2D3748);
-  static const textSecondary = Color(0xFF718096);
-}
+import 'package:manage_center/widgets/detailed_screen/boiler_status_header.dart';
 
 enum BoilerStatus { normal, warning, error }
 
@@ -106,21 +97,6 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
     _refreshController.dispose();
     boilerParamsUpdateNotifier.removeListener(_signalRListener);
     super.dispose();
-  }
-
-  String _formatValue(String displayValue, String valueType) {
-    final type = valueType.toLowerCase();
-    if (type == 'int' ||
-        type == 'integer' ||
-        type == 'long' ||
-        type == 'short' ||
-        type == 'byte') {
-      final parsed = double.tryParse(displayValue);
-      if (parsed != null) {
-        return parsed.toInt().toString();
-      }
-    }
-    return displayValue;
   }
 
   Future<void> _refreshRealtimeStatus() async {
@@ -222,32 +198,6 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
     return _allParameters.where((param) => param.groupId == groupId).toList();
   }
 
-  Color _parseGroupColor(String colorString) {
-    try {
-      if (colorString.startsWith('#')) {
-        String hexColor = colorString.substring(1, 7);
-        return Color(int.parse(hexColor, radix: 16) + 0xFF000000);
-      }
-      return AppColors.textSecondary;
-    } catch (e) {
-      return AppColors.textSecondary;
-    }
-  }
-
-  String _translateParameterType(String valueType) {
-    return switch (valueType.toLowerCase()) {
-      'float' || 'double' => 'дробное',
-      'int' || 'integer' => 'целое',
-      'bool' || 'boolean' => 'логическое',
-      'string' || 'text' => 'текстовое',
-      'byte' => 'байт',
-      'decimal' => 'десятичное',
-      'long' => 'длинное целое',
-      'short' => 'короткое целое',
-      _ => valueType,
-    };
-  }
-
   Color get _statusColor => switch (_boilerStatus) {
         BoilerStatus.normal => AppColors.success,
         BoilerStatus.warning => AppColors.warning,
@@ -303,9 +253,15 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
           builder: (context, state) {
             return CustomScrollView(
               slivers: [
-                SliverToBoxAdapter(child: _buildStatusHeader()),
+                SliverToBoxAdapter(
+                  child: BoilerStatusHeader(
+                    statusColor: _statusColor,
+                    statusText: _statusText,
+                    parametersCount: _allParameters.length,
+                  ),
+                ),
                 if (_allGroups.isNotEmpty)
-                  SliverToBoxAdapter(child: _buildGroupFilterChips()),
+                SliverToBoxAdapter(child: _buildGroupFilterChips()),
                 SliverFillRemaining(
                   child: _buildParameterGroupsContent(state),
                 ),
@@ -388,84 +344,6 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
     );
   }
 
-  Widget _buildStatusHeader() {
-    final totalParametersCount = _allParameters.length;
-
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: _statusColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: BlinkingDot(color: _statusColor, size: 16),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _statusText,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: _statusColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Обновлено: ${DateFormat('HH:mm:ss').format(DateTime.now().toLocal())}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'Всего параметров: $totalParametersCount',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildGroupFilterChips() {
     if (_allGroups.isEmpty) return const SizedBox.shrink();
 
@@ -485,7 +363,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
           final group = allGroupsWithOther[index];
           final parametersCount = _getParametersForGroup(group.id).length;
           final isVisible = _groupVisibility[group.id] ?? true;
-          final groupColor = _parseGroupColor(group.color);
+          final groupColor = ParameterUtils.parseGroupColor(group.color);
 
           return Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -706,7 +584,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
 
   Widget _buildGroupCard(Group group) {
     final parametersInGroup = _getParametersForGroup(group.id);
-    final groupColor = _parseGroupColor(group.color);
+    final groupColor = ParameterUtils.parseGroupColor(group.color);
     final isExpanded = _groupExpansion[group.id] ?? group.isExpanded;
     final hasEmergency = _hasEmergencyInGroup(group);
 
@@ -834,14 +712,13 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
           child: Row(
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  _translateParameterType(parameter.valueType),
+                  ParameterUtils.translateParameterType(parameter.valueType),
                   style: const TextStyle(
                     fontSize: 11,
                     color: AppColors.primary,
@@ -850,8 +727,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 child: Text(
                   'ID: ${parameter.id}',
                   style: const TextStyle(
@@ -875,7 +751,8 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
               ),
               child: Text(
                 value != null
-                    ? _formatValue(value.displayValue, parameter.valueType)
+                    ? ParameterUtils.formatValue(
+                        value.displayValue, parameter.valueType)
                     : 'Нет данных',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
@@ -936,7 +813,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
               final group = allGroupsWithOther[index];
               final parametersCount = _getParametersForGroup(group.id).length;
               final isVisible = _groupVisibility[group.id] ?? true;
-              final groupColor = _parseGroupColor(group.color);
+              final groupColor = ParameterUtils.parseGroupColor(group.color);
 
               return CheckboxListTile(
                 title: Row(
@@ -1043,14 +920,11 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                             });
                           },
                           icon: Icon(
-                            areAllSelected
-                                ? Icons.deselect
-                                : Icons.select_all,
+                            areAllSelected ? Icons.deselect : Icons.select_all,
                             size: 18,
                           ),
-                          label: Text(areAllSelected
-                              ? 'Снять выбор'
-                              : 'Выбрать все'),
+                          label: Text(
+                              areAllSelected ? 'Снять выбор' : 'Выбрать все'),
                         ),
                     ],
                   ),
@@ -1060,8 +934,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                         ? const Center(
                             child: Text(
                               'Параметры не найдены',
-                              style:
-                                  TextStyle(color: AppColors.textSecondary),
+                              style: TextStyle(color: AppColors.textSecondary),
                             ),
                           )
                         : ListView.builder(
