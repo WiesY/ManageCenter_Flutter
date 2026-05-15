@@ -95,14 +95,14 @@ class ApiService {
         },
       );
 
-      print('Response status code: ${response.statusCode}');
-      print('Response body: ${response.body}');
+      //print('Response status code: ${response.statusCode}');
+      //print('Response body: ${response.body}');
 
       switch (response.statusCode) {
         case 200:
           final data = json.decode(response.body);
-          print(
-              'Decoded data: $data'); // Добавляем логирование декодированных данных
+          // print(
+          //     'Decoded data: $data'); // Добавляем логирование декодированных данных
           final userInfo = UserInfo.fromJson(data);
           print(
               'Created UserInfo object: ${userInfo.name}'); // Логируем созданный объект
@@ -162,8 +162,8 @@ class ApiService {
         },
       );
 
-      print('Response status code: ${response.statusCode}');
-      print('Response body: ${response.body}');
+      //print('Response status code: ${response.statusCode}');
+      //print('Response body: ${response.body}');
 
       switch (response.statusCode) {
         case 200:
@@ -214,8 +214,8 @@ class ApiService {
   Future<BoilerConfiguration> getBoilerParameters(
       String token, int boilerId) async {
     try {
-      print(
-          'Getting boiler parameters for boiler $boilerId with token: $token');
+      // print(
+      //     'Getting boiler parameters for boiler $boilerId with token: $token');
       final response = await http.get(
         Uri.parse('$baseUrl/BoilerParameters/$boilerId/Parameters'),
         headers: {
@@ -224,17 +224,16 @@ class ApiService {
         },
       );
 
-      print('Response status code: ${response.statusCode}');
-      print('Response body: ${response.body}');
+      // print('Response status code: ${response.statusCode}');
+      // print('Response body: ${response.body}');
 
       switch (response.statusCode) {
         case 200:
           final dynamic data = json.decode(response.body);
-          print('Decoded data: $data');
-          // ИСПРАВЛЕНО: парсим как один объект BoilerConfiguration
+          //print('Decoded data: $data');
           final configuration = BoilerConfiguration.fromJson(data);
-          print(
-              'Created BoilerConfiguration with ${configuration.boilerParameters.length} parameters and ${configuration.groups.length} groups');
+          // print(
+          //     'Created BoilerConfiguration with ${configuration.boilerParameters.length} parameters and ${configuration.groups.length} groups');
           return configuration;
         case 401:
           throw Exception('Некорректный токен авторизации');
@@ -254,10 +253,10 @@ class ApiService {
       String token, int boilerId, DateTime start, DateTime end, int interval,
       {List<int>? parameterIds}) async {
     try {
-      print(
-          'Getting boiler parameter values for boiler $boilerId from $start to $end');
+      // print(
+      //     'Getting boiler parameter values for boiler $boilerId from $start to $end');
       if (parameterIds != null) {
-        print('Filtering by parameter IDs: $parameterIds');
+        //print('Filtering by parameter IDs: $parameterIds');
       }
 
       Map<String, String> queryParams = {
@@ -283,14 +282,14 @@ class ApiService {
         },
       );
 
-      print('Response status code: ${response.statusCode}');
-      print('Response body length: ${response.body.length}');
+      // print('Response status code: ${response.statusCode}');
+      // print('Response body length: ${response.body.length}');
 
       switch (response.statusCode) {
         case 200:
           final dynamic data = json.decode(response.body);
-          print(
-              'Decoded data with ${data['historyNodeValues']?.length ?? 0} values and ${data['groups']?.length ?? 0} groups');
+          // print(
+          //     'Decoded data with ${data['historyNodeValues']?.length ?? 0} values and ${data['groups']?.length ?? 0} groups');
           // ИСПРАВЛЕНО: парсим как один объект BoilerHistoryResponse
           final historyResponse = BoilerHistoryResponse.fromJson(data);
           print(
@@ -318,8 +317,8 @@ class ApiService {
       DateTime endDate,
       int interval) async {
     try {
-      print(
-          'Getting history values for parameter $parameterId from $startDate to $endDate');
+      // print(
+      //     'Getting history values for parameter $parameterId from $startDate to $endDate');
 
       Map<String, String> queryParams = {
         'Start': startDate.toIso8601String(),
@@ -341,7 +340,7 @@ class ApiService {
         },
       );
 
-      print('Response status code: ${response.statusCode}');
+      //print('Response status code: ${response.statusCode}');
 
       switch (response.statusCode) {
         case 200:
@@ -449,7 +448,7 @@ class ApiService {
         },
       );
 
-      print('Response status code: ${response.statusCode}');
+      //print('Response status code: ${response.statusCode}');
 
       switch (response.statusCode) {
         case 200:
@@ -509,7 +508,7 @@ class ApiService {
         queryParameters: queryParams,
       );
 
-      print('Getting incidents with params: $queryParams');
+      //print('Getting incidents with params: $queryParams');
 
       final response = await http.get(
         uri,
@@ -519,7 +518,7 @@ class ApiService {
         },
       );
 
-      print('Response status code: ${response.statusCode}');
+      //print('Response status code: ${response.statusCode}');
 
       switch (response.statusCode) {
         case 200:
@@ -557,7 +556,7 @@ class ApiService {
         },
       );
 
-      print('Response status code: ${response.statusCode}');
+      //print('Response status code: ${response.statusCode}');
 
       switch (response.statusCode) {
         case 200:

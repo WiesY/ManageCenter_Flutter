@@ -147,7 +147,7 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
         throw Exception('Токен не найден. Авторизуйтесь.');
       }
 
-      print('Loading configuration for boiler ${event.boilerId}');
+      //print('Loading configuration for boiler ${event.boilerId}');
 
       // Загружаем конфигурацию и активные инциденты параллельно
       final results = await Future.wait([
@@ -169,10 +169,10 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
           .map((i) => i.parameter!.groupId)
           .toSet();
 
-      print(
-          'Loaded ${_cachedParameters!.length} parameters, '
-          '${_cachedGroups!.length} groups, '
-          '${incidents.length} active incidents');
+      //print(
+      //    'Loaded ${_cachedParameters!.length} parameters, '
+      //    '${_cachedGroups!.length} groups, '
+      //    '${incidents.length} active incidents');
 
       emit(BoilerDetailConfigurationLoaded(
         parameters: _cachedParameters!,
@@ -209,7 +209,7 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
         _currentBoilerId = event.boilerId;
       }
 
-      print('Loading parameter values for boiler ${event.boilerId}');
+      //print('Loading parameter values for boiler ${event.boilerId}');
 
       final historyResponse = await _apiService.getBoilerParameterValues(
         token,
@@ -225,7 +225,7 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
       }
 
       final values = historyResponse.historyNodeValues;
-      print('Loaded ${values.length} parameter values from API');
+      //print('Loaded ${values.length} parameter values from API');
 
       final filteredValues = values
           .where((value) =>
@@ -256,7 +256,7 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
       if (token == null) {
         throw Exception('Токен не найден. Авторизуйтесь.');
       }
-      print('==== ${token}, ${event.groupId}, ${event.parameterIds}');
+      //print('==== ${token}, ${event.groupId}, ${event.parameterIds}');
       await _apiService.updateParametersGroup(
           token, event.groupId, event.parameterIds);
 
