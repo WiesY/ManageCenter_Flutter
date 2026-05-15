@@ -8,6 +8,15 @@ class StorageService {
   static const String userRoleIdKey = 'user_role_id';
   static const String userRoleNameKey = 'user_role_name';
 
+  static const String alarmSoundEnabledKey = 'alarm_sound_enabled';
+  static const bool defaultAlarmSoundEnabled = true;
+
+  static const String alarmVolumeKey = 'alarm_volume';
+  static const String alarmSoundKey = 'alarm_sound';
+
+  static const double defaultAlarmVolume = 0.5;
+  static const String defaultAlarmSound = 'sounds/alarm.wav';
+
   final SharedPreferences _prefs;
 
   StorageService(this._prefs);
@@ -87,5 +96,31 @@ class StorageService {
   Future<void> clearUserRole() async {
     await _prefs.remove(userRoleIdKey);
     await _prefs.remove(userRoleNameKey);
+  }
+
+  // ==== НАСТРОЙКИ УВЕДОМЛЕНИЙ ====
+
+  Future<void> setAlarmVolume(double volume) async {
+    await _prefs.setDouble(alarmVolumeKey, volume);
+  }
+
+  Future<double> getAlarmVolume() async {
+    return _prefs.getDouble(alarmVolumeKey) ?? defaultAlarmVolume;
+  }
+
+  Future<void> setAlarmSound(String assetPath) async {
+    await _prefs.setString(alarmSoundKey, assetPath);
+  }
+
+  Future<String> getAlarmSound() async {
+    return _prefs.getString(alarmSoundKey) ?? defaultAlarmSound;
+  }
+
+  Future<void> setAlarmSoundEnabled(bool enabled) async {
+    await _prefs.setBool(alarmSoundEnabledKey, enabled);
+  }
+
+  Future<bool> isAlarmSoundEnabled() async {
+    return _prefs.getBool(alarmSoundEnabledKey) ?? defaultAlarmSoundEnabled;
   }
 }

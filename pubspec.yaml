@@ -34,6 +34,7 @@ dependencies:
   permission_handler: ^12.0.1
   device_info_plus: ^12.3.0
   signalr_netcore: ^1.4.4
+  audioplayers: ^6.6.0
 
 dev_dependencies:
   flutter_test:
@@ -46,6 +47,11 @@ flutter:
 
   assets:
     - lib/assets/icon/
+    - assets/sounds/alarm.wav
+    - assets/sounds/beep1.mp3
+    - assets/sounds/beep2.mp3
+    - assets/sounds/beep3.mp3
+    - assets/sounds/beep4.mp3
 
 flutter_launcher_icons:
   android: "launcher_icon"

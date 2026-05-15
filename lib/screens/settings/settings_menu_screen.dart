@@ -5,6 +5,7 @@ import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/screens/dashboard_screen.dart';
 import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/screens/settings/about_screen.dart';
+import 'package:manage_center/screens/settings/app_settings_screen.dart';
 import 'package:manage_center/screens/settings/boiler_types_management_screen.dart';
 import 'package:manage_center/screens/settings/boilers_management_screen.dart';
 import 'package:manage_center/screens/settings/districts_management_screen.dart';
@@ -102,19 +103,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
 
-                // if(canManageBoilers)
-                // _buildSettingsCategory(
-                //   context,
-                //   title: 'Группы параметров',
-                //   icon: Icons.business,
-                //   items: [
-                //     SettingsItem(
-                //       title: 'Управление группами',
-                //       icon: Icons.home_work,
-                //       onTap: () => _navigateToParamGroupsManagement(context),
-                //     ),
-                //   ],
-                // ),
+              // if(canManageBoilers)
+              // _buildSettingsCategory(
+              //   context,
+              //   title: 'Группы параметров',
+              //   icon: Icons.business,
+              //   items: [
+              //     SettingsItem(
+              //       title: 'Управление группами',
+              //       icon: Icons.home_work,
+              //       onTap: () => _navigateToParamGroupsManagement(context),
+              //     ),
+              //   ],
+              // ),
 
               if (canManageAccounts)
                 _buildSettingsCategory(
@@ -177,7 +178,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onTap: () => _showLogoutDialog(context),
                 ),
               ),
-                 const SizedBox(height: 80),
+              const SizedBox(height: 80),
             ],
           ),
         );
@@ -309,14 +310,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // Методы навигации к различным экранам настроек
-void _navigateToProfileSettings(BuildContext context) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => const UserProfileScreen(),
-    ),
-  );
-}
+  void _navigateToProfileSettings(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const UserProfileScreen(),
+      ),
+    );
+  }
 
   void _navigateToChangePassword(BuildContext context) {
     Navigator.push(
@@ -336,7 +337,7 @@ void _navigateToProfileSettings(BuildContext context) {
     );
   }
 
-    void _navigateToParamGroupsManagement(BuildContext context) {
+  void _navigateToParamGroupsManagement(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -384,17 +385,22 @@ void _navigateToProfileSettings(BuildContext context) {
 
   void _navigateToAppSettings(BuildContext context) {
     // Реализация будет добавлена позже
-    _showComingSoonDialog(context, 'Настройки приложения');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AppSettingsScreen(),
+      ),
+    );
   }
 
   void _navigateToAbout(BuildContext context) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => const AboutScreen(),
-    ),
-  );
-}
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AboutScreen(),
+      ),
+    );
+  }
 
   void _showLogoutDialog(BuildContext context) {
     showDialog(

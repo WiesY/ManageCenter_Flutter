@@ -18,7 +18,7 @@ class AppColors {
   static const primaryLight = Color(0xFF4CAF50);
   static const background = Color(0xFFF5F5F5);
   static const surface = Colors.white;
-  static const error = Color(0xFFE53E3E);
+  static const error = Colors.red;
   static const warning = Color(0xFFFF8C00);
   static const success = Colors.green;
   static const textPrimary = Color(0xFF2D3748);
@@ -341,7 +341,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
         ],
       ),
       centerTitle: true,
-      backgroundColor: AppColors.primary,
+      backgroundColor: _statusColor,
       foregroundColor: Colors.white,
       elevation: 0,
       actions: [

@@ -17,6 +17,7 @@ import 'package:manage_center/widgets/custom_bottom_navigation.dart';
 import 'package:manage_center/services/app_update_service.dart';
 import 'package:manage_center/widgets/notification_toast.dart';
 import 'package:manage_center/widgets/update_dialog.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 enum _NotificationType { alarm, resolved, connection, disconnection }
 
@@ -33,6 +34,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   late final IncidentsBloc _incidentsBloc;
   late final SignalRService _signalRService;
   late final BoilersBloc _boilersBloc;
+
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
     GlobalKey<NavigatorState>(),
@@ -78,6 +81,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     switchTabNotifier.removeListener(_onSwitchTab);
     _incidentsBloc.close();
     _boilersBloc.close();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -116,7 +120,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       // 1. Параметры котельных
       _signalRService.onNewBoilerParametersData = (boilerId, newData) {
         if (!mounted || _boilersBloc.isClosed) return;
-        print('[SignalR] Котельная $boilerId: $newData');
+        //print('[SignalR] Котельная $boilerId: $newData');
         _boilersBloc.add(BoilerParametersUpdatedEvent(boilerId, newData));
       };
 
@@ -198,12 +202,21 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
   }
 
-  void _showNotification({
+  Future<void> _showNotification({
     required String title,
     required String message,
     required _NotificationType type,
-  }) {
+  }) async {
     if (!mounted) return;
+
+    // 🔊 Звук только для аварий
+if (type == _NotificationType.alarm) {
+  final storage = context.read<StorageService>();
+  final volume = await storage.getAlarmVolume();
+  final sound = await storage.getAlarmSound();
+  await _audioPlayer.setVolume(volume);
+  await _audioPlayer.play(AssetSource(sound));
+}
 
     final Color bgColor;
     final Color borderColor;

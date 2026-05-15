@@ -34,7 +34,7 @@ class SignalRService {
     // --- ВСЕ ПОДПИСКИ ДО start() ---
 
     _hubConnection!.on('OnNewBoilerParametersData', (args) {
-      print('[SignalR RAW] OnNewBoilerParametersData: $args');
+      //print('[SignalR RAW] OnNewBoilerParametersData: $args');
       if (args == null || args.length < 2) return;
       try {
         final boilerId = args[0] as int;
@@ -51,7 +51,7 @@ class SignalRService {
     });
 
     _hubConnection!.on('ReceiveNewAlarm', (args) {
-      print('[SignalR RAW] ReceiveNewAlarm: $args');
+      //print('[SignalR RAW] ReceiveNewAlarm: $args');
       if (args == null || args.isEmpty) return;
       try {
         final alarmData = Map<String, dynamic>.from(args[0] as Map);
@@ -63,7 +63,7 @@ class SignalRService {
     });
 
     _hubConnection!.on('DeviceStatusChanged', (args) {
-      print('[SignalR RAW] DeviceStatusChanged: $args');
+      //print('[SignalR RAW] DeviceStatusChanged: $args');
       if (args == null || args.isEmpty) return;
       try {
         final statusData = Map<String, dynamic>.from(args[0] as Map);
@@ -75,7 +75,7 @@ class SignalRService {
     });
 
     _hubConnection!.on('AlarmResolved', (args) {
-      print('[SignalR RAW] AlarmResolved: $args');
+      //print('[SignalR RAW] AlarmResolved: $args');
       if (args == null || args.isEmpty) return;
       try {
         final resolvedData = Map<String, dynamic>.from(args[0] as Map);
