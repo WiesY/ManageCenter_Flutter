@@ -4,25 +4,23 @@ import 'package:manage_center/models/boiler_parameter_value_model.dart';
 import 'package:manage_center/models/boiler_configuration.dart';
 import 'package:manage_center/models/boiler_history_model.dart';
 import 'package:manage_center/models/groups_model.dart';
+import 'package:manage_center/models/incident_model.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 
 // --- СОБЫТИЯ ---
 abstract class BoilerDetailEvent {}
 
-// Загрузка конфигурации котельной (параметры + группы)
 class LoadBoilerConfiguration extends BoilerDetailEvent {
   final int boilerId;
   LoadBoilerConfiguration(this.boilerId);
 }
 
-// Загрузка параметров котельной (устаревшее, оставлено для совместимости)
 class LoadBoilerParameters extends BoilerDetailEvent {
   final int boilerId;
   LoadBoilerParameters(this.boilerId);
 }
 
-// Загрузка значений параметров за выбранный период для конкретных параметров
 class LoadBoilerParameterValues extends BoilerDetailEvent {
   final int boilerId;
   final DateTime startDate;
@@ -49,7 +47,6 @@ class UpdateParametersGroup extends BoilerDetailEvent {
   });
 }
 
-// Событие от SignalR: пришли новые данные параметров
 class SignalRParametersUpdated extends BoilerDetailEvent {
   final int boilerId;
   final Map<String, dynamic> newData;
@@ -66,14 +63,17 @@ class BoilerDetailLoadInProgress extends BoilerDetailState {}
 class BoilerDetailConfigurationLoaded extends BoilerDetailState {
   final List<BoilerParameter> parameters;
   final List<Group> groups;
+  final Set<int> incidentParameterIds;
+  final Set<int> incidentGroupIds;
 
   BoilerDetailConfigurationLoaded({
     required this.parameters,
     required this.groups,
+    this.incidentParameterIds = const {},
+    this.incidentGroupIds = const {},
   });
 }
 
-// Устаревшее состояние, оставлено для совместимости
 class BoilerDetailParametersLoaded extends BoilerDetailState {
   final List<BoilerParameter> parameters;
   final List<Group> groups;
@@ -90,6 +90,8 @@ class BoilerDetailValuesLoaded extends BoilerDetailState {
   final List<BoilerParameterValue> values;
   final List<int> selectedParameterIds;
   final DateTime selectedDateTime;
+  final Set<int> incidentParameterIds;
+  final Set<int> incidentGroupIds;
 
   BoilerDetailValuesLoaded({
     required this.parameters,
@@ -97,6 +99,8 @@ class BoilerDetailValuesLoaded extends BoilerDetailState {
     required this.values,
     required this.selectedParameterIds,
     required this.selectedDateTime,
+    this.incidentParameterIds = const {},
+    this.incidentGroupIds = const {},
   });
 }
 
@@ -113,10 +117,11 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
   final ApiService _apiService;
   final StorageService _storageService;
 
-  // Кэшируем конфигурацию, чтобы не загружать её каждый раз
   List<BoilerParameter>? _cachedParameters;
   List<Group>? _cachedGroups;
   int? _currentBoilerId;
+  Set<int> _cachedIncidentParameterIds = {};
+  Set<int> _cachedIncidentGroupIds = {};
 
   BoilerDetailBloc({
     required ApiService apiService,
@@ -129,8 +134,6 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
     on<UpdateParametersGroup>(_onUpdateParametersGroup);
     on<SignalRParametersUpdated>(_onSignalRParametersUpdated);
   }
-
-  // В блоке нужно изменить методы:
 
   Future<void> _onLoadBoilerConfiguration(
     LoadBoilerConfiguration event,
@@ -146,20 +149,36 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
 
       print('Loading configuration for boiler ${event.boilerId}');
 
-      // Используем исправленный метод getBoilerParameters
-      final configuration =
-          await _apiService.getBoilerParameters(token, event.boilerId);
+      // Загружаем конфигурацию и активные инциденты параллельно
+      final results = await Future.wait([
+        _apiService.getBoilerParameters(token, event.boilerId),
+        _apiService.getIncidents(token, onlyActive: true, boilerId: event.boilerId),
+      ]);
+
+      final configuration = results[0] as BoilerConfiguration;
+      final incidents = results[1] as List<IncidentModel>;
 
       _cachedParameters = configuration.boilerParameters;
       _cachedGroups = configuration.groups;
       _currentBoilerId = event.boilerId;
 
+      // Собираем id аварийных параметров и групп из инцидентов
+      _cachedIncidentParameterIds = incidents.map((i) => i.parameterId).toSet();
+      _cachedIncidentGroupIds = incidents
+          .where((i) => i.parameter != null)
+          .map((i) => i.parameter!.groupId)
+          .toSet();
+
       print(
-          'Loaded ${configuration.boilerParameters.length} parameters and ${configuration.groups.length} groups');
+          'Loaded ${_cachedParameters!.length} parameters, '
+          '${_cachedGroups!.length} groups, '
+          '${incidents.length} active incidents');
 
       emit(BoilerDetailConfigurationLoaded(
-        parameters: configuration.boilerParameters,
-        groups: configuration.groups,
+        parameters: _cachedParameters!,
+        groups: _cachedGroups!,
+        incidentParameterIds: _cachedIncidentParameterIds,
+        incidentGroupIds: _cachedIncidentGroupIds,
       ));
     } catch (e) {
       print('Error loading configuration: $e');
@@ -179,7 +198,6 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
         throw Exception('Токен не найден. Авторизуйтесь.');
       }
 
-      // Если конфигурация не загружена, загружаем её
       if (_cachedParameters == null ||
           _cachedGroups == null ||
           _currentBoilerId != event.boilerId) {
@@ -193,7 +211,6 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
 
       print('Loading parameter values for boiler ${event.boilerId}');
 
-      // Используем исправленный метод getBoilerParameterValues
       final historyResponse = await _apiService.getBoilerParameterValues(
         token,
         event.boilerId,
@@ -203,7 +220,6 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
         parameterIds: event.selectedParameterIds,
       );
 
-      // Обновляем группы, если они пришли в ответе
       if (historyResponse.groups.isNotEmpty) {
         _cachedGroups = historyResponse.groups;
       }
@@ -211,7 +227,6 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
       final values = historyResponse.historyNodeValues;
       print('Loaded ${values.length} parameter values from API');
 
-      // Фильтруем значения только для выбранных параметров
       final filteredValues = values
           .where((value) =>
               event.selectedParameterIds.contains(value.parameter.id))
@@ -223,6 +238,8 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
         values: filteredValues,
         selectedParameterIds: event.selectedParameterIds,
         selectedDateTime: event.startDate,
+        incidentParameterIds: _cachedIncidentParameterIds,
+        incidentGroupIds: _cachedIncidentGroupIds,
       ));
     } catch (e) {
       print('Error loading parameter values: $e');
@@ -243,7 +260,6 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
       await _apiService.updateParametersGroup(
           token, event.groupId, event.parameterIds);
 
-      // После успешного обновления перезагружаем конфигурацию
       if (_currentBoilerId != null) {
         add(LoadBoilerConfiguration(_currentBoilerId!));
       }
@@ -253,91 +269,10 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
     }
   }
 
-  // Вспомогательный метод для получения временного диапазона выбранной минуты
-  static Map<String, DateTime> getMinuteRange(DateTime selectedDateTime) {
-    final startOfMinute = DateTime(
-      selectedDateTime.year,
-      selectedDateTime.month,
-      selectedDateTime.day,
-      selectedDateTime.hour,
-      selectedDateTime.minute,
-      0, // секунды = 0
-    );
-
-    final endOfMinute = startOfMinute
-        .add(const Duration(minutes: 1))
-        .subtract(const Duration(seconds: 1));
-
-    return {
-      'start': startOfMinute,
-      'end': endOfMinute,
-    };
-  }
-
-  // Вспомогательный метод для получения временного диапазона текущей минуты
-  static Map<String, DateTime> getCurrentMinuteRange() {
-    final now = DateTime.now();
-    return getMinuteRange(now);
-  }
-
-  // Метод для загрузки конфигурации котельной
-  void loadConfiguration(int boilerId) {
-    add(LoadBoilerConfiguration(boilerId));
-  }
-
-  // Метод для загрузки данных за выбранную минуту
-  void loadDataForSelectedMinute(
-      int boilerId, DateTime selectedDateTime, List<int> selectedParameterIds,
-      {int interval = 60}) {
-    final timeRange = getMinuteRange(selectedDateTime);
-    add(LoadBoilerParameterValues(
-      boilerId: boilerId,
-      startDate: timeRange['start']!,
-      endDate: timeRange['end']!,
-      selectedParameterIds: selectedParameterIds,
-      interval: interval,
-    ));
-  }
-
-  // Метод для загрузки данных за текущую минуту
-  void loadCurrentMinuteData(int boilerId, List<int> selectedParameterIds,
-      {int interval = 60}) {
-    final timeRange = getCurrentMinuteRange();
-    add(LoadBoilerParameterValues(
-      boilerId: boilerId,
-      startDate: timeRange['start']!,
-      endDate: timeRange['end']!,
-      selectedParameterIds: selectedParameterIds,
-      interval: interval,
-    ));
-  }
-
-  void updateParametersGroup(int groupId, List<int> parameterIds) {
-    add(UpdateParametersGroup(groupId: groupId, parameterIds: parameterIds));
-  }
-
-  // Вспомогательные методы для работы с группами
-  List<BoilerParameter> getParametersByGroup(int groupId) {
-    if (_cachedParameters == null) return [];
-    return _cachedParameters!
-        .where((param) => param.groupId == groupId)
-        .toList();
-  }
-
-  Group? getGroupById(int groupId) {
-    if (_cachedGroups == null) return null;
-    try {
-      return _cachedGroups!.firstWhere((group) => group.id == groupId);
-    } catch (e) {
-      return null;
-    }
-  }
-
   Future<void> _onSignalRParametersUpdated(
     SignalRParametersUpdated event,
     Emitter<BoilerDetailState> emit,
   ) async {
-    // Обновляем только если это наша котельная и конфигурация уже загружена
     if (_currentBoilerId != event.boilerId) return;
     if (_cachedParameters == null || _cachedGroups == null) return;
 
@@ -370,9 +305,81 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
         values: filteredValues,
         selectedParameterIds: allParamIds,
         selectedDateTime: now,
+        incidentParameterIds: _cachedIncidentParameterIds,
+        incidentGroupIds: _cachedIncidentGroupIds,
       ));
     } catch (e) {
       print('[SignalR] Ошибка обновления параметров: $e');
+    }
+  }
+
+  // --- Вспомогательные методы ---
+
+  static Map<String, DateTime> getMinuteRange(DateTime selectedDateTime) {
+    final startOfMinute = DateTime(
+      selectedDateTime.year,
+      selectedDateTime.month,
+      selectedDateTime.day,
+      selectedDateTime.hour,
+      selectedDateTime.minute,
+      0,
+    );
+    final endOfMinute = startOfMinute
+        .add(const Duration(minutes: 1))
+        .subtract(const Duration(seconds: 1));
+    return {'start': startOfMinute, 'end': endOfMinute};
+  }
+
+  static Map<String, DateTime> getCurrentMinuteRange() {
+    return getMinuteRange(DateTime.now());
+  }
+
+  void loadConfiguration(int boilerId) {
+    add(LoadBoilerConfiguration(boilerId));
+  }
+
+  void loadDataForSelectedMinute(
+      int boilerId, DateTime selectedDateTime, List<int> selectedParameterIds,
+      {int interval = 60}) {
+    final timeRange = getMinuteRange(selectedDateTime);
+    add(LoadBoilerParameterValues(
+      boilerId: boilerId,
+      startDate: timeRange['start']!,
+      endDate: timeRange['end']!,
+      selectedParameterIds: selectedParameterIds,
+      interval: interval,
+    ));
+  }
+
+  void loadCurrentMinuteData(int boilerId, List<int> selectedParameterIds,
+      {int interval = 60}) {
+    final timeRange = getCurrentMinuteRange();
+    add(LoadBoilerParameterValues(
+      boilerId: boilerId,
+      startDate: timeRange['start']!,
+      endDate: timeRange['end']!,
+      selectedParameterIds: selectedParameterIds,
+      interval: interval,
+    ));
+  }
+
+  void updateParametersGroup(int groupId, List<int> parameterIds) {
+    add(UpdateParametersGroup(groupId: groupId, parameterIds: parameterIds));
+  }
+
+  List<BoilerParameter> getParametersByGroup(int groupId) {
+    if (_cachedParameters == null) return [];
+    return _cachedParameters!
+        .where((param) => param.groupId == groupId)
+        .toList();
+  }
+
+  Group? getGroupById(int groupId) {
+    if (_cachedGroups == null) return null;
+    try {
+      return _cachedGroups!.firstWhere((group) => group.id == groupId);
+    } catch (e) {
+      return null;
     }
   }
 

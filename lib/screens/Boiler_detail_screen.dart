@@ -10,8 +10,8 @@ import 'package:manage_center/models/groups_model.dart';
 import 'package:manage_center/screens/parameter_chart_screen.dart';
 import 'package:manage_center/services/signalr_service.dart';
 import 'package:manage_center/widgets/blinking_dot.dart';
-import 'package:manage_center/services/api_service.dart'; // Добавлен импорт
-import 'package:manage_center/services/storage_service.dart'; // Добавлен импорт
+import 'package:manage_center/services/api_service.dart';
+import 'package:manage_center/services/storage_service.dart';
 
 class AppColors {
   static const primary = Color(0xFF2E7D32);
@@ -54,6 +54,10 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   bool _canManageParameters = false;
   String _searchQuery = '';
 
+  // Инциденты: id аварийных параметров и групп
+  Set<int> _incidentParameterIds = {};
+  Set<int> _incidentGroupIds = {};
+
   // Переменные для диалога изменения группы
   Map<int, bool> _selectedParameters = {};
   int? _selectedGroupId;
@@ -93,10 +97,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
     };
     boilerParamsUpdateNotifier.addListener(_signalRListener);
 
-    // Сначала ставим статус из кэша (чтобы было быстро)
     _updateBoilerStatusFromBoilersBloc();
-
-    // Сразу же запускаем загрузку АКТУАЛЬНОГО статуса с сервера
     _refreshRealtimeStatus();
   }
 
@@ -114,7 +115,6 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
         type == 'long' ||
         type == 'short' ||
         type == 'byte') {
-      // Пробуем распарсить как double и привести к int
       final parsed = double.tryParse(displayValue);
       if (parsed != null) {
         return parsed.toInt().toString();
@@ -123,12 +123,10 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
     return displayValue;
   }
 
-  // --- НОВЫЙ МЕТОД: Загрузка статуса напрямую с API ---
   Future<void> _refreshRealtimeStatus() async {
     try {
       final token = await context.read<StorageService>().getToken();
       if (token != null) {
-        // Запрашиваем данные через наш новый метод getBoilerById
         final details = await context
             .read<ApiService>()
             .getBoilerById(token, widget.boilerId);
@@ -167,10 +165,8 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   }
 
   Future<void> _loadCurrentValues() async {
-    // 1. Обновляем статус самой котельной (Авария/Норма)
     await _refreshRealtimeStatus();
 
-    // 2. Обновляем параметры (цифры)
     _refreshController.forward().then((_) => _refreshController.reverse());
     final now = DateTime.now().toUtc();
     context.read<BoilerDetailBloc>().add(LoadBoilerParameterValues(
@@ -261,31 +257,36 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   String get _statusText => switch (_boilerStatus) {
         BoilerStatus.normal => 'В работе',
         BoilerStatus.warning => 'Нет связи',
-        BoilerStatus.error =>
-          'Требуется внимание', // Изменил текст для наглядности
+        BoilerStatus.error => 'Требуется внимание',
       };
 
   bool _hasEmergencyInGroup(Group group) {
-    if (group.name.toLowerCase() != 'авария') return false;
+    // Подсветка через инциденты (любая группа)
+    if (_incidentGroupIds.contains(group.id)) return true;
 
-    final parametersInGroup = _getParametersForGroup(group.id);
-    for (var parameter in parametersInGroup) {
-      final value = _parameterValueMap[parameter.id];
-      if (value != null && value.displayValue.toLowerCase() == 'да') {
-        return true;
+    // Старая логика для группы "авария" через значения параметров
+    if (group.name.toLowerCase() == 'авария') {
+      final parametersInGroup = _getParametersForGroup(group.id);
+      for (var parameter in parametersInGroup) {
+        final value = _parameterValueMap[parameter.id];
+        if (value != null && value.displayValue.toLowerCase() == 'да') {
+          return true;
+        }
       }
     }
     return false;
   }
 
   bool _isEmergencyParameter(BoilerParameter parameter) {
+    // Подсветка через инциденты (любой параметр)
+    if (_incidentParameterIds.contains(parameter.id)) return true;
+
+    // Старая логика для группы "авария" через значения параметров
     final group = _allGroups.firstWhere(
       (g) => g.id == parameter.groupId,
       orElse: () => _otherGroup,
     );
-
     if (group.name.toLowerCase() != 'авария') return false;
-
     final value = _parameterValueMap[parameter.id];
     return value != null && value.displayValue.toLowerCase() == 'да';
   }
@@ -476,7 +477,6 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
 
     return Container(
       height: 60,
-      //margin: const EdgeInsets.only(bottom: 5),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -568,16 +568,16 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                 color: AppColors.error.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.error_outline,
                 size: 48,
                 color: AppColors.error,
               ),
             ),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               'Ошибка загрузки',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
@@ -613,6 +613,8 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   Widget _handleConfigurationLoaded(BoilerDetailConfigurationLoaded state) {
     _allParameters = state.parameters;
     _allGroups = state.groups;
+    _incidentParameterIds = state.incidentParameterIds;
+    _incidentGroupIds = state.incidentGroupIds;
     _initializeGroupSettings();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadCurrentValues());
     return _buildGroupsList();
@@ -621,6 +623,8 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   Widget _handleValuesLoaded(BoilerDetailValuesLoaded state) {
     _allParameters = state.parameters;
     _allGroups = state.groups;
+    _incidentParameterIds = state.incidentParameterIds;
+    _incidentGroupIds = state.incidentGroupIds;
     _buildParameterValueMap(state.values);
     _initializeGroupSettings();
     return _buildGroupsList();
@@ -830,14 +834,15 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   _translateParameterType(parameter.valueType),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 11,
                     color: AppColors.primary,
                     fontWeight: FontWeight.w500,
@@ -845,7 +850,8 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 child: Text(
                   'ID: ${parameter.id}',
                   style: const TextStyle(
@@ -865,9 +871,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
               decoration: BoxDecoration(
                 color: valueBgColor,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: valueBorderColor,
-                ),
+                border: Border.all(color: valueBorderColor),
               ),
               child: Text(
                 value != null
@@ -1039,11 +1043,14 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                             });
                           },
                           icon: Icon(
-                            areAllSelected ? Icons.deselect : Icons.select_all,
+                            areAllSelected
+                                ? Icons.deselect
+                                : Icons.select_all,
                             size: 18,
                           ),
-                          label: Text(
-                              areAllSelected ? 'Снять выбор' : 'Выбрать все'),
+                          label: Text(areAllSelected
+                              ? 'Снять выбор'
+                              : 'Выбрать все'),
                         ),
                     ],
                   ),
@@ -1053,7 +1060,8 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                         ? const Center(
                             child: Text(
                               'Параметры не найдены',
-                              style: TextStyle(color: AppColors.textSecondary),
+                              style:
+                                  TextStyle(color: AppColors.textSecondary),
                             ),
                           )
                         : ListView.builder(
