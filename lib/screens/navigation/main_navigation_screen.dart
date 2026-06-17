@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/bloc/incidents_bloc.dart';
 import 'package:manage_center/main.dart';
 import 'package:manage_center/screens/analitics_screen.dart';
 import 'package:manage_center/screens/dashboard_screen.dart';
 import 'package:manage_center/screens/incidents_screen.dart';
-import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/screens/settings/settings_menu_screen.dart';
 import 'package:manage_center/screens/water_losses_screen.dart';
 import 'package:manage_center/services/api_service.dart';
@@ -281,16 +279,7 @@ if (type == _NotificationType.alarm) {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
-        if (state is AuthInitial) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
-            (Route<dynamic> route) => false,
-          );
-        }
-      },
-      child: Scaffold(
+    return Scaffold(
         extendBody: true,
         body: _getCurrentScreen(),
         bottomNavigationBar: BlocBuilder<IncidentsBloc, IncidentsState>(
@@ -306,8 +295,7 @@ if (type == _NotificationType.alarm) {
             );
           },
         ),
-      ),
-    );
+      );
   }
 
   Widget _getCurrentScreen() {

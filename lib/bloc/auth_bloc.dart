@@ -84,6 +84,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           await _storageService.setBiometricEnabled(true);
         } else {
           await _storageService.saveTokenType(false);
+          await _storageService.clearBiometricCredentials();
         }
 
         final userInfo = await _apiService.getUserInfo(tokenResponse.token);
@@ -102,12 +103,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
         emit(AuthSuccess(userInfo));
       } catch (e) {
-        emit(AuthFailure(e.toString().split('Exception: ')[1]));
+        emit(AuthFailure(_formatError(e)));
       }
     });
 
     // ==================== БИОМЕТРИЧЕСКИЙ ЛОГИН ====================
     on<BiometricLoginEvent>((event, emit) async {
+      // Биометрия не поддерживается на Windows
+      if (Platform.isWindows) {
+        emit(BiometricNotAvailable());
+        return;
+      }
+
       bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
       bool isDeviceSupported = await _localAuth.isDeviceSupported();
 
@@ -127,37 +134,78 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       try {
         bool didAuthenticate = await _localAuth.authenticate(
           localizedReason: 'Пожалуйста, подтвердите свою личность для входа',
+          biometricOnly: true,
+          persistAcrossBackgrounding: true,
         );
 
-        if (didAuthenticate) {
-          final credentials = await _storageService.getBiometricCredentials();
-          final login = credentials['login'];
-          final password = credentials['password'];
+        if (!didAuthenticate) {
+          // Пользователь отменил — это не ошибка, возвращаемся к форме входа
+          emit(AuthInitial());
+          return;
+        }
 
-          if (login != null && password != null) {
-            final tokenResponse = await _apiService.login(login, password);
-            await _storageService.saveToken(tokenResponse.token);
+        final credentials = await _storageService.getBiometricCredentials();
+        final login = credentials['login'];
+        final password = credentials['password'];
 
-            final userInfo = await _apiService.getUserInfo(tokenResponse.token);
+        if (login == null || password == null) {
+          await _storageService.clearBiometricCredentials();
+          emit(AuthFailure('Учетные данные для биометрии не найдены'));
+          return;
+        }
 
-            // ✅ Сохраняем роль
-            if (userInfo.role != null) {
-              await _storageService.saveUserRoleId(userInfo.role!.id);
-              await _storageService.saveUserRoleName(userInfo.role!.name);
-              debugLog(
-                  '💾 Роль сохранена: ${userInfo.role!.name} (ID: ${userInfo.role!.id})');
-            }
+        final tokenResponse = await _apiService.login(login, password);
+        await _storageService.saveToken(tokenResponse.token);
 
-            // ✅ Подписка на push-уведомления
-            await _subscribeToPushTopics(userInfo);
+        final userInfo = await _apiService.getUserInfo(tokenResponse.token);
 
-            emit(AuthSuccess(userInfo));
-          } else {
-            await _storageService.setBiometricEnabled(false);
-            emit(AuthFailure('Учетные данные для биометрии не найдены'));
-          }
-        } else {
-          emit(AuthFailure('Биометрическая аутентификация отменена'));
+        // ✅ Сохраняем роль
+        if (userInfo.role != null) {
+          await _storageService.saveUserRoleId(userInfo.role!.id);
+          await _storageService.saveUserRoleName(userInfo.role!.name);
+          debugLog(
+              '💾 Роль сохранена: ${userInfo.role!.name} (ID: ${userInfo.role!.id})');
+        }
+
+        // ✅ Подписка на push-уведомления
+        await _subscribeToPushTopics(userInfo);
+
+        emit(AuthSuccess(userInfo));
+      } on LocalAuthException catch (e) {
+        switch (e.code) {
+          // Пользователь сам отменил — это не ошибка
+          case LocalAuthExceptionCode.userCanceled:
+          case LocalAuthExceptionCode.systemCanceled:
+          case LocalAuthExceptionCode.timeout:
+            emit(AuthInitial());
+            break;
+          // Биометрия не настроена / нет данных для входа
+          case LocalAuthExceptionCode.noBiometricsEnrolled:
+          case LocalAuthExceptionCode.noCredentialsSet:
+            emit(BiometricNotEnrolled());
+            break;
+          // Нет оборудования / временно недоступно
+          case LocalAuthExceptionCode.noBiometricHardware:
+          case LocalAuthExceptionCode.biometricHardwareTemporarilyUnavailable:
+          case LocalAuthExceptionCode.uiUnavailable:
+            emit(BiometricNotAvailable());
+            break;
+          // Слишком много попыток — блокировка
+          case LocalAuthExceptionCode.temporaryLockout:
+            emit(AuthFailure(
+                'Слишком много попыток. Повторите позже или войдите по паролю'));
+            break;
+          case LocalAuthExceptionCode.biometricLockout:
+            emit(AuthFailure(
+                'Биометрия заблокирована. Разблокируйте устройство и попробуйте снова'));
+            break;
+          // Пользователь выбрал вход по паролю в системном диалоге
+          case LocalAuthExceptionCode.userRequestedFallback:
+            emit(AuthInitial());
+            break;
+          default:
+            emit(AuthFailure(
+                'Ошибка биометрической аутентификации. Войдите по паролю'));
         }
       } catch (e) {
         emit(AuthFailure(
@@ -171,7 +219,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       await _unsubscribeFromAllTopics();
 
       await _storageService.deleteToken();
-      await _storageService.clearBiometricCredentials();
       await _storageService.clearUserRole();
       emit(AuthInitial());
     });
@@ -247,7 +294,20 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   // ==================== УТИЛИТЫ ====================
 
+  /// Аккуратно извлекает текст ошибки, убирая префикс "Exception: ".
+  String _formatError(Object e) {
+    final text = e.toString();
+    const marker = 'Exception: ';
+    final index = text.indexOf(marker);
+    if (index != -1) {
+      return text.substring(index + marker.length).trim();
+    }
+    return text.trim();
+  }
+
   Future<bool> isBiometricAvailable() async {
+    // Биометрия не поддерживается на Windows
+    if (Platform.isWindows) return false;
     bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
     bool isDeviceSupported = await _localAuth.isDeviceSupported();
     return canCheckBiometrics && isDeviceSupported;
