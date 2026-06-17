@@ -2,7 +2,7 @@ name: manage_center
 description: "ACSP MUPIT"
 publish_to: 'none'
 
-version: 1.1.0+22
+version: 1.2.1+27
 
 environment:
   sdk: ^3.5.2

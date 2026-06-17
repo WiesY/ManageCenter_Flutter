@@ -137,11 +137,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
         final boilerName = alarmData['boilerName']?.toString() ?? 'Объект';
         final description = alarmData['description']?.toString() ?? 'Авария';
-        _showNotification(
-          title: boilerName,
-          message: description,
-          type: _NotificationType.alarm,
-        );
+
+        // На переднем плане показываем in-app тост.
+        // В фоне/закрытом приложении уведомление покажет FCM (фоновый
+        // обработчик), поэтому здесь дублировать не нужно.
+        final state = WidgetsBinding.instance.lifecycleState;
+        if (state == AppLifecycleState.resumed) {
+          _showNotification(
+            title: boilerName,
+            message: description,
+            type: _NotificationType.alarm,
+          );
+        }
       };
 
       // 3. Изменение статуса связи
@@ -189,13 +196,19 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
         final boilerName = resolvedData['boilerName']?.toString() ?? 'Объект';
         final paramName = resolvedData['parameterName']?.toString() ?? '';
-        _showNotification(
-          title: boilerName,
-          message: paramName.isNotEmpty
-              ? '$paramName — авария устранена'
-              : 'Авария устранена',
-          type: _NotificationType.resolved,
-        );
+
+        // На переднем плане — in-app тост; в фоне/закрытом приложении
+        // уведомление доставит FCM.
+        final state = WidgetsBinding.instance.lifecycleState;
+        if (state == AppLifecycleState.resumed) {
+          _showNotification(
+            title: boilerName,
+            message: paramName.isNotEmpty
+                ? '$paramName — авария устранена'
+                : 'Авария устранена',
+            type: _NotificationType.resolved,
+          );
+        }
       };
 
       await _signalRService.connect(token);
