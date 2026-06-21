@@ -1,15 +1,7 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:local_auth/local_auth.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
-import 'package:manage_center/bloc/boilers_bloc.dart';
-import 'package:manage_center/screens/dashboard_screen.dart';
-import 'package:manage_center/screens/navigation/main_navigation_screen.dart';
-import 'package:manage_center/screens/operator_screens/operator_screen.dart';
-import 'package:manage_center/services/api_service.dart';
-import 'package:manage_center/services/storage_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,11 +11,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final LocalAuthentication _localAuth = LocalAuthentication();
   bool _isBiometricAvailable = false;
   bool _isBiometricEnabled = false;
-  final bool _enableBiometric = true;
 
   @override
   void initState() {
@@ -36,18 +25,14 @@ class _LoginScreenState extends State<LoginScreen> {
     bool isAvailable = await authBloc.isBiometricAvailable();
     bool isEnabled = await authBloc.isBiometricEnabled();
 
+    if (!mounted) return;
     setState(() {
       _isBiometricAvailable = isAvailable;
       _isBiometricEnabled = isEnabled;
     });
-
-    // Если биометрия включена, автоматически пытаемся войти
-    if (_isBiometricEnabled) {
-      _authenticateWithBiometrics();
-    }
   }
 
-  Future<void> _authenticateWithBiometrics() async {
+  void _authenticateWithBiometrics() {
     context.read<AuthBloc>().add(BiometricLoginEvent());
   }
 
@@ -70,7 +55,9 @@ void _promptToSaveCredentials() {
             login: _loginController.text,
             password: _passwordController.text,
             rememberMe: _rememberMe,
-            enableBiometric: _enableBiometric,
+            // Биометрию включаем вместе с "Запомнить пароль",
+            // если устройство её поддерживает
+            enableBiometric: _rememberMe && _isBiometricAvailable,
           ));
     } else {
       // Показываем SnackBar через postFrameCallback
@@ -105,21 +92,9 @@ void _promptToSaveCredentials() {
             Navigator.pop(context);
           }
 
-          // Перенаправление в зависимости от роли
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => state.userInfo.role?.name == 'Оператор'
-                  ? const OperatorScreen()
-                  : BlocProvider(
-                      create: (context) => BoilersBloc(
-                        apiService: context.read<ApiService>(),
-                        storageService: context.read<StorageService>(),
-                      )..add(FetchBoilers()), // Сразу запрашиваем данные
-                      child: const MainNavigationScreen(),
-                    ),
-            ),
-          );
+          // Навигация выполняется декларативно через AppBloc (см. main.dart):
+          // при AuthSuccess AppBloc переходит в authenticated и home
+          // переключается на нужный экран в зависимости от роли.
         } else if (state is AuthFailure) {
           // Закрыть диалог загрузки если он открыт
           if (Navigator.canPop(context)) {
@@ -143,6 +118,19 @@ void _promptToSaveCredentials() {
               const SnackBar(
                   content: Text(
                       'Биометрическая аутентификация недоступна на этом устройстве')),
+            );
+          });
+        } else if (state is BiometricNotEnrolled) {
+          // Закрыть диалог загрузки если он открыт
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text(
+                      'Биометрия не настроена на устройстве. Добавьте отпечаток или Face ID в настройках')),
             );
           });
         }
@@ -286,40 +274,6 @@ void _promptToSaveCredentials() {
                     ],
                   ),
                 ),
-                // Биометрическая аутентификация (если доступна)
-                // if (_isBiometricAvailable && !_isBiometricEnabled)
-                //   Padding(
-                //    padding: const EdgeInsets.only(top: 16.0),
-                //    child: Row(
-                //    children: [
-                //    SizedBox(
-                //    height: 24,
-                //    width: 24,
-                //    child: Checkbox(
-                //    value: _enableBiometric,
-                //    onChanged: (value) {
-                //    setState(() {
-                //    _enableBiometric = value ?? false;
-                //    });
-                //    },
-                //    shape: RoundedRectangleBorder(
-                //    borderRadius: BorderRadius.circular(4),
-                //    ),
-                //    side: BorderSide(color: Colors.grey.shade400),
-                //    activeColor: Colors.blue.shade700,
-                //    ),
-                //    ),
-                //    const SizedBox(width: 12),
-                //    Text(
-                //    'Использовать биометрию для входа',
-                //    style: TextStyle(
-                //    color: Colors.grey[600],
-                //    fontSize: 14,
-                //    ),
-                //    ),
-                //    ],
-                //    ),
-                //   ),
 
                 const SizedBox(height: 32),
                 // Кнопка входа
@@ -351,32 +305,32 @@ void _promptToSaveCredentials() {
                 ),
 
                 // Кнопка биометрической аутентификации
-                // if (_isBiometricAvailable)
-                //   Padding(
-                //    padding: const EdgeInsets.only(top: 16.0),
-                //    child: SizedBox(
-                //    width: double.infinity,
-                //    height: 56,
-                //    child: OutlinedButton.icon(
-                //    style: OutlinedButton.styleFrom(
-                //    foregroundColor: Colors.blue.shade700,
-                //    side: BorderSide(color: Colors.blue.shade700),
-                //    shape: RoundedRectangleBorder(
-                //    borderRadius: BorderRadius.circular(16),
-                //    ),
-                //    ),
-                //    onPressed: _authenticateWithBiometrics,
-                //    icon: const Icon(Icons.fingerprint),
-                //    label: const Text(
-                //    'Войти с биометрией',
-                //    style: TextStyle(
-                //    fontSize: 16,
-                //    fontWeight: FontWeight.w600,
-                //    ),
-                //    ),
-                //    ),
-                //    ),
-                //   ),
+                if (_isBiometricAvailable && _isBiometricEnabled)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.blue.shade700,
+                          side: BorderSide(color: Colors.blue.shade700),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        onPressed: _authenticateWithBiometrics,
+                        icon: const Icon(Icons.fingerprint),
+                        label: const Text(
+                          'Войти с биометрией',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

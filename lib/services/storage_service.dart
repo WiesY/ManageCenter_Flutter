@@ -1,3 +1,4 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class StorageService {
@@ -18,6 +19,10 @@ class StorageService {
   static const String defaultAlarmSound = 'sounds/alarm.wav';
 
   final SharedPreferences _prefs;
+
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
   StorageService(this._prefs);
 
@@ -58,21 +63,24 @@ class StorageService {
   }
 
   Future<void> saveBiometricCredentials(String login, String password) async {
-    await _prefs.setString(biometricUserKey, login);
-    await _prefs.setString(biometricPasswordKey, password);
+    await _secureStorage.write(key: biometricUserKey, value: login);
+    await _secureStorage.write(key: biometricPasswordKey, value: password);
   }
 
   Future<Map<String, String?>> getBiometricCredentials() async {
     return {
-      'login': _prefs.getString(biometricUserKey),
-      'password': _prefs.getString(biometricPasswordKey),
+      'login': await _secureStorage.read(key: biometricUserKey),
+      'password': await _secureStorage.read(key: biometricPasswordKey),
     };
   }
 
   Future<void> clearBiometricCredentials() async {
+    await _secureStorage.delete(key: biometricUserKey);
+    await _secureStorage.delete(key: biometricPasswordKey);
+    await _prefs.remove(biometricEnabledKey);
+    // Чистим возможные старые креды из незащищённого хранилища
     await _prefs.remove(biometricUserKey);
     await _prefs.remove(biometricPasswordKey);
-    await _prefs.remove(biometricEnabledKey);
   }
 
   // ==================== РОЛЬ ПОЛЬЗОВАТЕЛЯ ====================

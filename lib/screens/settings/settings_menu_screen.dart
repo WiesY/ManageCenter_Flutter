@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
-import 'package:manage_center/bloc/boilers_bloc.dart';
-import 'package:manage_center/screens/dashboard_screen.dart';
-import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/screens/settings/about_screen.dart';
 import 'package:manage_center/screens/settings/app_settings_screen.dart';
 import 'package:manage_center/screens/settings/boiler_types_management_screen.dart';
@@ -14,10 +11,7 @@ import 'package:manage_center/screens/settings/roles_management_screen.dart';
 import 'package:manage_center/screens/settings/user_info.dart';
 import 'package:manage_center/screens/settings/users_management_screen.dart';
 import 'package:manage_center/screens/settings/change_password_screen.dart';
-import 'package:manage_center/services/api_service.dart';
-import 'package:manage_center/services/storage_service.dart';
-import 'package:manage_center/widgets/custom_bottom_navigation.dart';
-import 'package:manage_center/bloc/auth_bloc.dart';
+import 'package:manage_center/widgets/logout_confirmation_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -403,48 +397,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Выход'),
-        content: const Text('Вы действительно хотите выйти из аккаунта?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Отмена'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              context.read<AuthBloc>().add(LogoutEvent());
-              Navigator.pop(dialogContext);
-              Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (Route<dynamic> route) =>
-                      false // удаляем все предыдущие экраны
-                  );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Выйти', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showComingSoonDialog(BuildContext context, String feature) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(feature),
-        content: const Text('Эта функция будет доступна в ближайшее время.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('ОК'),
-          ),
-        ],
-      ),
-    );
+    showLogoutConfirmationDialog(context);
   }
 }
 

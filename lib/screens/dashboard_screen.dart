@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/models/boiler_list_item_model.dart';
 import 'package:manage_center/screens/boiler_detail_screen.dart';
@@ -10,6 +9,7 @@ import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
 import 'package:manage_center/widgets/blinking_dot.dart';
+import 'package:manage_center/widgets/logout_confirmation_dialog.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -22,6 +22,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isSearchActive = false;
+  String _statusFilter = 'all'; // all | online | alarm | offline
 
   @override
   void dispose() {
@@ -30,53 +31,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.logout, color: Colors.red.shade600),
-            const SizedBox(width: 8),
-            const Text('Выход'),
-          ],
-        ),
-        content: const Text(
-          'Вы действительно хотите выйти из аккаунта?',
-          style: TextStyle(fontSize: 16),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
-            child: const Text('Отмена', style: TextStyle(fontSize: 16)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              context.read<AuthBloc>().add(LogoutEvent());
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text('Выйти', style: TextStyle(fontSize: 16)),
-          ),
-        ],
-      ),
-    );
+    showLogoutConfirmationDialog(context);
   }
 
   List<BoilerListItem> _filterBoilers(List<BoilerListItem> boilers) {
-    if (_searchQuery.isEmpty) return boilers;
+    var result = boilers;
 
-    return boilers.where((boiler) {
+    // Фильтр по статусу
+    switch (_statusFilter) {
+      case 'online':
+        result =
+            result.where((b) => b.hasConnection && !b.isEmergency).toList();
+        break;
+      case 'alarm':
+        result = result.where((b) => b.isEmergency).toList();
+        break;
+      case 'offline':
+        result = result.where((b) => !b.hasConnection).toList();
+        break;
+    }
+
+    if (_searchQuery.isEmpty) return result;
+
+    return result.where((boiler) {
       return boiler.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           boiler.district.name
               .toLowerCase()
@@ -221,7 +198,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               offlineCount),
 
                           // Search results info
-                          if (_searchQuery.isNotEmpty)
+                          if (_searchQuery.isNotEmpty ||
+                              _statusFilter != 'all')
                             Container(
                               margin: const EdgeInsets.symmetric(
                                   horizontal: 16,
@@ -253,7 +231,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
 
                           if (filteredBoilers.isEmpty &&
-                              _searchQuery.isNotEmpty)
+                              (_searchQuery.isNotEmpty ||
+                                  _statusFilter != 'all'))
                             const Expanded(
                               child: Center(child: Text("Ничего не найдено")),
                             )
@@ -290,11 +269,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- НОВЫЙ МЕТОД: Строка статистики ---
+  // --- НОВЫЙ МЕТОД: Строка статистики (активная панель с фильтрами) ---
   Widget _buildStatsBar(int total, int alarm, int online, int offline) {
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -307,40 +286,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem('Всего', total, Colors.blue.shade800),
-          Container(width: 1, height: 24, color: Colors.grey.shade200),
-          _buildStatItem('Норма', online, Colors.green.shade600),
-          Container(width: 1, height: 24, color: Colors.grey.shade200),
-          _buildStatItem('Требуется внимание', alarm, Colors.red.shade600),
-          Container(width: 1, height: 24, color: Colors.grey.shade200),
-          _buildStatItem('Нет связи', offline, Colors.grey.shade500),
+          _buildStatItem('Всего', total, Colors.blue.shade800, 'all'),
+          _buildStatItem('Норма', online, Colors.green.shade600, 'online'),
+          _buildStatItem(
+              'Внимание', alarm, Colors.red.shade600, 'alarm'),
+          _buildStatItem('Нет связи', offline, Colors.grey.shade500, 'offline'),
         ],
       ),
     );
   }
 
-  Widget _buildStatItem(String label, int count, Color color) {
-    return Column(
-      children: [
-        Text(
-          count.toString(),
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+  Widget _buildStatItem(String label, int count, Color color, String filter) {
+    final bool isSelected = _statusFilter == filter;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            // Повторное нажатие на активный фильтр сбрасывает его
+            _statusFilter = isSelected ? 'all' : filter;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withOpacity(0.12) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? color : Colors.grey.shade200,
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                count.toString(),
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isSelected ? color : Colors.grey.shade600,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.grey.shade600,
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+      ),
     );
   }
 

@@ -20,6 +20,7 @@ import 'package:manage_center/bloc/user_profile_bloc.dart';
 import 'package:manage_center/bloc/users_bloc.dart';
 import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/screens/navigation/main_navigation_screen.dart';
+import 'package:manage_center/screens/operator_screens/operator_screen.dart';
 import 'package:manage_center/services/signalr_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/api_service.dart';
@@ -212,6 +213,11 @@ class AppView extends StatelessWidget {
         home: BlocBuilder<AppBloc, AppState>(
           builder: (context, state) {
             if (state.status == AppStatus.authenticated) {
+              final authState = context.read<AuthBloc>().state;
+              if (authState is AuthSuccess &&
+                  authState.userInfo.role?.name == 'Оператор') {
+                return const OperatorScreen();
+              }
               return BlocProvider<BoilersBloc>(
                 create: (context) => BoilersBloc(
                   apiService: context.read<ApiService>(),

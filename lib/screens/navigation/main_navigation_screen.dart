@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/bloc/incidents_bloc.dart';
 import 'package:manage_center/main.dart';
 import 'package:manage_center/screens/analitics_screen.dart';
 import 'package:manage_center/screens/dashboard_screen.dart';
 import 'package:manage_center/screens/incidents_screen.dart';
-import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/screens/settings/settings_menu_screen.dart';
 import 'package:manage_center/screens/water_losses_screen.dart';
 import 'package:manage_center/services/api_service.dart';
@@ -137,11 +135,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
         final boilerName = alarmData['boilerName']?.toString() ?? 'Объект';
         final description = alarmData['description']?.toString() ?? 'Авария';
-        _showNotification(
-          title: boilerName,
-          message: description,
-          type: _NotificationType.alarm,
-        );
+
+        // На переднем плане показываем in-app тост.
+        // В фоне/закрытом приложении уведомление покажет FCM (фоновый
+        // обработчик), поэтому здесь дублировать не нужно.
+        final state = WidgetsBinding.instance.lifecycleState;
+        if (state == AppLifecycleState.resumed) {
+          _showNotification(
+            title: boilerName,
+            message: description,
+            type: _NotificationType.alarm,
+          );
+        }
       };
 
       // 3. Изменение статуса связи
@@ -189,13 +194,19 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
         final boilerName = resolvedData['boilerName']?.toString() ?? 'Объект';
         final paramName = resolvedData['parameterName']?.toString() ?? '';
-        _showNotification(
-          title: boilerName,
-          message: paramName.isNotEmpty
-              ? '$paramName — авария устранена'
-              : 'Авария устранена',
-          type: _NotificationType.resolved,
-        );
+
+        // На переднем плане — in-app тост; в фоне/закрытом приложении
+        // уведомление доставит FCM.
+        final state = WidgetsBinding.instance.lifecycleState;
+        if (state == AppLifecycleState.resumed) {
+          _showNotification(
+            title: boilerName,
+            message: paramName.isNotEmpty
+                ? '$paramName — авария устранена'
+                : 'Авария устранена',
+            type: _NotificationType.resolved,
+          );
+        }
       };
 
       await _signalRService.connect(token);
@@ -268,16 +279,7 @@ if (type == _NotificationType.alarm) {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
-        if (state is AuthInitial) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
-            (Route<dynamic> route) => false,
-          );
-        }
-      },
-      child: Scaffold(
+    return Scaffold(
         extendBody: true,
         body: _getCurrentScreen(),
         bottomNavigationBar: BlocBuilder<IncidentsBloc, IncidentsState>(
@@ -293,8 +295,7 @@ if (type == _NotificationType.alarm) {
             );
           },
         ),
-      ),
-    );
+      );
   }
 
   Widget _getCurrentScreen() {
