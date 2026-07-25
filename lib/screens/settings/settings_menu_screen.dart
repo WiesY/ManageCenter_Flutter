@@ -12,6 +12,8 @@ import 'package:manage_center/screens/settings/user_info.dart';
 import 'package:manage_center/screens/settings/users_management_screen.dart';
 import 'package:manage_center/screens/settings/change_password_screen.dart';
 import 'package:manage_center/widgets/logout_confirmation_dialog.dart';
+import 'package:manage_center/services/app_update_service.dart';
+import 'package:manage_center/widgets/update_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -144,6 +146,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: 'О приложении',
                     icon: Icons.info,
                     onTap: () => _navigateToAbout(context),
+                  ),
+                  SettingsItem(
+                    title: 'Проверить обновления',
+                    icon: Icons.system_update,
+                    onTap: () => _checkForUpdates(context),
                   ),
                 ],
               ),
@@ -398,6 +405,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _showLogoutDialog(BuildContext context) {
     showLogoutConfirmationDialog(context);
+  }
+
+  Future<void> _checkForUpdates(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final info = await AppUpdateService().checkForUpdate();
+
+    navigator.pop();
+
+    if (!context.mounted) return;
+
+    if (info != null) {
+      UpdateDialog.show(context, info);
+    } else {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('У вас установлена последняя версия')),
+      );
+    }
   }
 }
 

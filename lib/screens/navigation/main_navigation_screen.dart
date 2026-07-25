@@ -63,6 +63,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       switchTabNotifier.value = null;
     }
     _initSignalR();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final info = await AppUpdateService().checkForUpdate();
+      if (info != null && mounted) {
+        UpdateDialog.show(context, info);
+      }
+    });
   }
 
   @override

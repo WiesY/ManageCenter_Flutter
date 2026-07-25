@@ -7,11 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:manage_center/main.dart';
 
+// Новый id канала: понизить важность у уже созданного канала Android не даёт,
+// поэтому заводим свежий канал с обычной важностью (IMPORTANCE_DEFAULT).
 const AndroidNotificationChannel _kAlarmChannel = AndroidNotificationChannel(
-  'high_importance_channel',
-  'Аварийные уведомления',
-  description: 'Важные оповещения SCADA системы',
-  importance: Importance.max,
+  'low_importance_channel',
+  'Уведомления',
+  description: 'Оповещения SCADA системы',
+  importance: Importance.defaultImportance,
   playSound: true,
   enableVibration: true,
   showBadge: true,
@@ -19,7 +21,7 @@ const AndroidNotificationChannel _kAlarmChannel = AndroidNotificationChannel(
 
 NotificationDetails _alarmNotificationDetails({
   Color color = const Color(0xFFE53E3E),
-  bool fullScreenIntent = true,
+  bool fullScreenIntent = false,
 }) {
   return NotificationDetails(
     android: AndroidNotificationDetails(
@@ -28,18 +30,18 @@ NotificationDetails _alarmNotificationDetails({
       channelDescription: _kAlarmChannel.description,
       icon: '@android:drawable/ic_dialog_alert',
       color: color,
-      importance: Importance.max,
-      priority: Priority.high,
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
       playSound: true,
       enableVibration: true,
       fullScreenIntent: fullScreenIntent,
       visibility: NotificationVisibility.public,
-      category: AndroidNotificationCategory.alarm,
     ),
     iOS: const DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      interruptionLevel: InterruptionLevel.active,
     ),
   );
 }
@@ -78,10 +80,11 @@ Future<void> _showBackgroundNotification(RemoteMessage message) async {
       ),
     );
 
-    await plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(_kAlarmChannel);
+    final androidPlugin = plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.deleteNotificationChannel(
+        channelId: 'high_importance_channel');
+    await androidPlugin?.createNotificationChannel(_kAlarmChannel);
 
     final data = message.data;
     final notification = message.notification;
@@ -102,7 +105,6 @@ Future<void> _showBackgroundNotification(RemoteMessage message) async {
       body: body,
       notificationDetails: _alarmNotificationDetails(
         color: resolved ? const Color(0xFF38A169) : const Color(0xFFE53E3E),
-        fullScreenIntent: !resolved,
       ),
       payload: jsonEncode(data),
     );
@@ -179,10 +181,12 @@ class PushNotificationService {
         },
       );
 
-      await _localNotifications
+      final androidPlugin = _localNotifications
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(_kAlarmChannel);
+              AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.deleteNotificationChannel(
+          channelId: 'high_importance_channel');
+      await androidPlugin?.createNotificationChannel(_kAlarmChannel);
 
       FirebaseMessaging.onBackgroundMessage(
           _firebaseMessagingBackgroundHandler);
