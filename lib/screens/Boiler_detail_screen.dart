@@ -13,7 +13,6 @@ import 'package:manage_center/services/signalr_service.dart';
 import 'package:manage_center/utils/parameter_utils.dart';
 import 'package:manage_center/widgets/blinking_dot.dart';
 import 'package:manage_center/services/api_service.dart';
-import 'package:manage_center/services/storage_service.dart';
 import 'package:manage_center/widgets/detailed_screen/boiler_status_header.dart';
 
 enum BoilerStatus { normal, warning, error }
@@ -101,23 +100,19 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
 
   Future<void> _refreshRealtimeStatus() async {
     try {
-      final token = await context.read<StorageService>().getToken();
-      if (token != null) {
-        final details = await context
-            .read<ApiService>()
-            .getBoilerById(token, widget.boilerId);
+      final details =
+          await context.read<ApiService>().getBoilerById(widget.boilerId);
 
-        if (mounted) {
-          setState(() {
-            if (details.isEmergency) {
-              _boilerStatus = BoilerStatus.error;
-            } else if (!details.hasConnection) {
-              _boilerStatus = BoilerStatus.warning;
-            } else {
-              _boilerStatus = BoilerStatus.normal;
-            }
-          });
-        }
+      if (mounted) {
+        setState(() {
+          if (details.isEmergency) {
+            _boilerStatus = BoilerStatus.error;
+          } else if (!details.hasConnection) {
+            _boilerStatus = BoilerStatus.warning;
+          } else {
+            _boilerStatus = BoilerStatus.normal;
+          }
+        });
       }
     } catch (e) {
       print('Не удалось обновить статус котельной: $e');

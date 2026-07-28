@@ -1,6 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/models/user_info_model.dart';
-import '../models/user_model.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 
@@ -21,11 +20,11 @@ class UsersError extends UsersState { final String error; UsersError(this.error)
 // Bloc
 class UsersBloc extends Bloc<UsersEvent, UsersState> {
   final ApiService _apiService;
-  final StorageService _storageService;
 
   UsersBloc({required ApiService apiService, required StorageService storageService})
-      : _apiService = apiService, _storageService = storageService, super(UsersInitial()) {
-    
+      : _apiService = apiService, super(UsersInitial()) {
+
+
     on<FetchUsers>(_onFetchUsers);
     on<CreateUser>(_onCreateUser);
     on<UpdateUser>(_onUpdateUser);
@@ -35,10 +34,7 @@ class UsersBloc extends Bloc<UsersEvent, UsersState> {
   Future<void> _onFetchUsers(FetchUsers event, Emitter<UsersState> emit) async {
     emit(UsersLoading());
     try {
-      final token = await _storageService.getToken();
-      print('token = $token');
-      if (token == null) throw Exception('No token');
-      final users = await _apiService.getUsers(token);
+      final users = await _apiService.getUsers();
       emit(UsersLoaded(users));
     } catch (e) {
       emit(UsersError(e.toString()));
@@ -48,8 +44,7 @@ class UsersBloc extends Bloc<UsersEvent, UsersState> {
   Future<void> _onCreateUser(CreateUser event, Emitter<UsersState> emit) async {
     emit(UsersLoading());
     try {
-      final token = await _storageService.getToken();
-      await _apiService.createUser(token!, event.userData);
+      await _apiService.createUser(event.userData);
       add(FetchUsers()); // Refresh списка
     } catch (e) {
       emit(UsersError(e.toString()));
@@ -59,8 +54,7 @@ class UsersBloc extends Bloc<UsersEvent, UsersState> {
    Future<void> _onUpdateUser(UpdateUser event, Emitter<UsersState> emit) async {
     emit(UsersLoading());
     try {
-      final token = await _storageService.getToken();
-      await _apiService.updateUser(token!, event.userId, event.userData);
+      await _apiService.updateUser(event.userId, event.userData);
     add(FetchUsers());
     } catch (e) {
       emit(UsersError(e.toString()));
@@ -69,13 +63,9 @@ class UsersBloc extends Bloc<UsersEvent, UsersState> {
 
 Future<void> _onDeleteUser(DeleteUser event, Emitter<UsersState> emit) async {
   try {
-    final token = await _storageService.getToken();
-    if (token == null) throw Exception('No token available');
-    
-    print('Deleting user with ID: ${event.userId}');
-    await _apiService.deleteUser(token, event.userId);
-    print('User deleted successfully, refreshing list...');
-    
+    await _apiService.deleteUser(event.userId);
+
+
     // Небольшая задержка перед обновлением списка
     await Future.delayed(const Duration(milliseconds: 500));
     add(FetchUsers());

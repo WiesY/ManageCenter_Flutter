@@ -85,13 +85,7 @@ class BoilerTypesBloc extends Bloc<BoilerTypesEvent, BoilerTypesState> {
       FetchBoilerTypes event, Emitter<BoilerTypesState> emit) async {
     emit(BoilerTypesLoading());
     try {
-      final token = await storageService.getToken();
-      if (token == null) {
-        emit(BoilerTypesError('Токен авторизации не найден'));
-        return;
-      }
-
-      final boilerTypes = await apiService.getAllBoilerTypes(token);
+      final boilerTypes = await apiService.getAllBoilerTypes();
       emit(BoilerTypesLoaded(boilerTypes));
     } catch (e) {
       emit(BoilerTypesError(e.toString()));
@@ -102,16 +96,10 @@ class BoilerTypesBloc extends Bloc<BoilerTypesEvent, BoilerTypesState> {
       CreateBoilerType event, Emitter<BoilerTypesState> emit) async {
     emit(BoilerTypesLoading());
     try {
-      final token = await storageService.getToken();
-      if (token == null) {
-        emit(BoilerTypesError('Токен авторизации не найден'));
-        return;
-      }
+      await apiService.createBoilerType(event.boilerTypeData['name']);
 
-      await apiService.createBoilerType(token, event.boilerTypeData['name']);
-      
       // Перезагружаем список типов объектов
-      final boilerTypes = await apiService.getAllBoilerTypes(token);
+      final boilerTypes = await apiService.getAllBoilerTypes();
       emit(BoilerTypesLoaded(boilerTypes));
     } catch (e) {
       emit(BoilerTypesError(e.toString()));
@@ -122,17 +110,11 @@ class BoilerTypesBloc extends Bloc<BoilerTypesEvent, BoilerTypesState> {
       UpdateBoilerType event, Emitter<BoilerTypesState> emit) async {
     emit(BoilerTypesLoading());
     try {
-      final token = await storageService.getToken();
-      if (token == null) {
-        emit(BoilerTypesError('Токен авторизации не найден'));
-        return;
-      }
-
       await apiService.updateBoilerType(
-          token, event.boilerTypeId, event.boilerTypeData['name']);
-      
+          event.boilerTypeId, event.boilerTypeData['name']);
+
       // Перезагружаем список типов объектов
-      final boilerTypes = await apiService.getAllBoilerTypes(token);
+      final boilerTypes = await apiService.getAllBoilerTypes();
       emit(BoilerTypesLoaded(boilerTypes));
     } catch (e) {
       emit(BoilerTypesError(e.toString()));
@@ -143,16 +125,10 @@ class BoilerTypesBloc extends Bloc<BoilerTypesEvent, BoilerTypesState> {
       DeleteBoilerType event, Emitter<BoilerTypesState> emit) async {
     emit(BoilerTypesLoading());
     try {
-      final token = await storageService.getToken();
-      if (token == null) {
-        emit(BoilerTypesError('Токен авторизации не найден'));
-        return;
-      }
+      await apiService.deleteBoilerType(event.boilerTypeId);
 
-      await apiService.deleteBoilerType(token, event.boilerTypeId);
-      
       // Перезагружаем список типов объектов
-      final boilerTypes = await apiService.getAllBoilerTypes(token);
+      final boilerTypes = await apiService.getAllBoilerTypes();
       emit(BoilerTypesLoaded(boilerTypes));
     } catch (e) {
       emit(BoilerTypesError(e.toString()));

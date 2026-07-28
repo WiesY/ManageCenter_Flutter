@@ -87,7 +87,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           await _storageService.clearBiometricCredentials();
         }
 
-        final userInfo = await _apiService.getUserInfo(tokenResponse.token);
+        final userInfo =
+            await _apiService.getUserInfo(token: tokenResponse.token);
         debugLog('userInfo = ${userInfo.name}');
 
         // ✅ Сохраняем роль
@@ -157,7 +158,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         final tokenResponse = await _apiService.login(login, password);
         await _storageService.saveToken(tokenResponse.token);
 
-        final userInfo = await _apiService.getUserInfo(tokenResponse.token);
+        final userInfo =
+            await _apiService.getUserInfo(token: tokenResponse.token);
 
         // ✅ Сохраняем роль
         if (userInfo.role != null) {
@@ -229,7 +231,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       if (token != null) {
         emit(AuthLoading());
         try {
-          final userInfo = await _apiService.getUserInfo(token);
+          final userInfo = await _apiService.getUserInfo(token: token);
 
           // ✅ Сохраняем/обновляем роль
           if (userInfo.role != null) {

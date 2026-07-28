@@ -27,7 +27,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:manage_center/models/boiler_list_item_model.dart';
 import 'package:manage_center/services/api_service.dart';
-import 'package:manage_center/services/storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -134,7 +133,6 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
   DateTimeRange? _customRange;
 
   late ApiService     _api;
-  late StorageService _storage;
   SharedPreferences?  _prefs;
 
   // ── Инициализация ─────────────────────────────────────────────────────────
@@ -142,7 +140,6 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
   void initState() {
     super.initState();
     _api     = context.read<ApiService>();
-    _storage = context.read<StorageService>();
     _init();
   }
 
@@ -182,8 +179,7 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
   Future<void> _loadNodes() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final token   = await _storage.getToken() ?? '';
-      final boilers = await _api.getBoilers(token);
+      final boilers = await _api.getBoilers();
 
       setState(() {
         _nodes = boilers.map((b) {
@@ -211,19 +207,18 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
   Future<void> _fetchApi(_NodeData nd) async {
     setState(() { nd.isLoading = true; nd.loadError = null; });
     try {
-      final token = await _storage.getToken() ?? '';
       final r     = _range();
       double v1   = 0, v2 = 0;
 
       if (nd.config.param1LiftId != null) {
         final vals = await _api.getParameterHistoryValues(
-          token, nd.boiler.id, nd.config.param1LiftId!, r.start, r.end, 60,
+          nd.boiler.id, nd.config.param1LiftId!, r.start, r.end, 60,
         );
         v1 = _deltaFromHistory(vals);
       }
       if (nd.config.param2LiftId != null) {
         final vals = await _api.getParameterHistoryValues(
-          token, nd.boiler.id, nd.config.param2LiftId!, r.start, r.end, 60,
+          nd.boiler.id, nd.config.param2LiftId!, r.start, r.end, 60,
         );
         v2 = _deltaFromHistory(vals);
       }

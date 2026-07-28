@@ -180,13 +180,11 @@ String _cleanErrorMessage(Object e) {
 // Блок
 class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
   final ApiService _apiService;
-  final StorageService _storageService;
 
   IncidentsBloc({
     required ApiService apiService,
     required StorageService storageService,
   })  : _apiService = apiService,
-        _storageService = storageService,
         super(IncidentsInitialState()) {
     on<IncidentsInitEvent>(_onInit);
     on<IncidentsToggleStatusEvent>(_onToggleStatus);
@@ -204,16 +202,13 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
     emit(IncidentsLoadingState());
 
     try {
-      final token = await _storageService.getToken();
-
-      final boilers = await _apiService.getBoilers(token ?? '');
+      final boilers = await _apiService.getBoilers();
 
       final incidents = await _apiService.getIncidents(
-        token ?? '',
         onlyActive: true,
       );
 
-      final activeCount = await _apiService.getActiveIncidentsCount(token ?? '');
+      final activeCount = await _apiService.getActiveIncidentsCount();
 
       emit(IncidentsLoadedState(
         incidents: incidents,
@@ -235,10 +230,7 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
       emit(IncidentsLoadingState());
 
       try {
-        final token = await _storageService.getToken();
-
         final incidents = await _apiService.getIncidents(
-          token ?? '',
           onlyActive: event.showActive,
           boilerId: currentState.selectedBoilerId,
           fromDate: currentState.fromDate,
@@ -267,10 +259,7 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
       emit(IncidentsLoadingState());
 
       try {
-        final token = await _storageService.getToken();
-
         final incidents = await _apiService.getIncidents(
-          token ?? '',
           onlyActive: currentState.showActive,
           boilerId: currentState.selectedBoilerId,
           fromDate: event.fromDate,
@@ -299,12 +288,9 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
       final currentState = state as IncidentsLoadedState;
 
       try {
-        final token = await _storageService.getToken();
-
-        await _apiService.resetIncident(token ?? '', event.incidentId);
+        await _apiService.resetIncident(event.incidentId);
 
         final incidents = await _apiService.getIncidents(
-          token ?? '',
           onlyActive: currentState.showActive,
           boilerId: currentState.selectedBoilerId,
           fromDate: currentState.fromDate,
@@ -312,7 +298,7 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
         );
 
         final activeCount =
-            await _apiService.getActiveIncidentsCount(token ?? '');
+            await _apiService.getActiveIncidentsCount();
 
         emit(currentState.copyWith(
           incidents: incidents,
@@ -334,10 +320,7 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
       final currentState = state as IncidentsLoadedState;
 
       try {
-        final token = await _storageService.getToken();
-
         final incidents = await _apiService.getIncidents(
-          token ?? '',
           onlyActive: currentState.showActive,
           boilerId: currentState.selectedBoilerId,
           fromDate: currentState.fromDate,
@@ -345,9 +328,9 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
         );
 
         final activeCount =
-            await _apiService.getActiveIncidentsCount(token ?? '');
+            await _apiService.getActiveIncidentsCount();
 
-        final boilers = await _apiService.getBoilers(token ?? '');
+        final boilers = await _apiService.getBoilers();
 
         emit(currentState.copyWith(
           incidents: incidents,
@@ -389,10 +372,7 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
       final currentState = state as IncidentsLoadedState;
 
       try {
-        final token = await _storageService.getToken();
-
         final incidents = await _apiService.getIncidents(
-          token ?? '',
           onlyActive: currentState.showActive,
           boilerId: currentState.selectedBoilerId,
           fromDate: currentState.fromDate,
@@ -400,7 +380,7 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
         );
 
         final activeCount =
-            await _apiService.getActiveIncidentsCount(token ?? '');
+            await _apiService.getActiveIncidentsCount();
 
         emit(currentState.copyWith(
           incidents: incidents,
@@ -423,10 +403,7 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
       final currentState = state as IncidentsLoadedState;
 
       try {
-        final token = await _storageService.getToken();
-
         final incidents = await _apiService.getIncidents(
-          token ?? '',
           onlyActive: currentState.showActive,
           boilerId: currentState.selectedBoilerId,
           fromDate: currentState.fromDate,
@@ -434,7 +411,7 @@ class IncidentsBloc extends Bloc<IncidentsEvent, IncidentsState> {
         );
 
         final activeCount =
-            await _apiService.getActiveIncidentsCount(token ?? '');
+            await _apiService.getActiveIncidentsCount();
 
         emit(currentState.copyWith(
           incidents: incidents,

@@ -2,6 +2,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/models/boiler_parameter_model.dart';
 import 'package:manage_center/models/boiler_parameter_value_model.dart';
+import 'package:manage_center/services/api_exception.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 
@@ -96,7 +97,6 @@ class ParameterChartLoadFailure extends ParameterChartState {
 class ParameterChartBloc
     extends Bloc<ParameterChartEvent, ParameterChartState> {
   final ApiService _apiService;
-  final StorageService _storageService;
 
   // Кэш последнего запроса
   int? _lastBoilerId;
@@ -110,7 +110,6 @@ class ParameterChartBloc
     required ApiService apiService,
     required StorageService storageService,
   })  : _apiService = apiService,
-        _storageService = storageService,
         super(ParameterChartInitial()) {
     on<LoadParameterValues>(_onLoadParameterValues);
     on<LoadMultipleParameterValues>(_onLoadMultipleParameterValues);
@@ -134,20 +133,10 @@ class ParameterChartBloc
     emit(ParameterChartLoadInProgress());
 
     try {
-      final token = await _storageService.getToken();
-      if (token == null) {
-        emit(ParameterChartLoadFailure(
-          error: 'Токен не найден. Авторизуйтесь.',
-          isAuthError: true,
-        ));
-        return;
-      }
-
       final interval = event.interval ??
           _calculateOptimalInterval(event.startDate, event.endDate);
 
       final values = await _apiService.getParameterHistoryValues(
-        token,
         event.boilerId,
         event.parameterId,
         event.startDate,
@@ -184,12 +173,9 @@ class ParameterChartBloc
         interval: interval,
       ));
     } catch (e) {
-      final errorStr = e.toString();
       emit(ParameterChartLoadFailure(
-        error: errorStr,
-        isAuthError: errorStr.contains('401') ||
-            errorStr.contains('auth') ||
-            errorStr.contains('Токен'),
+        error: e.toString(),
+        isAuthError: e is UnauthorizedException,
       ));
     }
   }
@@ -201,21 +187,11 @@ class ParameterChartBloc
     emit(ParameterChartLoadInProgress());
 
     try {
-      final token = await _storageService.getToken();
-      if (token == null) {
-        emit(ParameterChartLoadFailure(
-          error: 'Токен не найден. Авторизуйтесь.',
-          isAuthError: true,
-        ));
-        return;
-      }
-
       final interval = event.interval ??
           _calculateOptimalInterval(event.startDate, event.endDate);
 
       final futures = event.parameterIds
           .map((paramId) => _apiService.getParameterHistoryValues(
-                token,
                 event.boilerId,
                 paramId,
                 event.startDate,
@@ -269,12 +245,9 @@ class ParameterChartBloc
         interval: interval,
       ));
     } catch (e) {
-      final errorStr = e.toString();
       emit(ParameterChartLoadFailure(
-        error: errorStr,
-        isAuthError: errorStr.contains('401') ||
-            errorStr.contains('auth') ||
-            errorStr.contains('Токен'),
+        error: e.toString(),
+        isAuthError: e is UnauthorizedException,
       ));
     }
   }
@@ -288,9 +261,6 @@ class ParameterChartBloc
     if (_lastStartDate == null || _lastEndDate == null) return;
 
     try {
-      final token = await _storageService.getToken();
-      if (token == null) return;
-
       // Сохраняем длину периода, сдвигаем окно на now
       final now = DateTime.now().toUtc();
       final periodDuration = _lastEndDate!.difference(_lastStartDate!);
@@ -300,7 +270,6 @@ class ParameterChartBloc
       if (_lastParameterIds != null) {
         final futures = _lastParameterIds!
             .map((paramId) => _apiService.getParameterHistoryValues(
-                  token,
                   event.boilerId,
                   paramId,
                   startDate,
@@ -340,7 +309,6 @@ class ParameterChartBloc
         ));
       } else {
         final values = await _apiService.getParameterHistoryValues(
-          token,
           event.boilerId,
           _lastSingleParameterId!,
           startDate,

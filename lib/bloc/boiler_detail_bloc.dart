@@ -2,7 +2,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/models/boiler_parameter_model.dart';
 import 'package:manage_center/models/boiler_parameter_value_model.dart';
 import 'package:manage_center/models/boiler_configuration.dart';
-import 'package:manage_center/models/boiler_history_model.dart';
 import 'package:manage_center/models/groups_model.dart';
 import 'package:manage_center/models/incident_model.dart';
 import 'package:manage_center/services/api_service.dart';
@@ -115,7 +114,6 @@ class BoilerDetailLoadFailure extends BoilerDetailState {
 // --- БЛОК ---
 class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
   final ApiService _apiService;
-  final StorageService _storageService;
 
   List<BoilerParameter>? _cachedParameters;
   List<Group>? _cachedGroups;
@@ -127,7 +125,6 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
     required ApiService apiService,
     required StorageService storageService,
   })  : _apiService = apiService,
-        _storageService = storageService,
         super(BoilerDetailInitial()) {
     on<LoadBoilerConfiguration>(_onLoadBoilerConfiguration);
     on<LoadBoilerParameterValues>(_onLoadBoilerParameterValues);
@@ -142,17 +139,12 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
     emit(BoilerDetailLoadInProgress());
 
     try {
-      final token = await _storageService.getToken();
-      if (token == null) {
-        throw Exception('Токен не найден. Авторизуйтесь.');
-      }
-
       //print('Loading configuration for boiler ${event.boilerId}');
 
       // Загружаем конфигурацию и активные инциденты параллельно
       final results = await Future.wait([
-        _apiService.getBoilerParameters(token, event.boilerId),
-        _apiService.getIncidents(token, onlyActive: true, boilerId: event.boilerId),
+        _apiService.getBoilerParameters(event.boilerId),
+        _apiService.getIncidents(onlyActive: true, boilerId: event.boilerId),
       ]);
 
       final configuration = results[0] as BoilerConfiguration;
@@ -193,17 +185,12 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
     emit(BoilerDetailLoadInProgress());
 
     try {
-      final token = await _storageService.getToken();
-      if (token == null) {
-        throw Exception('Токен не найден. Авторизуйтесь.');
-      }
-
       if (_cachedParameters == null ||
           _cachedGroups == null ||
           _currentBoilerId != event.boilerId) {
         print('Loading configuration first...');
         final configuration =
-            await _apiService.getBoilerParameters(token, event.boilerId);
+            await _apiService.getBoilerParameters(event.boilerId);
         _cachedParameters = configuration.boilerParameters;
         _cachedGroups = configuration.groups;
         _currentBoilerId = event.boilerId;
@@ -212,7 +199,6 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
       //print('Loading parameter values for boiler ${event.boilerId}');
 
       final historyResponse = await _apiService.getBoilerParameterValues(
-        token,
         event.boilerId,
         event.startDate,
         event.endDate,
@@ -252,13 +238,8 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
     Emitter<BoilerDetailState> emit,
   ) async {
     try {
-      final token = await _storageService.getToken();
-      if (token == null) {
-        throw Exception('Токен не найден. Авторизуйтесь.');
-      }
-      //print('==== ${token}, ${event.groupId}, ${event.parameterIds}');
       await _apiService.updateParametersGroup(
-          token, event.groupId, event.parameterIds);
+          event.groupId, event.parameterIds);
 
       if (_currentBoilerId != null) {
         add(LoadBoilerConfiguration(_currentBoilerId!));
@@ -277,12 +258,8 @@ class BoilerDetailBloc extends Bloc<BoilerDetailEvent, BoilerDetailState> {
     if (_cachedParameters == null || _cachedGroups == null) return;
 
     try {
-      final token = await _storageService.getToken();
-      if (token == null) return;
-
       final now = DateTime.now().toUtc();
       final historyResponse = await _apiService.getBoilerParameterValues(
-        token,
         event.boilerId,
         now.subtract(const Duration(minutes: 5)),
         now,

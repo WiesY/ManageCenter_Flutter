@@ -30,6 +30,8 @@ import 'bloc/auth_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 final ValueNotifier<int?> switchTabNotifier = ValueNotifier<int?>(null);
 
 void main() async {
@@ -49,10 +51,7 @@ void main() async {
 
   final prefs = await SharedPreferences.getInstance();
   final storageService = StorageService(prefs);
-  final apiService = ApiService();
-
-  final tokenTest = await storageService.getToken();
-  log("🔑 Текущий токен API: $tokenTest");
+  final apiService = ApiService(storageService: storageService);
 
   runApp(MyApp(
     storageService: storageService,
@@ -107,6 +106,7 @@ class MyApp extends StatelessWidget {
             create: (context) => AppBloc(
               storageService: storageService,
               authBloc: context.read<AuthBloc>(),
+              unauthorizedStream: apiService.client.onUnauthorized,
             )..add(AppStarted()),
           ),
           BlocProvider<UsersBloc>(
@@ -171,6 +171,7 @@ class AppView extends StatelessWidget {
     return AppLifecycleManager(
       child: MaterialApp(
         navigatorKey: navigatorKey,
+        scaffoldMessengerKey: scaffoldMessengerKey,
         scrollBehavior: const MaterialScrollBehavior().copyWith(
           dragDevices: {
             PointerDeviceKind.mouse,
@@ -210,7 +211,18 @@ class AppView extends StatelessWidget {
             brightness: Brightness.light,
           ),
         ),
-        home: BlocBuilder<AppBloc, AppState>(
+        home: BlocConsumer<AppBloc, AppState>(
+          listenWhen: (_, state) => state.sessionExpired,
+          listener: (context, state) {
+            scaffoldMessengerKey.currentState
+              ?..hideCurrentSnackBar()
+              ..showSnackBar(
+                const SnackBar(
+                  content: Text('Сессия истекла. Войдите снова'),
+                  duration: Duration(seconds: 4),
+                ),
+              );
+          },
           builder: (context, state) {
             if (state.status == AppStatus.authenticated) {
               final authState = context.read<AuthBloc>().state;

@@ -85,13 +85,7 @@ class DistrictsBloc extends Bloc<DistrictsEvent, DistrictsState> {
       FetchDistricts event, Emitter<DistrictsState> emit) async {
     emit(DistrictsLoading());
     try {
-      final token = await storageService.getToken();
-      if (token == null) {
-        emit(DistrictsError('Токен авторизации не найден'));
-        return;
-      }
-
-      final districts = await apiService.getAllDistricts(token);
+      final districts = await apiService.getAllDistricts();
       emit(DistrictsLoaded(districts));
     } catch (e) {
       emit(DistrictsError(e.toString()));
@@ -102,16 +96,10 @@ class DistrictsBloc extends Bloc<DistrictsEvent, DistrictsState> {
       CreateDistrict event, Emitter<DistrictsState> emit) async {
     emit(DistrictsLoading());
     try {
-      final token = await storageService.getToken();
-      if (token == null) {
-        emit(DistrictsError('Токен авторизации не найден'));
-        return;
-      }
+      await apiService.createDistrict(event.districtData['name']);
 
-      await apiService.createDistrict(token, event.districtData['name']);
-      
       // Перезагружаем список районов
-      final districts = await apiService.getAllDistricts(token);
+      final districts = await apiService.getAllDistricts();
       emit(DistrictsLoaded(districts));
     } catch (e) {
       emit(DistrictsError(e.toString()));
@@ -122,17 +110,11 @@ class DistrictsBloc extends Bloc<DistrictsEvent, DistrictsState> {
       UpdateDistrict event, Emitter<DistrictsState> emit) async {
     emit(DistrictsLoading());
     try {
-      final token = await storageService.getToken();
-      if (token == null) {
-        emit(DistrictsError('Токен авторизации не найден'));
-        return;
-      }
-
       await apiService.updateDistrict(
-          token, event.districtId, event.districtData['name']);
-      
+          event.districtId, event.districtData['name']);
+
       // Перезагружаем список районов
-      final districts = await apiService.getAllDistricts(token);
+      final districts = await apiService.getAllDistricts();
       emit(DistrictsLoaded(districts));
     } catch (e) {
       emit(DistrictsError(e.toString()));
@@ -143,16 +125,10 @@ class DistrictsBloc extends Bloc<DistrictsEvent, DistrictsState> {
       DeleteDistrict event, Emitter<DistrictsState> emit) async {
     emit(DistrictsLoading());
     try {
-      final token = await storageService.getToken();
-      if (token == null) {
-        emit(DistrictsError('Токен авторизации не найден'));
-        return;
-      }
+      await apiService.deleteDistrict(event.districtId);
 
-      await apiService.deleteDistrict(token, event.districtId);
-      
       // Перезагружаем список районов
-      final districts = await apiService.getAllDistricts(token);
+      final districts = await apiService.getAllDistricts();
       emit(DistrictsLoaded(districts));
     } catch (e) {
       emit(DistrictsError(e.toString()));

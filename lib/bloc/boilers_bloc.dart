@@ -62,13 +62,11 @@ class BoilersLoadFailure extends BoilersState {
 // --- БЛОК ---
 class BoilersBloc extends Bloc<BoilersEvent, BoilersState> {
   final ApiService _apiService;
-  final StorageService _storageService;
 
   BoilersBloc({
     required ApiService apiService,
     required StorageService storageService,
   })  : _apiService = apiService,
-        _storageService = storageService,
         super(BoilersInitial()) {
     on<FetchBoilers>(_onFetchBoilers);
     on<CreateBoiler>(_onCreateBoiler);
@@ -83,11 +81,7 @@ class BoilersBloc extends Bloc<BoilersEvent, BoilersState> {
       FetchBoilers event, Emitter<BoilersState> emit) async {
     emit(BoilersLoadInProgress());
     try {
-      final token = await _storageService.getToken();
-      if (token == null) {
-        throw Exception('Токен не найден. Авторизуйтесь.');
-      }
-      final boilers = await _apiService.getBoilers(token);
+      final boilers = await _apiService.getBoilers();
       emit(BoilersLoadSuccess(boilers));
     } catch (e) {
       emit(BoilersLoadFailure(e.toString()));
@@ -97,9 +91,7 @@ class BoilersBloc extends Bloc<BoilersEvent, BoilersState> {
   Future<void> _onCreateBoiler(
       CreateBoiler event, Emitter<BoilersState> emit) async {
     try {
-      final token = await _storageService.getToken();
-      if (token == null) throw Exception('Токен не найден. Авторизуйтесь.');
-      await _apiService.createBoiler(token, event.boilerData);
+      await _apiService.createBoiler(event.boilerData);
       add(FetchBoilers());
     } catch (e) {
       emit(BoilersLoadFailure(e.toString()));
@@ -109,9 +101,7 @@ class BoilersBloc extends Bloc<BoilersEvent, BoilersState> {
   Future<void> _onUpdateBoiler(
       UpdateBoiler event, Emitter<BoilersState> emit) async {
     try {
-      final token = await _storageService.getToken();
-      if (token == null) throw Exception('Токен не найден. Авторизуйтесь.');
-      await _apiService.updateBoiler(token, event.boilerId, event.boilerData);
+      await _apiService.updateBoiler(event.boilerId, event.boilerData);
       add(FetchBoilers());
     } catch (e) {
       emit(BoilersLoadFailure(e.toString()));
@@ -121,9 +111,7 @@ class BoilersBloc extends Bloc<BoilersEvent, BoilersState> {
   Future<void> _onDeleteBoiler(
       DeleteBoiler event, Emitter<BoilersState> emit) async {
     try {
-      final token = await _storageService.getToken();
-      if (token == null) throw Exception('Токен не найден. Авторизуйтесь.');
-      await _apiService.deleteBoiler(token, event.boilerId);
+      await _apiService.deleteBoiler(event.boilerId);
       add(FetchBoilers());
     } catch (e) {
       emit(BoilersLoadFailure(e.toString()));

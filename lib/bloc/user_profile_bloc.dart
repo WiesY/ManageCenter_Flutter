@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:manage_center/models/user_info_model.dart';
+import 'package:manage_center/services/api_exception.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 
@@ -72,23 +73,13 @@ class UserProfileBloc extends Bloc<UserProfileEvent, UserProfileState> {
 
   Future<void> _loadUserProfile(Emitter<UserProfileState> emit) async {
     try {
-      final token = await storageService.getToken();
-      if (token == null) {
-        emit(UserProfileError('Токен авторизации не найден'));
-        return;
-      }
-
-      final userInfo = await apiService.getUserInfo(token);
+      final userInfo = await apiService.getUserInfo();
       emit(UserProfileLoaded(userInfo));
     } catch (e) {
-      String errorMessage = 'Произошла ошибка при загрузке данных';
-      
-      if (e.toString().contains('Некорректный токен авторизации')) {
-        errorMessage = 'Сессия истекла. Войдите в систему заново';
-      } else if (e.toString().contains('Ошибка сервера')) {
-        errorMessage = 'Ошибка сервера. Попробуйте позже';
-      }
-
+      // ApiException уже несёт готовый текст для пользователя.
+      final errorMessage = e is ApiException
+          ? e.message
+          : 'Произошла ошибка при загрузке данных';
       emit(UserProfileError(errorMessage));
     }
   }

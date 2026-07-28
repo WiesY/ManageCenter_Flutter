@@ -4,7 +4,6 @@ import 'package:equatable/equatable.dart';
 import 'package:manage_center/models/BoilerTypeCompareValues.dart';
 import 'package:manage_center/models/boiler_list_item_model.dart';
 import 'package:manage_center/models/boiler_type_model.dart';
-import 'package:manage_center/models/boiler_configuration.dart';
 import 'package:manage_center/models/groups_model.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
@@ -133,14 +132,12 @@ class AnalyticsErrorState extends AnalyticsState {
 // Блок
 class AnalyticsBloc extends Bloc<AnalyticsEvent, AnalyticsState> {
   final ApiService _apiService;
-  final StorageService _storageService;
-  
+
   AnalyticsBloc({
     required ApiService apiService,
     required StorageService storageService,
-  }) : 
+  }) :
     _apiService = apiService,
-    _storageService = storageService,
     super(AnalyticsInitialState()) {
     on<AnalyticsInitEvent>(_onInit);
     on<AnalyticsSelectBoilerTypeEvent>(_onSelectBoilerType);
@@ -154,13 +151,11 @@ class AnalyticsBloc extends Bloc<AnalyticsEvent, AnalyticsState> {
     emit(AnalyticsLoadingState());
     
     try {
-      final token = await _storageService.getToken();
-      
       // Получаем список типов объектов
-      final boilerTypes = await _apiService.getAllBoilerTypes(token ?? '');
+      final boilerTypes = await _apiService.getAllBoilerTypes();
       
       // Получаем список объектов
-      final boilers = await _apiService.getBoilers(token ?? '');
+      final boilers = await _apiService.getBoilers();
       
       // Создаем начальное состояние с пустым списком групп параметров
       emit(AnalyticsLoadedState(
@@ -181,8 +176,6 @@ class AnalyticsBloc extends Bloc<AnalyticsEvent, AnalyticsState> {
       emit(AnalyticsLoadingState());
       
       try {
-        final token = await _storageService.getToken();
-        
         // Фильтруем объекты по выбранному типу
         final filteredBoilers = currentState.boilers
             .where((boiler) => boiler.boilerType.id == event.boilerTypeId)
@@ -194,7 +187,7 @@ class AnalyticsBloc extends Bloc<AnalyticsEvent, AnalyticsState> {
     selectedBoilerId = filteredBoilers.first.id;
     
     // Получаем параметры для выбранного объекта
-    final boilerConfig = await _apiService.getBoilerParameters(token ?? '', selectedBoilerId);
+    final boilerConfig = await _apiService.getBoilerParameters(selectedBoilerId);
     
     // Обновляем состояние с новым выбранным типом объекта, объектом и группами параметров
     emit(currentState.copyWith(
@@ -227,10 +220,8 @@ class AnalyticsBloc extends Bloc<AnalyticsEvent, AnalyticsState> {
       emit(AnalyticsLoadingState());
       
       try {
-        final token = await _storageService.getToken();
-        
         // Получаем параметры для выбранного объекта
-        final boilerConfig = await _apiService.getBoilerParameters(token ?? '', event.boilerId);
+        final boilerConfig = await _apiService.getBoilerParameters(event.boilerId);
         
         // Обновляем состояние с новым выбранным объектом и группами параметров
         emit(currentState.copyWith(
@@ -291,7 +282,6 @@ class AnalyticsBloc extends Bloc<AnalyticsEvent, AnalyticsState> {
       emit(AnalyticsLoadingState());
       
       try {
-        final token = await _storageService.getToken();
         final compareDateTime = currentState.selectedDate.toUtc().toIso8601String();
         
         // Формируем список ID групп параметров, если выбрана конкретная группа
@@ -302,7 +292,6 @@ class AnalyticsBloc extends Bloc<AnalyticsEvent, AnalyticsState> {
         
         // Получаем данные для таблицы
         final compareValues = await _apiService.getBoilerParametersByTypeCompareValues(
-          token ?? '',
           currentState.selectedBoilerTypeId!,
           groupIds,
           compareDateTime,

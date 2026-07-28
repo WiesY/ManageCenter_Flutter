@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:manage_center/services/api_exception.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 
@@ -64,30 +65,17 @@ class ChangePasswordBloc extends Bloc<ChangePasswordEvent, ChangePasswordState> 
   ) async {
     emit(ChangePasswordLoading());
     try {
-      final token = await storageService.getToken();
-      if (token == null) {
-        emit(ChangePasswordError('Токен авторизации не найден'));
-        return;
-      }
-
       await apiService.changePassword(
-        token,
         event.currentPassword,
         event.newPassword,
       );
 
       emit(ChangePasswordSuccess());
     } catch (e) {
-      String errorMessage = 'Произошла ошибка при смене пароля';
-      
-      if (e.toString().contains('Current password is incorrect')) {
-        errorMessage = 'Неверный текущий пароль';
-      } else if (e.toString().contains('Invalid password data')) {
-        errorMessage = 'Некорректные данные пароля';
-      } else if (e.toString().contains('Unauthorized')) {
-        errorMessage = 'Неверный текущий пароль';
-      }
-
+      // ApiException уже несёт готовый текст для пользователя.
+      final errorMessage = e is ApiException
+          ? e.message
+          : 'Произошла ошибка при смене пароля';
       emit(ChangePasswordError(errorMessage));
     }
   }

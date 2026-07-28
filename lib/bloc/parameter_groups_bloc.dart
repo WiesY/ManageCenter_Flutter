@@ -82,8 +82,7 @@ class ParameterGroupIconLoadSuccess extends ParameterGroupsState {
 // Блок
 class ParameterGroupsBloc extends Bloc<ParameterGroupsEvent, ParameterGroupsState> {
   final ApiService _apiService;
-  final StorageService _storageService;
-  
+
   // Кэш для хранения загруженных иконок
   final Map<int, String> _iconCache = {};
 
@@ -91,7 +90,6 @@ class ParameterGroupsBloc extends Bloc<ParameterGroupsEvent, ParameterGroupsStat
     required ApiService apiService,
     required StorageService storageService,
   })  : _apiService = apiService,
-    _storageService = storageService,
     super(ParameterGroupsInitial()) {
     on<FetchParameterGroups>(_onFetchParameterGroups);
     on<CreateParameterGroup>(_onCreateParameterGroup);
@@ -110,13 +108,7 @@ class ParameterGroupsBloc extends Bloc<ParameterGroupsEvent, ParameterGroupsStat
   ) async {
     emit(ParameterGroupsLoadInProgress());
     try {
-      final token = await _storageService.getToken();
-      if (token == null) {
-        emit(ParameterGroupsLoadFailure('Токен авторизации не найден'));
-        return;
-      }
-
-      final parameterGroups = await _apiService.getParameterGroups(token);
+      final parameterGroups = await _apiService.getParameterGroups();
       emit(ParameterGroupsLoadSuccess(parameterGroups));
     } catch (e) {
       emit(ParameterGroupsLoadFailure(e.toString()));
@@ -136,18 +128,11 @@ class ParameterGroupsBloc extends Bloc<ParameterGroupsEvent, ParameterGroupsStat
     }
     
     try {
-      final token = await _storageService.getToken();
-      if (token == null) {
-        emit(ParameterGroupsLoadFailure('Токен авторизации не найден'));
-        return;
-      }
-
       // Используем обновленный метод с поддержкой цвета и иконки
       await _apiService.createParameterGroup(
-        token, 
-        event.name, 
-        event.color, 
-        event.iconFileName
+        event.name,
+        event.color,
+        event.iconFileName,
       );
       
       // После создания обновляем список групп
@@ -175,19 +160,12 @@ class ParameterGroupsBloc extends Bloc<ParameterGroupsEvent, ParameterGroupsStat
     }
     
     try {
-      final token = await _storageService.getToken();
-      if (token == null) {
-        emit(ParameterGroupsLoadFailure('Токен авторизации не найден'));
-        return;
-      }
-
       // Используем обновленный метод с поддержкой цвета и иконки
       await _apiService.updateParameterGroup(
-        token, 
-        event.groupId, 
-        event.name, 
-        event.color, 
-        event.iconFileName
+        event.groupId,
+        event.name,
+        event.color,
+        event.iconFileName,
       );
       
       // После обновления обновляем список групп
@@ -219,13 +197,7 @@ class ParameterGroupsBloc extends Bloc<ParameterGroupsEvent, ParameterGroupsStat
     }
     
     try {
-      final token = await _storageService.getToken();
-      if (token == null) {
-        emit(ParameterGroupsLoadFailure('Токен авторизации не найден'));
-        return;
-      }
-
-      await _apiService.deleteParameterGroup(token, event.groupId);
+      await _apiService.deleteParameterGroup(event.groupId);
       
       // Удаляем иконку из кэша, если она там есть
       _iconCache.remove(event.groupId);
@@ -260,21 +232,9 @@ class ParameterGroupsBloc extends Bloc<ParameterGroupsEvent, ParameterGroupsStat
     }
     
     try {
-      final token = await _storageService.getToken();
-      if (token == null) {
-        // Восстанавливаем предыдущее состояние в случае ошибки
-        if (currentGroups.isNotEmpty) {
-          emit(ParameterGroupsLoadSuccess(currentGroups));
-        } else {
-          emit(ParameterGroupsLoadFailure('Токен авторизации не найден'));
-        }
-        return;
-      }
-
       final iconData = await _apiService.getParameterGroupIconById(
-        token, 
-        event.groupId, 
-        event.isDownload
+        event.groupId,
+        event.isDownload,
       );
       
       // Сохраняем иконку в кэш
@@ -308,21 +268,9 @@ class ParameterGroupsBloc extends Bloc<ParameterGroupsEvent, ParameterGroupsStat
     }
     
     try {
-      final token = await _storageService.getToken();
-      if (token == null) {
-        // Восстанавливаем предыдущее состояние в случае ошибки
-        if (currentGroups.isNotEmpty) {
-          emit(ParameterGroupsLoadSuccess(currentGroups));
-        } else {
-          emit(ParameterGroupsLoadFailure('Токен авторизации не найден'));
-        }
-        return;
-      }
-
       final iconData = await _apiService.getParameterGroupIconByName(
-        token, 
-        event.fileName, 
-        event.isDownload
+        event.fileName,
+        event.isDownload,
       );
       
       // Находим группу с таким именем файла иконки
