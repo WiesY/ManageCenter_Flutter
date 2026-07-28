@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,6 +9,9 @@ class StorageService {
   static const String biometricPasswordKey = 'biometric_password';
   static const String userRoleIdKey = 'user_role_id';
   static const String userRoleNameKey = 'user_role_name';
+
+  static const String themeModeKey = 'theme_mode';
+  static const ThemeMode defaultThemeMode = ThemeMode.system;
 
   static const String alarmSoundEnabledKey = 'alarm_sound_enabled';
   static const bool defaultAlarmSoundEnabled = true;
@@ -104,6 +108,22 @@ class StorageService {
   Future<void> clearUserRole() async {
     await _prefs.remove(userRoleIdKey);
     await _prefs.remove(userRoleNameKey);
+  }
+
+  // ==================== ОФОРМЛЕНИЕ ====================
+
+  Future<void> saveThemeMode(ThemeMode mode) async {
+    await _prefs.setString(themeModeKey, mode.name);
+  }
+
+  /// Синхронное чтение — режим нужен ещё до первого кадра, чтобы приложение
+  /// не мигнуло светлой темой при запуске.
+  ThemeMode getThemeMode() {
+    final stored = _prefs.getString(themeModeKey);
+    return ThemeMode.values.firstWhere(
+      (mode) => mode.name == stored,
+      orElse: () => defaultThemeMode,
+    );
   }
 
   // ==== НАСТРОЙКИ УВЕДОМЛЕНИЙ ====

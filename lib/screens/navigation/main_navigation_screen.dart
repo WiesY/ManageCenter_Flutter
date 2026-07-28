@@ -11,6 +11,7 @@ import 'package:manage_center/screens/water_losses_screen.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/signalr_service.dart';
 import 'package:manage_center/services/storage_service.dart';
+import 'package:manage_center/theme/app_theme.dart';
 import 'package:manage_center/widgets/custom_bottom_navigation.dart';
 import 'package:manage_center/services/app_update_service.dart';
 import 'package:manage_center/widgets/notification_toast.dart';
@@ -236,6 +237,11 @@ if (type == _NotificationType.alarm) {
   await _audioPlayer.play(AssetSource(sound));
 }
 
+    if (!mounted) return;
+
+    final colors = context.colors;
+    final appColors = context.appColors;
+
     final Color bgColor;
     final Color borderColor;
     final IconData icon;
@@ -243,28 +249,28 @@ if (type == _NotificationType.alarm) {
 
     switch (type) {
       case _NotificationType.alarm:
-        bgColor = const Color(0xFFFFF5F5);
-        borderColor = const Color(0xFFE53E3E);
+        bgColor = colors.errorContainer;
+        borderColor = colors.error;
         icon = Icons.warning_rounded;
-        iconColor = const Color(0xFFE53E3E);
+        iconColor = colors.error;
         break;
       case _NotificationType.resolved:
-        bgColor = const Color(0xFFF0FFF4);
-        borderColor = Colors.green;
+        bgColor = appColors.successContainer;
+        borderColor = appColors.success;
         icon = Icons.check_circle_rounded;
-        iconColor = Colors.green;
+        iconColor = appColors.success;
         break;
       case _NotificationType.connection:
-        bgColor = const Color(0xFFEBF8FF);
-        borderColor = Colors.blue;
+        bgColor = appColors.infoContainer;
+        borderColor = appColors.info;
         icon = Icons.wifi_rounded;
-        iconColor = Colors.blue;
+        iconColor = appColors.info;
         break;
       case _NotificationType.disconnection:
-        bgColor = const Color(0xFFFFFAF0);
-        borderColor = const Color(0xFFFF8C00);
+        bgColor = appColors.warningContainer;
+        borderColor = appColors.warning;
         icon = Icons.wifi_off_rounded;
-        iconColor = const Color(0xFFFF8C00);
+        iconColor = appColors.warning;
         break;
     }
 

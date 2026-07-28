@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/services/storage_service.dart';
-import 'package:provider/provider.dart';
+import 'package:manage_center/theme/app_theme.dart';
+import 'package:manage_center/theme/theme_cubit.dart';
 
 class AppSettingsScreen extends StatelessWidget {
   const AppSettingsScreen({super.key});
@@ -9,19 +11,137 @@ class AppSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Text('Настройки приложения'),
-        foregroundColor: Colors.white,
-        backgroundColor: Colors.blue,
       ),
       body: ListView(
         padding: const EdgeInsets.only(top: 8, bottom: 120),
         children: const [
+          AppearanceSettings(),
           AlarmNotificationSettings(),
         ],
       ),
     );
+  }
+}
+
+/// Заголовок группы настроек.
+class _SectionTitle extends StatelessWidget {
+  final String text;
+
+  const _SectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, top: 8, bottom: 8),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: context.colors.onSurface,
+        ),
+      ),
+    );
+  }
+}
+
+/// Выбор светлой / тёмной / системной темы.
+class AppearanceSettings extends StatelessWidget {
+  const AppearanceSettings({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionTitle('Оформление'),
+          BlocBuilder<ThemeCubit, ThemeMode>(
+            builder: (context, mode) {
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(_iconFor(mode), color: colors.primary),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Тема приложения',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _descriptionFor(context, mode),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<ThemeMode>(
+                          segments: const [
+                            ButtonSegment(
+                              value: ThemeMode.system,
+                              icon: Icon(Icons.brightness_auto_outlined),
+                              label: Text('Система'),
+                            ),
+                            ButtonSegment(
+                              value: ThemeMode.light,
+                              icon: Icon(Icons.light_mode_outlined),
+                              label: Text('Светлая'),
+                            ),
+                            ButtonSegment(
+                              value: ThemeMode.dark,
+                              icon: Icon(Icons.dark_mode_outlined),
+                              label: Text('Тёмная'),
+                            ),
+                          ],
+                          selected: {mode},
+                          showSelectedIcon: false,
+                          onSelectionChanged: (selection) {
+                            context.read<ThemeCubit>().setMode(selection.first);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
+  IconData _iconFor(ThemeMode mode) => switch (mode) {
+        ThemeMode.system => Icons.brightness_auto_outlined,
+        ThemeMode.light => Icons.light_mode_outlined,
+        ThemeMode.dark => Icons.dark_mode_outlined,
+      };
+
+  String _descriptionFor(BuildContext context, ThemeMode mode) {
+    return switch (mode) {
+      ThemeMode.system =>
+        'Следует настройке устройства — сейчас ${context.isDark ? 'тёмная' : 'светлая'}',
+      ThemeMode.light => 'Всегда светлое оформление',
+      ThemeMode.dark => 'Всегда тёмное оформление',
+    };
   }
 }
 
@@ -89,46 +209,35 @@ class _AlarmNotificationSettingsState extends State<AlarmNotificationSettings> {
     if (!_loaded) {
       return const Padding(
         padding: EdgeInsets.all(16),
-        child: Center(
-          child: CircularProgressIndicator(color: Colors.blueAccent),
-        ),
+        child: Center(child: CircularProgressIndicator()),
       );
     }
+
+    final colors = context.colors;
+    final appColors = context.appColors;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 4, top: 8, bottom: 8),
-            child: Text(
-              'Аварийные уведомления',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2D3748),
-              ),
-            ),
-          ),
+          const _SectionTitle('Аварийные уведомления'),
 
           Card(
-            elevation: 2.0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-            color: Colors.white,
             child: SwitchListTile(
               title: const Text('Звук уведомлений',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text(
                 _enabled ? 'Включён' : 'Выключен',
-                style: TextStyle(color: _enabled ? Colors.green : Colors.grey),
+                style: TextStyle(
+                  color: _enabled ? appColors.success : colors.onSurfaceVariant,
+                ),
               ),
               secondary: Icon(
                 _enabled ? Icons.notifications_active : Icons.notifications_off,
-                color: _enabled ? Colors.blue : Colors.grey,
+                color: _enabled ? colors.primary : colors.onSurfaceVariant,
               ),
               value: _enabled,
-              activeColor: Colors.blue,
               onChanged: (val) {
                 setState(() => _enabled = val);
                 _storage.setAlarmSoundEnabled(val);
@@ -147,10 +256,6 @@ class _AlarmNotificationSettingsState extends State<AlarmNotificationSettings> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Card(
-                    elevation: 2.0,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.0)),
-                    color: Colors.white,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                       child: Column(
@@ -158,43 +263,34 @@ class _AlarmNotificationSettingsState extends State<AlarmNotificationSettings> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.volume_up, color: Colors.blue),
+                              Icon(Icons.volume_up, color: colors.primary),
                               const SizedBox(width: 8),
                               const Text('Громкость',
                                   style: TextStyle(fontWeight: FontWeight.bold)),
                               const Spacer(),
                               Text(
                                 '${(_volume * 100).round()}%',
-                                style: const TextStyle(
-                                  color: Colors.blueAccent,
+                                style: TextStyle(
+                                  color: colors.primary,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
-                          SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              activeTrackColor: Colors.blueAccent,
-                              inactiveTrackColor: Colors.blue.withOpacity(0.2),
-                              thumbColor: Colors.blueAccent,
-                              overlayColor: Colors.blueAccent.withOpacity(0.15),
-                            ),
-                            child: Slider(
-                              min: 0.0,
-                              max: 1.0,
-                              divisions: 20,
-                              value: _volume,
-                              onChanged: (v) => setState(() => _volume = v),
-                              onChangeEnd: (v) => _storage.setAlarmVolume(v),
-                            ),
+                          Slider(
+                            min: 0.0,
+                            max: 1.0,
+                            divisions: 20,
+                            value: _volume,
+                            onChanged: (v) => setState(() => _volume = v),
+                            onChangeEnd: (v) => _storage.setAlarmVolume(v),
                           ),
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton.icon(
                               onPressed: () => _preview(_selectedSound),
-                              icon: const Icon(Icons.play_arrow, color: Colors.blue),
-                              label: const Text('Прослушать',
-                                  style: TextStyle(color: Colors.blue)),
+                              icon: const Icon(Icons.play_arrow),
+                              label: const Text('Прослушать'),
                             ),
                           ),
                         ],
@@ -204,63 +300,43 @@ class _AlarmNotificationSettingsState extends State<AlarmNotificationSettings> {
 
                   const SizedBox(height: 12),
 
-const Padding(
-  padding: EdgeInsets.only(left: 4, top: 4, bottom: 8),
-  child: Text(
-    'Звук аварии',
-    style: TextStyle(
-      fontSize: 16,
-      fontWeight: FontWeight.bold,
-      color: Color(0xFF2D3748),
-    ),
-  ),
-),
+                  const _SectionTitle('Звук аварии'),
 
                   Card(
-  elevation: 2.0,
-  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-  color: Colors.white,
-  child: Padding(
-    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-    child: Row(
-      children: [
-        const Icon(Icons.music_note, color: Colors.blue),
-        const SizedBox(width: 12),
-        Expanded(
-          child: DropdownButtonFormField<String>(
-            value: _selectedSound,
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: 'Мелодия',
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-            items: _sounds
-                .map((s) => DropdownMenuItem<String>(
-                      value: s.asset,
-                      child: Text(s.label),
-                    ))
-                .toList(),
-            onChanged: (val) {
-              if (val == null) return;
-              setState(() => _selectedSound = val);
-              _storage.setAlarmSound(val);
-            },
-          ),
-        ),
-        // IconButton(
-        //   icon: const Icon(Icons.play_circle_outline, color: Colors.blue),
-        //   tooltip: 'Прослушать',
-        //   onPressed: () => _preview(_selectedSound),
-        // ),
-      ],
-    ),
-  ),
-),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.music_note, color: colors.primary),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedSound,
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Мелодия',
+                                labelStyle:
+                                    TextStyle(fontWeight: FontWeight.bold),
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                              ),
+                              items: _sounds
+                                  .map((s) => DropdownMenuItem<String>(
+                                        value: s.asset,
+                                        child: Text(s.label),
+                                      ))
+                                  .toList(),
+                              onChanged: (val) {
+                                if (val == null) return;
+                                setState(() => _selectedSound = val);
+                                _storage.setAlarmSound(val);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

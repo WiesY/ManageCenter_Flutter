@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:manage_center/theme/app_theme.dart';
 
 class NotificationToast extends StatefulWidget {
   final String title;
@@ -81,7 +82,7 @@ class NotificationToastState extends State<NotificationToast>
                   border: Border.all(color: widget.borderColor, width: 1.5),
                   boxShadow: [
                     BoxShadow(
-                      color: widget.borderColor.withOpacity(0.25),
+                      color: widget.borderColor.withValues(alpha: 0.25),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -92,7 +93,7 @@ class NotificationToastState extends State<NotificationToast>
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: widget.iconColor.withOpacity(0.15),
+                        color: widget.iconColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(widget.icon, color: widget.iconColor, size: 22),
@@ -117,9 +118,9 @@ class NotificationToastState extends State<NotificationToast>
                             const SizedBox(height: 2),
                             Text(
                               widget.message,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFF2D3748),
+                                color: context.colors.onSurface,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -129,7 +130,9 @@ class NotificationToastState extends State<NotificationToast>
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Icon(Icons.close, size: 18, color: widget.iconColor.withOpacity(0.6)),
+                    Icon(Icons.close,
+                        size: 18,
+                        color: widget.iconColor.withValues(alpha: 0.6)),
                   ],
                 ),
               ),

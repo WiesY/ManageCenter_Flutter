@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:manage_center/theme/app_theme.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
@@ -40,12 +41,8 @@ class _AboutScreenState extends State<AboutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('О приложении'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.black,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -81,13 +78,13 @@ class _AboutScreenState extends State<AboutScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: context.colors.primaryContainer,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(
                 Icons.water_drop,
                 size: 48,
-                color: Colors.blue.shade700,
+                color: context.colors.primary,
               ),
             ),
             const SizedBox(height: 16),
@@ -100,11 +97,11 @@ class _AboutScreenState extends State<AboutScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Система контроля параметров объектов водоснабжения и очистки сточных вод',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey,
+                color: context.colors.onSurfaceVariant,
               ),
               textAlign: TextAlign.center,
             ),
@@ -112,9 +109,9 @@ class _AboutScreenState extends State<AboutScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                color: context.appColors.successContainer,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.green.shade200),
+                border: Border.all(color: context.appColors.success.withValues(alpha: 0.4)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -122,13 +119,13 @@ class _AboutScreenState extends State<AboutScreen> {
                   Icon(
                     Icons.info_outline,
                     size: 16,
-                    color: Colors.green.shade700,
+                    color: context.appColors.success,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'Версия $_version (сборка $_buildNumber)',
                     style: TextStyle(
-                      color: Colors.green.shade700,
+                      color: context.appColors.success,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -157,12 +154,12 @@ class _AboutScreenState extends State<AboutScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: context.colors.primaryContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     Icons.settings_applications,
-                    color: Colors.blue.shade700,
+                    color: context.colors.primary,
                     size: 20,
                   ),
                 ),
@@ -203,12 +200,12 @@ class _AboutScreenState extends State<AboutScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.green.shade50,
+                    color: context.appColors.successContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     Icons.featured_play_list,
-                    color: Colors.green.shade700,
+                    color: context.appColors.success,
                     size: 20,
                   ),
                 ),
@@ -253,12 +250,12 @@ class _AboutScreenState extends State<AboutScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
+                    color: context.appColors.warningContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     Icons.engineering,
-                    color: Colors.orange.shade700,
+                    color: context.appColors.warning,
                     size: 20,
                   ),
                 ),
@@ -283,24 +280,24 @@ class _AboutScreenState extends State<AboutScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: context.colors.primaryContainer,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.shade200),
+                border: Border.all(color: context.colors.primary.withValues(alpha: 0.4)),
               ),
               child: Row(
                 children: [
                   Icon(
                     Icons.shield_outlined,
-                    color: Colors.blue.shade700,
+                    color: context.colors.primary,
                     size: 20,
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Система соответствует требованиям ФЗ-152 "О персональных данных" и внутренним политикам безопасности заказчика',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.blue,
+                        color: context.colors.primary,
                       ),
                     ),
                   ),
@@ -323,17 +320,17 @@ class _AboutScreenState extends State<AboutScreen> {
             width: 120,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w500,
-                color: Colors.grey,
+                color: context.colors.onSurfaceVariant,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                color: Colors.black87,
+              style: TextStyle(
+                color: context.colors.onSurface,
               ),
             ),
           ),
@@ -350,22 +347,22 @@ class _AboutScreenState extends State<AboutScreen> {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: Colors.green.shade100,
+              color: context.appColors.successContainer,
               borderRadius: BorderRadius.circular(6),
             ),
             child: Icon(
               icon,
               size: 16,
-              color: Colors.green.shade700,
+              color: context.appColors.success,
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: Colors.black87,
+                color: context.colors.onSurface,
               ),
             ),
           ),

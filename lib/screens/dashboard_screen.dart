@@ -1,6 +1,7 @@
 // lib/screens/dashboard_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/models/boiler_list_item_model.dart';
@@ -8,6 +9,7 @@ import 'package:manage_center/screens/boiler_detail_screen.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
+import 'package:manage_center/theme/app_theme.dart';
 import 'package:manage_center/widgets/blinking_dot.dart';
 import 'package:manage_center/widgets/logout_confirmation_dialog.dart';
 
@@ -66,19 +68,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final appColors = context.appColors;
+
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.blue.shade50,
-              Colors.white,
-              Colors.grey.shade50,
-            ],
-          ),
-        ),
+        color: Theme.of(context).scaffoldBackgroundColor,
         child: Column(
           children: [
             // Header with search
@@ -93,16 +88,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.blue.shade600),
-                            strokeWidth: 3,
-                          ),
+                          const CircularProgressIndicator(strokeWidth: 3),
                           const SizedBox(height: 16),
                           Text(
                             'Загрузка данных...',
                             style: TextStyle(
-                              color: Colors.grey.shade600,
+                              color: colors.onSurfaceVariant,
                               fontSize: 16,
                             ),
                           ),
@@ -116,16 +107,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         margin: const EdgeInsets.all(24),
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: Colors.red.shade50,
+                          color: colors.errorContainer,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.red.shade200),
+                          border: Border.all(
+                            color: colors.error.withValues(alpha: 0.4),
+                          ),
                         ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.error_outline,
-                              color: Colors.red.shade600,
+                              color: colors.error,
                               size: 48,
                             ),
                             const SizedBox(height: 16),
@@ -134,14 +127,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.red.shade800,
+                                color: colors.onErrorContainer,
                               ),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               state.error,
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.red.shade700),
+                              style: TextStyle(color: colors.onErrorContainer),
                             ),
                             const SizedBox(height: 20),
                             ElevatedButton.icon(
@@ -151,8 +144,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               icon: const Icon(Icons.refresh),
                               label: const Text('Попробовать снова'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red.shade600,
-                                foregroundColor: Colors.white,
+                                backgroundColor: colors.error,
+                                foregroundColor: colors.onError,
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 24, vertical: 12),
                                 shape: RoundedRectangleBorder(
@@ -182,7 +175,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     }
 
                     return RefreshIndicator(
-                      color: Colors.blue.shade600,
+                      color: colors.primary,
                       onRefresh: () async {
                         await Future.delayed(Durations.short2);
                         context.read<BoilersBloc>().add(FetchBoilers());
@@ -198,8 +191,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               offlineCount),
 
                           // Search results info
-                          if (_searchQuery.isNotEmpty ||
-                              _statusFilter != 'all')
+                          if (_searchQuery.isNotEmpty || _statusFilter != 'all')
                             Container(
                               margin: const EdgeInsets.symmetric(
                                   horizontal: 16,
@@ -207,22 +199,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 8),
                               decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
+                                color: appColors.infoContainer,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.blue.shade200),
+                                border: Border.all(
+                                  color: appColors.info.withValues(alpha: 0.35),
+                                ),
                               ),
                               child: Row(
                                 children: [
                                   Icon(
                                     Icons.info_outline,
-                                    color: Colors.blue.shade600,
+                                    color: appColors.info,
                                     size: 20,
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
                                     'Найдено: ${filteredBoilers.length} из ${state.boilers.length}',
                                     style: TextStyle(
-                                      color: Colors.blue.shade800,
+                                      color: appColors.onInfoContainer,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -248,14 +242,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.blue.shade600),
-                        ),
+                        const CircularProgressIndicator(),
                         const SizedBox(height: 16),
                         Text(
                           'Загрузка...',
-                          style: TextStyle(color: Colors.grey.shade600),
+                          style: TextStyle(color: colors.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -271,15 +262,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // --- НОВЫЙ МЕТОД: Строка статистики (активная панель с фильтрами) ---
   Widget _buildStatsBar(int total, int alarm, int online, int offline) {
+    final colors = context.colors;
+    final appColors = context.appColors;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.isDark ? colors.surfaceContainer : colors.surface,
         borderRadius: BorderRadius.circular(12),
+        border:
+            context.isDark ? Border.all(color: colors.outlineVariant) : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.shade100.withOpacity(0.3),
+            color: appColors.cardShadow,
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -287,11 +283,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       child: Row(
         children: [
-          _buildStatItem('Всего', total, Colors.blue.shade800, 'all'),
-          _buildStatItem('Норма', online, Colors.green.shade600, 'online'),
-          _buildStatItem(
-              'Внимание', alarm, Colors.red.shade600, 'alarm'),
-          _buildStatItem('Нет связи', offline, Colors.grey.shade500, 'offline'),
+          _buildStatItem('Всего', total, colors.primary, 'all'),
+          _buildStatItem('Норма', online, appColors.success, 'online'),
+          _buildStatItem('Внимание', alarm, colors.error, 'alarm'),
+          _buildStatItem('Нет связи', offline, appColors.archived, 'offline'),
         ],
       ),
     );
@@ -299,6 +294,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildStatItem(String label, int count, Color color, String filter) {
     final bool isSelected = _statusFilter == filter;
+    final colors = context.colors;
     return Expanded(
       child: GestureDetector(
         onTap: () {
@@ -312,10 +308,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 3),
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.12) : Colors.transparent,
+            color:
+                isSelected ? color.withValues(alpha: 0.12) : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isSelected ? color : Colors.grey.shade200,
+              color: isSelected ? color : colors.outlineVariant,
               width: isSelected ? 1.5 : 1,
             ),
           ),
@@ -336,7 +333,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: isSelected ? color : Colors.grey.shade600,
+                  color: isSelected ? color : colors.onSurfaceVariant,
                   fontSize: 10,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 ),
@@ -351,143 +348,172 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // --- ДАЛЕЕ ВЕСЬ ТВОЙ СТАРЫЙ КОД БЕЗ ИЗМЕНЕНИЙ ---
 
   Widget _buildHeader(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.blue.shade600, Colors.blue.shade800],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.shade200,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    final colors = context.colors;
+    final isDark = context.isDark;
+    // Ночью шапка тёмная — синяя плашка во весь экран слепит.
+    final headerGradient = isDark
+        ? [colors.surfaceContainer, colors.surfaceContainerHigh]
+        : [colors.primary, Color.lerp(colors.primary, Colors.black, 0.22)!];
+    final onHeader = isDark ? colors.onSurface : colors.onPrimary;
+
+    // Экран без AppBar, поэтому иконки статус-бара задаём сами —
+    // шапка тёмная в обеих темах, значит иконки светлые.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
       ),
-      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.dashboard,
-                  color: Colors.white,
-                  size: 28,
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Диспетчерская',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      _isSearchActive ? Icons.close : Icons.search,
-                      color: Colors.white,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: headerGradient,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: context.appColors.cardShadow,
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              // Экран без AppBar, поэтому заголовок центрируем сами: Stack
+              // держит надпись по центру шапки независимо от того, сколько
+              // кнопок стоит по краям — как centerTitle у AppBar.
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Text(
+                    'Диспетчерская',
+                    style: TextStyle(
+                      color: onHeader,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
                     ),
-                    onPressed: () {
+                  ),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.dashboard,
+                        color: onHeader,
+                        size: 28,
+                      ),
+                      const Spacer(),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: onHeader.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: IconButton(
+                          icon: Icon(
+                            _isSearchActive ? Icons.close : Icons.search,
+                            color: onHeader,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isSearchActive = !_isSearchActive;
+                              if (!_isSearchActive) {
+                                _searchController.clear();
+                                _searchQuery = '';
+                              }
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: onHeader.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: IconButton(
+                          icon: Icon(Icons.logout, color: onHeader),
+                          onPressed: () => _showLogoutDialog(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              height: _isSearchActive ? 60 : 0,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: _isSearchActive ? 1.0 : 0.0,
+                child: Container(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color:
+                        isDark ? colors.surfaceContainerHigh : colors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: context.appColors.cardShadow,
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    autofocus: _isSearchActive,
+                    decoration: InputDecoration(
+                      hintText: 'Поиск по названию, району или типу...',
+                      hintStyle: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 14,
+                      ),
+                      filled: false,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      prefixIcon: Icon(
+                        Icons.search,
+                        color: colors.primary,
+                        size: 20,
+                      ),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(
+                                Icons.clear,
+                                color: colors.onSurfaceVariant,
+                                size: 20,
+                              ),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                    style: const TextStyle(fontSize: 14),
+                    onChanged: (value) {
                       setState(() {
-                        _isSearchActive = !_isSearchActive;
-                        if (!_isSearchActive) {
-                          _searchController.clear();
-                          _searchQuery = '';
-                        }
+                        _searchQuery = value;
                       });
                     },
                   ),
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.logout, color: Colors.white),
-                    onPressed: () => _showLogoutDialog(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            height: _isSearchActive ? 60 : 0,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 300),
-              opacity: _isSearchActive ? 1.0 : 0.0,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  autofocus: _isSearchActive,
-                  decoration: InputDecoration(
-                    hintText: 'Поиск по названию, району или типу...',
-                    hintStyle: TextStyle(
-                      color: Colors.grey.shade500,
-                      fontSize: 14,
-                    ),
-                    prefixIcon: Icon(
-                      Icons.search,
-                      color: Colors.blue.shade600,
-                      size: 20,
-                    ),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(
-                              Icons.clear,
-                              color: Colors.grey.shade500,
-                              size: 20,
-                            ),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() {
-                                _searchQuery = '';
-                              });
-                            },
-                          )
-                        : null,
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                  ),
-                  style: const TextStyle(fontSize: 14),
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                    });
-                  },
-                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -514,6 +540,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildDistrictSection(
       BuildContext context, String title, List<BoilerListItem> boilers) {
+    final colors = context.colors;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -522,22 +550,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.blue.shade100, Colors.blue.shade50],
+              colors: [
+                colors.primaryContainer,
+                colors.primaryContainer.withValues(alpha: 0.45),
+              ],
             ),
             borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.blue.shade100.withOpacity(0.3),
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
-            ],
           ),
           child: Row(
             children: [
               Icon(
                 Icons.location_city,
-                color: Colors.blue.shade700,
+                color: colors.onPrimaryContainer,
                 size: 18,
               ),
               const SizedBox(width: 6),
@@ -546,20 +570,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.blue.shade800,
+                  color: colors.onPrimaryContainer,
                 ),
               ),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade600,
+                  color: colors.primary,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   '${boilers.length}',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colors.onPrimary,
                     fontWeight: FontWeight.bold,
                     fontSize: 11,
                   ),
@@ -602,6 +626,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildBoilerCard(BuildContext context, BoilerListItem boiler) {
+    final colors = context.colors;
+    final appColors = context.appColors;
+    final isDark = context.isDark;
+    final cardBase = isDark ? colors.surfaceContainer : colors.surface;
+
     final isHighlighted = _searchQuery.isNotEmpty &&
         (boiler.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             boiler.district.name
@@ -640,20 +669,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: isHighlighted
-                  ? [Colors.yellow.shade50, Colors.blue.shade200]
-                  : [Colors.white, Colors.blue.shade300],
+                  ? [
+                      appColors.warningContainer,
+                      appColors.warning.withValues(alpha: 0.45),
+                    ]
+                  : [
+                      cardBase,
+                      colors.primary.withValues(alpha: isDark ? 0.28 : 0.34),
+                    ],
             ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color:
-                  isHighlighted ? Colors.yellow.shade400 : Colors.blue.shade100,
+              color: isHighlighted
+                  ? appColors.warning
+                  : colors.primary.withValues(alpha: 0.28),
               width: isHighlighted ? 2 : 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: isHighlighted
-                    ? Colors.yellow.shade200.withOpacity(0.5)
-                    : Colors.blue.shade100.withOpacity(0.3),
+                color: appColors.cardShadow,
                 blurRadius: 6,
                 offset: const Offset(0, 3),
               ),
@@ -671,14 +705,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Container(
                       padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
-                        color: boiler.isEmergency
-                            ? Colors.red.shade600
-                            : Colors.blue.shade600,
+                        color:
+                            boiler.isEmergency ? colors.error : colors.primary,
                         borderRadius: BorderRadius.circular(3),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.water_drop_rounded,
-                        color: Colors.white,
+                        color: boiler.isEmergency
+                            ? colors.onError
+                            : colors.onPrimary,
                         size: 10,
                       ),
                     ),
@@ -686,13 +721,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 3, vertical: 1),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: colors.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(3),
                       ),
                       child: Text(
                         boiler.boilerType.name,
                         style: TextStyle(
-                          color: Colors.grey.shade700,
+                          color: colors.onSurfaceVariant,
                           fontSize: 10,
                           fontWeight: FontWeight.w500,
                         ),
@@ -703,12 +738,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Container(
                       padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
-                        color: Colors.green.shade100,
+                        color: boiler.hasConnection
+                            ? appColors.successContainer
+                            : colors.errorContainer,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: BlinkingDot(
-                          color:
-                              boiler.hasConnection ? Colors.green : Colors.red,
+                          color: boiler.hasConnection
+                              ? appColors.success
+                              : colors.error,
                           size: 8),
                     ),
                   ],
@@ -717,10 +755,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: Text(
                     boiler.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
-                      color: Colors.black87,
+                      color: colors.onSurface,
                     ),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,

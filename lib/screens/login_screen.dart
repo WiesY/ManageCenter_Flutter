@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
+import 'package:manage_center/theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -136,7 +137,7 @@ void _promptToSaveCredentials() {
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         body: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
@@ -148,13 +149,13 @@ void _promptToSaveCredentials() {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: context.colors.primaryContainer,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
                     Icons.thermostat,
                     size: 40,
-                    color: Colors.blue.shade700,
+                    color: context.colors.onPrimaryContainer,
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -172,7 +173,7 @@ void _promptToSaveCredentials() {
                   'МУП "Истринская теплосеть"',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.grey[600],
+                    color: context.colors.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 48),
@@ -182,9 +183,10 @@ void _promptToSaveCredentials() {
                     children: [
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.grey[50],
+                          color: context.colors.surfaceContainerLow,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.grey.shade200),
+                          border:
+                              Border.all(color: context.colors.outlineVariant),
                         ),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 20, vertical: 5),
@@ -195,7 +197,11 @@ void _promptToSaveCredentials() {
                           keyboardType: TextInputType.emailAddress,
                           decoration: const InputDecoration(
                             hintText: 'Логин',
+                            // Фон рисует внешний контейнер, поле — прозрачное.
+                            filled: false,
                             border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
                             icon: Icon(Icons.person_outline),
                           ),
                         ),
@@ -203,9 +209,10 @@ void _promptToSaveCredentials() {
                       const SizedBox(height: 16),
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.grey[50],
+                          color: context.colors.surfaceContainerLow,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.grey.shade200),
+                          border:
+                              Border.all(color: context.colors.outlineVariant),
                         ),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 20, vertical: 5),
@@ -221,14 +228,17 @@ void _promptToSaveCredentials() {
                           },
                           decoration: InputDecoration(
                             hintText: 'Пароль',
+                            filled: false,
                             border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
                             icon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword
                                     ? Icons.visibility_off
                                     : Icons.visibility,
-                                color: Colors.grey,
+                                color: context.colors.onSurfaceVariant,
                               ),
                               onPressed: () {
                                 setState(() {
@@ -256,15 +266,13 @@ void _promptToSaveCredentials() {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              side: BorderSide(color: Colors.grey.shade400),
-                              activeColor: Colors.blue.shade700,
                             ),
                           ),
                           const SizedBox(width: 12),
                           Text(
                             'Запомнить пароль',
                             style: TextStyle(
-                              color: Colors.grey[600],
+                              color: context.colors.onSurfaceVariant,
                               fontSize: 14,
                             ),
                           ),
@@ -282,8 +290,6 @@ void _promptToSaveCredentials() {
                   height: 56,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade700,
-                      foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -313,8 +319,7 @@ void _promptToSaveCredentials() {
                       height: 56,
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.blue.shade700,
-                          side: BorderSide(color: Colors.blue.shade700),
+                          side: BorderSide(color: context.colors.primary),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),

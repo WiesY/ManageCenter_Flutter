@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/roles_bloc.dart';
 import 'package:manage_center/models/role_model.dart';
+import 'package:manage_center/theme/app_theme.dart';
 
 class RolesManagementScreen extends StatefulWidget {
   const RolesManagementScreen({super.key});
@@ -36,10 +37,10 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
     if (!_hasManageRights) {
       return Scaffold(
         appBar: AppBar(title: const Text('Управление ролями')),
-        body: const Center(
+        body: Center(
           child: Text(
             'У вас нет прав на управление ролями.',
-            style: TextStyle(color: Colors.red, fontSize: 16),
+            style: TextStyle(color: context.colors.error, fontSize: 16),
           ),
         ),
       );
@@ -48,9 +49,7 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Управление ролями'),
-         foregroundColor: Colors.white,
-        backgroundColor: Colors.blue, // Адаптируй под primary color
-        actions: [
+         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => context.read<RolesBloc>().add(FetchRoles()),
@@ -72,7 +71,7 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
                   labelText: 'Поиск по названию роли',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),
                   prefixIcon: const Icon(Icons.search),
-                  fillColor: Colors.grey[200],
+                  fillColor: context.colors.surfaceContainerHigh,
                   filled: true,
                 ),
                 onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
@@ -82,7 +81,7 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
               child: BlocBuilder<RolesBloc, RolesState>(
                 builder: (context, state) {
                   if (state is RolesLoading) {
-                    return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
+                    return const Center(child: CircularProgressIndicator());
                   } else if (state is RolesLoaded) {
                     final filteredRoles = state.roles
                         .where((role) => role.name.toLowerCase().contains(_searchQuery))
@@ -99,17 +98,17 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
                           key: Key(role.id.toString()),
                           direction: DismissDirection.endToStart,
                           background: Container(
-                            color: Colors.red,
+                            color: context.colors.error,
                             alignment: Alignment.centerRight,
                             padding: const EdgeInsets.only(right: 20.0),
-                            child: const Icon(Icons.delete, color: Colors.white),
+                            child: Icon(Icons.delete, color: context.colors.onError),
                           ),
                           confirmDismiss: (direction) => _confirmDelete(context, role),
                           onDismissed: (direction) => context.read<RolesBloc>().add(DeleteRole(role.id)),
                           child: Card(
                             elevation: 2.0,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-                            color: Colors.white,
+                            color: context.colors.surface,
                             child: ListTile(
                               title: Text(role.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                               subtitle: Text(
@@ -119,7 +118,7 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
                                 'Управление параметрами: ${role.canManageParameters ? 'Да' : 'Нет'}',
                               ),
                               trailing: IconButton(
-                                icon: const Icon(Icons.edit, color: Colors.blue),
+                                icon: Icon(Icons.edit, color: context.colors.primary),
                                 onPressed: () => _showRoleForm(context, role: role),
                               ),
                             ),
@@ -132,7 +131,7 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('Ошибка: ${state.error}', style: const TextStyle(color: Colors.red)),
+                          Text('Ошибка: ${state.error}', style: TextStyle(color: context.colors.error)),
                           TextButton(
                             onPressed: () => context.read<RolesBloc>().add(FetchRoles()),
                             child: const Text('Повторить'),
@@ -152,9 +151,8 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
               padding: const EdgeInsets.only(bottom: 100),
         child: FloatingActionButton(
           onPressed: () => _showRoleForm(context),
-          backgroundColor: Colors.blueAccent,
-          foregroundColor: Colors.white,
-          child: const Icon(Icons.add),
+          backgroundColor: context.colors.primary,
+            child: const Icon(Icons.add),
         ),
       ),
     );
@@ -169,7 +167,7 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
         content: Text('Удалить роль "${role.name}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Отмена')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Удалить', style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Удалить', style: TextStyle(color: context.colors.error))),
         ],
       ),
     );
@@ -203,25 +201,25 @@ class _RolesManagementScreenState extends State<RolesManagementScreen> {
                       title: const Text('Доступ ко всем объектам'),
                       value: canAccessAllBoilers,
                       onChanged: (value) => setState(() => canAccessAllBoilers = value),
-                      activeColor: Colors.blue,
+                      activeColor: context.colors.primary,
                     ),
                     SwitchListTile(
                       title: const Text('Управление аккаунтами'),
                       value: canManageAccounts,
                       onChanged: (value) => setState(() => canManageAccounts = value),
-                      activeColor: Colors.blue,
+                      activeColor: context.colors.primary,
                     ),
                     SwitchListTile(
                       title: const Text('Управление объектами'),
                       value: canManageBoilers,
                       onChanged: (value) => setState(() => canManageBoilers = value),
-                      activeColor: Colors.blue,
+                      activeColor: context.colors.primary,
                     ),
                      SwitchListTile(
                       title: const Text('Управление параметрами'),
                       value: canManageParameters,
                       onChanged: (value) => setState(() => canManageParameters = value),
-                      activeColor: Colors.blue,
+                      activeColor: context.colors.primary,
                     ),
                   ],
                 ),

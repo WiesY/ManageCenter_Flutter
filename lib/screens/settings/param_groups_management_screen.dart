@@ -6,6 +6,7 @@ import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/parameter_groups_bloc.dart';
 import 'package:manage_center/models/parameter_group_model.dart';
 import 'dart:io';
+import 'package:manage_center/theme/app_theme.dart';
 
 class ParamGroupsManagementScreen extends StatefulWidget {
   const ParamGroupsManagementScreen({super.key});
@@ -55,9 +56,8 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
               padding: const EdgeInsets.only(bottom: 100),
         child: FloatingActionButton(
           onPressed: () => _showParameterGroupForm(context),
-          backgroundColor: Colors.blueAccent,
-          foregroundColor: Colors.white,
-          child: const Icon(Icons.add),
+          backgroundColor: context.colors.primary,
+            child: const Icon(Icons.add),
         ),
       ),
     );
@@ -67,10 +67,10 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
   Widget _buildNoAccessScreen() {
     return Scaffold(
       appBar: AppBar(title: const Text('Управление группами параметров')),
-      body: const Center(
+      body: Center(
         child: Text(
           'У вас нет прав на управление группами параметров.',
-          style: TextStyle(color: Colors.red, fontSize: 16),
+          style: TextStyle(color: context.colors.error, fontSize: 16),
         ),
       ),
     );
@@ -80,8 +80,6 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
   AppBar _buildAppBar() {
     return AppBar(
       title: const Text('Управление группами параметров'),
-      foregroundColor: Colors.white,
-      backgroundColor: Colors.blue,
       actions: [
         IconButton(
           icon: const Icon(Icons.refresh),
@@ -119,7 +117,7 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
           labelText: 'Поиск по названию группы',
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),
           prefixIcon: const Icon(Icons.search),
-          fillColor: Colors.grey[200],
+          fillColor: context.colors.surfaceContainerHigh,
           filled: true,
         ),
         onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
@@ -134,7 +132,7 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
         final bloc = context.read<ParameterGroupsBloc>();
         
         if (state is ParameterGroupsLoadInProgress) {
-          return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
+          return const Center(child: CircularProgressIndicator());
         } 
         
         if (state is ParameterGroupsLoadFailure) {
@@ -174,7 +172,7 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('Ошибка: $error', style: const TextStyle(color: Colors.red)),
+          Text('Ошибка: $error', style: TextStyle(color: context.colors.error)),
           TextButton(
             onPressed: () => context.read<ParameterGroupsBloc>().add(FetchParameterGroups()),
             child: const Text('Повторить'),
@@ -208,23 +206,23 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
       key: Key(group.id.toString()),
       direction: DismissDirection.endToStart,
       background: Container(
-        color: Colors.red,
+        color: context.colors.error,
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20.0),
-        child: const Icon(Icons.delete, color: Colors.white),
+        child: Icon(Icons.delete, color: context.colors.onError),
       ),
       confirmDismiss: (direction) => _confirmDelete(context, group),
       onDismissed: (direction) => _deleteParameterGroup(group.id),
       child: Card(
         elevation: 2.0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-        color: Colors.white,
+        color: context.colors.surface,
         child: ListTile(
           leading: _buildGroupIcon(group, bloc.iconCache),
           title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold)),
           subtitle: Text('ID: ${group.id}'),
           trailing: IconButton(
-            icon: const Icon(Icons.edit, color: Colors.blue),
+            icon: Icon(Icons.edit, color: context.colors.primary),
             onPressed: () => _showParameterGroupForm(context, group: group),
           ),
         ),
@@ -265,7 +263,7 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         shape: BoxShape.circle,
       ),
       child: child,
@@ -274,7 +272,7 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
   
   // Парсинг цвета из строки формата #RRGGBBAA
   Color _parseColor(String? colorStr) {
-    if (colorStr == null || colorStr.isEmpty) return Colors.blue;
+    if (colorStr == null || colorStr.isEmpty) return context.colors.primary;
     
     try {
       if (colorStr.startsWith('#') && colorStr.length == 9) {
@@ -287,7 +285,7 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
       }
     } catch (_) {}
     
-    return Colors.blue;
+    return context.colors.primary;
   }
 
   // Диалог подтверждения удаления
@@ -299,7 +297,7 @@ class _ParamGroupsManagementScreenState extends State<ParamGroupsManagementScree
         content: Text('Удалить группу параметров "${group.name}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Отмена')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Удалить', style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Удалить', style: TextStyle(color: context.colors.error))),
         ],
       ),
     );
@@ -345,7 +343,7 @@ final List<Map<String, dynamic>> _predefinedColors = [
     File? selectedIconFile;
   
     // Находим соответствующий цвет из предустановленных
-    Color pickerColor = Colors.blue[700]!;
+    Color pickerColor = Colors.blue.shade700;
     int selectedColorIndex = 0;
     
     // Ищем цвет в предустановленных
@@ -404,12 +402,17 @@ final List<Map<String, dynamic>> _predefinedColors = [
                               color: _predefinedColors[index]['materialColor'],
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: selectedColorIndex == index ? Colors.black : Colors.grey,
+                                color: selectedColorIndex == index
+                                    ? context.colors.onSurface
+                                    : context.colors.outlineVariant,
                                 width: selectedColorIndex == index ? 2 : 1,
                               ),
                             ),
                             child: selectedColorIndex == index 
-                                ? const Icon(Icons.check, color: Colors.white) 
+                                ? Icon(Icons.check,
+                                    color: AppTheme.contrastOn(
+                                        _predefinedColors[index]['materialColor']
+                                            as Color)) 
                                 : null,
                           ),
                         );
@@ -429,7 +432,7 @@ final List<Map<String, dynamic>> _predefinedColors = [
                           width: 60,
                           height: 60,
                           decoration: BoxDecoration(
-                            color: pickerColor.withOpacity(0.2),
+                            color: pickerColor.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
                           child: selectedIconFile != null

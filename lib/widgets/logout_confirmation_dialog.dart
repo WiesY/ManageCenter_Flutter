@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
+import 'package:manage_center/theme/app_theme.dart';
 
 Future<void> showLogoutConfirmationDialog(BuildContext context) {
   final authBloc = context.read<AuthBloc>();
@@ -8,10 +9,9 @@ Future<void> showLogoutConfirmationDialog(BuildContext context) {
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Row(
         children: [
-          Icon(Icons.logout, color: Colors.red.shade600),
+          Icon(Icons.logout, color: dialogContext.colors.error),
           const SizedBox(width: 8),
           const Text('Выход'),
         ],
@@ -34,8 +34,8 @@ Future<void> showLogoutConfirmationDialog(BuildContext context) {
             authBloc.add(LogoutEvent());
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red.shade600,
-            foregroundColor: Colors.white,
+            backgroundColor: dialogContext.colors.error,
+            foregroundColor: dialogContext.colors.onError,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),

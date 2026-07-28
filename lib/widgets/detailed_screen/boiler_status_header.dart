@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:manage_center/constants/app_colors.dart';
+import 'package:manage_center/theme/app_theme.dart';
 import 'package:manage_center/widgets/blinking_dot.dart';
 
 class BoilerStatusHeader extends StatelessWidget {
@@ -17,15 +17,20 @@ class BoilerStatusHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.isDark ? colors.surfaceContainer : colors.surface,
         borderRadius: BorderRadius.circular(16),
+        border: context.isDark
+            ? Border.all(color: colors.outlineVariant)
+            : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: context.appColors.cardShadow,
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -36,7 +41,7 @@ class BoilerStatusHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.1),
+              color: statusColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
             child: BlinkingDot(color: statusColor, size: 16),
@@ -60,9 +65,9 @@ class BoilerStatusHeader extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Обновлено: ${DateFormat('HH:mm:ss').format(DateTime.now().toLocal())}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: AppColors.textSecondary,
+                          color: colors.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -70,14 +75,14 @@ class BoilerStatusHeader extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
+                        color: colors.primary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         'Всего параметров: $parametersCount',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.primary,
+                          color: colors.primary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),

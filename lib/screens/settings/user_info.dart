@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/user_profile_bloc.dart';
 import 'package:manage_center/models/user_info_model.dart';
 import 'package:manage_center/models/role_model.dart';
+import 'package:manage_center/theme/app_theme.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({super.key});
@@ -21,12 +22,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Личные данные'),
-        foregroundColor: Colors.white,
-        backgroundColor: Colors.blue,
-        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -42,9 +39,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         child: BlocBuilder<UserProfileBloc, UserProfileState>(
           builder: (context, state) {
             if (state is UserProfileLoading) {
-              return const Center(
+              return Center(
                 child: CircularProgressIndicator(
-                  color: Colors.blueAccent,
+                  color: context.colors.primary,
                 ),
               );
             } else if (state is UserProfileLoaded) {
@@ -78,13 +75,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 // Аватар пользователя с инициалами
                 CircleAvatar(
                   radius: 50,
-                  backgroundColor: Colors.blue.shade100,
+                  backgroundColor: context.colors.primaryContainer,
                   child: Text(
                     _getAvatar(userInfo.name),
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade700,
+                      color: context.colors.primary,
                     ),
                   ),
                 ),
@@ -105,13 +102,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
+                    color: context.colors.outlineVariant,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     'ID: ${userInfo.id}',
                     style: TextStyle(
-                      color: Colors.grey.shade700,
+                      color: context.colors.onSurfaceVariant,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -186,12 +183,12 @@ String _getAvatar(String fullName) {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.purple.shade50,
+                    color: context.colors.secondaryContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     Icons.admin_panel_settings,
-                    color: Colors.purple.shade700,
+                    color: context.colors.onSecondaryContainer,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -199,11 +196,11 @@ String _getAvatar(String fullName) {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Роль в системе',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey,
+                          color: context.colors.onSurfaceVariant,
                         ),
                       ),
                       Text(
@@ -219,13 +216,13 @@ String _getAvatar(String fullName) {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.purple.shade100,
+                    color: context.colors.secondaryContainer,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'ID: ${role.id}',
                     style: TextStyle(
-                      color: Colors.purple.shade700,
+                      color: context.colors.onSecondaryContainer,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -282,7 +279,7 @@ String _getAvatar(String fullName) {
           Icon(
             icon,
             size: 20,
-            color: hasPermission ? Colors.green : Colors.grey,
+            color: hasPermission ? context.appColors.success : context.colors.onSurfaceVariant,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -290,13 +287,13 @@ String _getAvatar(String fullName) {
               title,
               style: TextStyle(
                 fontSize: 14,
-                color: hasPermission ? Colors.black87 : Colors.grey,
+                color: hasPermission ? context.colors.onSurface : context.colors.onSurfaceVariant,
               ),
             ),
           ),
           Icon(
             hasPermission ? Icons.check_circle : Icons.cancel,
-            color: hasPermission ? Colors.green : Colors.red,
+            color: hasPermission ? context.appColors.success : context.colors.error,
             size: 20,
           ),
         ],
@@ -320,12 +317,12 @@ String _getAvatar(String fullName) {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: context.colors.primaryContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     Icons.info_outline,
-                    color: Colors.blue.shade700,
+                    color: context.colors.primary,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -348,7 +345,7 @@ String _getAvatar(String fullName) {
             _buildInfoRow(
               'Статус роли', 
               userInfo.role != null ? 'Назначена' : 'Не назначена',
-              valueColor: userInfo.role != null ? Colors.green : Colors.red,
+              valueColor: userInfo.role != null ? context.appColors.success : context.colors.error,
             ),
           ],
         ),
@@ -366,9 +363,9 @@ String _getAvatar(String fullName) {
             width: 120,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey,
+                color: context.colors.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -380,7 +377,7 @@ String _getAvatar(String fullName) {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: valueColor ?? Colors.black87,
+                color: valueColor ?? context.colors.onSurface,
               ),
             ),
           ),
@@ -399,7 +396,7 @@ String _getAvatar(String fullName) {
             Icon(
               Icons.error_outline,
               size: 64,
-              color: Colors.red.shade300,
+              color: context.colors.error,
             ),
             const SizedBox(height: 16),
             Text(
@@ -407,16 +404,16 @@ String _getAvatar(String fullName) {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.red.shade700,
+                color: context.colors.error,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               error,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
-                color: Colors.grey,
+                color: context.colors.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 24),
@@ -425,9 +422,8 @@ String _getAvatar(String fullName) {
               icon: const Icon(Icons.refresh),
               label: const Text('Повторить'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
+                backgroundColor: context.colors.primary,
+                        shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),

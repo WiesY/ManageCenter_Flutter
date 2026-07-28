@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
-import 'package:manage_center/constants/app_colors.dart';
 import 'package:manage_center/models/boiler_parameter_model.dart';
 import 'package:manage_center/models/boiler_parameter_value_model.dart';
 import 'package:manage_center/models/groups_model.dart';
 import 'package:manage_center/screens/parameter_chart_screen.dart';
 import 'package:manage_center/services/signalr_service.dart';
+import 'package:manage_center/theme/app_theme.dart';
 import 'package:manage_center/utils/parameter_utils.dart';
 import 'package:manage_center/widgets/blinking_dot.dart';
 import 'package:manage_center/services/api_service.dart';
@@ -194,9 +195,9 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   }
 
   Color get _statusColor => switch (_boilerStatus) {
-        BoilerStatus.normal => AppColors.success,
-        BoilerStatus.warning => AppColors.warning,
-        BoilerStatus.error => AppColors.error,
+        BoilerStatus.normal => context.appColors.success,
+        BoilerStatus.warning => context.appColors.warning,
+        BoilerStatus.error => context.colors.error,
       };
 
   String get _statusText => switch (_boilerStatus) {
@@ -239,11 +240,10 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: _buildAppBar(),
       body: RefreshIndicator(
         onRefresh: _loadCurrentValues,
-        color: AppColors.primary,
+        color: context.colors.primary,
         child: BlocBuilder<BoilerDetailBloc, BoilerDetailState>(
           builder: (context, state) {
             return CustomScrollView(
@@ -269,6 +269,10 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   }
 
   PreferredSizeWidget _buildAppBar() {
+    // Шапка красится в цвет статуса. Жёлтое «нет связи» под белым текстом
+    // нечитаемо, поэтому затемняем саму подложку, а не меняем цвет надписи.
+    final background = AppTheme.solidAccent(_statusColor);
+
     return AppBar(
       title: Column(
         mainAxisSize: MainAxisSize.min,
@@ -278,33 +282,39 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              color: AppTheme.onSolidAccent,
             ),
           ),
           if (widget.districtName != null)
             Text(
               widget.districtName!,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                color: Colors.white70,
+                color: AppTheme.onSolidAccent.withValues(alpha: 0.7),
                 fontWeight: FontWeight.w400,
               ),
             ),
         ],
       ),
       centerTitle: true,
-      backgroundColor: _statusColor,
-      foregroundColor: Colors.white,
+      backgroundColor: background,
+      foregroundColor: AppTheme.onSolidAccent,
       elevation: 0,
+      systemOverlayStyle: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.tune, color: Colors.white),
+          icon: const Icon(Icons.tune, color: AppTheme.onSolidAccent),
           tooltip: 'Управление группами',
           onPressed: _showGroupManagementDialog,
         ),
         if (_canManageParameters)
           IconButton(
-            icon: const Icon(Icons.edit_attributes, color: Colors.white),
+            icon: const Icon(Icons.edit_attributes,
+                color: AppTheme.onSolidAccent),
             tooltip: 'Изменить группу параметров',
             onPressed: _showChangeGroupDialog,
           ),
@@ -324,15 +334,15 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   }
 
   Widget _buildLoadingWidget() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(color: AppColors.primary),
-          SizedBox(height: 16),
+          const CircularProgressIndicator(),
+          const SizedBox(height: 16),
           Text(
             'Загрузка данных...',
-            style: TextStyle(color: AppColors.textSecondary),
+            style: TextStyle(color: context.colors.onSurfaceVariant),
           ),
         ],
       ),
@@ -358,7 +368,15 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
           final group = allGroupsWithOther[index];
           final parametersCount = _getParametersForGroup(group.id).length;
           final isVisible = _groupVisibility[group.id] ?? true;
-          final groupColor = ParameterUtils.parseGroupColor(group.color);
+          // Цвет группы приходит из API и может быть каким угодно —
+          // приводим его к читаемому на текущей теме варианту.
+          final rawColor = ParameterUtils.parseGroupColor(
+            group.color,
+            fallback: context.colors.onSurfaceVariant,
+          );
+          final groupColor =
+              AppTheme.accentOnSurface(rawColor, Theme.of(context).brightness);
+          final selectedColor = AppTheme.solidAccent(rawColor);
 
           return Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -369,14 +387,14 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                   Icon(
                     Icons.folder_rounded,
                     size: 18,
-                    color: isVisible ? Colors.white : groupColor,
+                    color: isVisible ? AppTheme.onSolidAccent : groupColor,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     group.name,
                     style: TextStyle(
                       fontWeight: FontWeight.w500,
-                      color: isVisible ? Colors.white : groupColor,
+                      color: isVisible ? AppTheme.onSolidAccent : groupColor,
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -385,15 +403,15 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: isVisible
-                          ? Colors.white24
-                          : groupColor.withOpacity(0.15),
+                          ? AppTheme.onSolidAccent.withValues(alpha: 0.24)
+                          : groupColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       '$parametersCount',
                       style: TextStyle(
                         fontSize: 11,
-                        color: isVisible ? Colors.white : groupColor,
+                        color: isVisible ? AppTheme.onSolidAccent : groupColor,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -401,8 +419,12 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                 ],
               ),
               selected: isVisible,
-              selectedColor: groupColor,
-              backgroundColor: AppColors.surface,
+              showCheckmark: false,
+              selectedColor: selectedColor,
+              backgroundColor: context.isDark
+                  ? context.colors.surfaceContainerHigh
+                  : context.colors.surface,
+              side: BorderSide(color: context.colors.outlineVariant),
               elevation: isVisible ? 4 : 2,
               onSelected: (selected) {
                 setState(() {
@@ -417,16 +439,20 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   }
 
   Widget _buildErrorWidget(String error) {
+    final colors = context.colors;
     return Center(
       child: Container(
         margin: const EdgeInsets.all(24),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.isDark ? colors.surfaceContainer : colors.surface,
           borderRadius: BorderRadius.circular(16),
+          border: context.isDark
+              ? Border.all(color: colors.outlineVariant)
+              : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: context.appColors.cardShadow,
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -438,29 +464,29 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.1),
+                color: colors.errorContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.error_outline,
                 size: 48,
-                color: AppColors.error,
+                color: colors.error,
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Ошибка загрузки',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: colors.onSurface,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               error,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: colors.onSurfaceVariant),
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
@@ -468,8 +494,8 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
               icon: const Icon(Icons.refresh),
               label: const Text('Повторить'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
+                backgroundColor: colors.primary,
+                foregroundColor: colors.onPrimary,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -533,16 +559,20 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   }
 
   Widget _buildEmptyState() {
+    final colors = context.colors;
     return Center(
       child: Container(
         margin: const EdgeInsets.all(24),
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.isDark ? colors.surfaceContainer : colors.surface,
           borderRadius: BorderRadius.circular(16),
+          border: context.isDark
+              ? Border.all(color: colors.outlineVariant)
+              : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: context.appColors.cardShadow,
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -554,21 +584,21 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
             Icon(
               Icons.folder_open_rounded,
               size: 64,
-              color: AppColors.textSecondary.withOpacity(0.5),
+              color: colors.onSurfaceVariant.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Нет доступных групп параметров',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: colors.onSurface,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Выберите группы для отображения или обновите данные',
-              style: TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: colors.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
           ],
@@ -578,19 +608,29 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
   }
 
   Widget _buildGroupCard(Group group) {
+    final colors = context.colors;
     final parametersInGroup = _getParametersForGroup(group.id);
-    final groupColor = ParameterUtils.parseGroupColor(group.color);
+    final groupColor = AppTheme.accentOnSurface(
+      ParameterUtils.parseGroupColor(
+        group.color,
+        fallback: colors.onSurfaceVariant,
+      ),
+      Theme.of(context).brightness,
+    );
     final isExpanded = _groupExpansion[group.id] ?? group.isExpanded;
     final hasEmergency = _hasEmergencyInGroup(group);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.isDark ? colors.surfaceContainer : colors.surface,
         borderRadius: BorderRadius.circular(16),
+        border: context.isDark
+            ? Border.all(color: colors.outlineVariant)
+            : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: context.appColors.cardShadow,
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -606,7 +646,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
         leading: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: groupColor.withOpacity(0.1),
+            color: groupColor.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
@@ -620,16 +660,16 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
             Expanded(
               child: Text(
                 group.name,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
-                  color: AppColors.textPrimary,
+                  color: colors.onSurface,
                 ),
               ),
             ),
             if (hasEmergency) ...[
               const SizedBox(width: 8),
-              const BlinkingDot(color: Colors.red, size: 12),
+              BlinkingDot(color: colors.error, size: 12),
             ],
           ],
         ),
@@ -637,8 +677,8 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
           parametersInGroup.isEmpty
               ? 'Нет параметров в группе'
               : '${parametersInGroup.length} параметров • Нажмите для просмотра графика',
-          style: const TextStyle(
-            color: AppColors.textSecondary,
+          style: TextStyle(
+            color: colors.onSurfaceVariant,
             fontSize: 13,
           ),
         ),
@@ -658,7 +698,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
       child: Text(
         'В данной группе пока нет параметров',
         style: TextStyle(
-          color: AppColors.textSecondary.withOpacity(0.7),
+          color: context.colors.onSurfaceVariant.withValues(alpha: 0.7),
           fontStyle: FontStyle.italic,
         ),
         textAlign: TextAlign.center,
@@ -668,25 +708,21 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
 
   Widget _buildParameterTile(
       BoilerParameter parameter, BoilerParameterValue? value) {
+    final colors = context.colors;
     final isEmergency = _isEmergencyParameter(parameter);
+    // Авария → красный, есть свежее значение → зелёный, нет данных → нейтральный.
     final valueColor = isEmergency
-        ? Colors.red
-        : (value != null ? AppColors.success : AppColors.textSecondary);
-    final valueBgColor = isEmergency
-        ? Colors.red.withOpacity(0.1)
+        ? colors.error
         : (value != null
-            ? AppColors.success.withOpacity(0.1)
-            : AppColors.textSecondary.withOpacity(0.1));
-    final valueBorderColor = isEmergency
-        ? Colors.red.withOpacity(0.3)
-        : (value != null
-            ? AppColors.success.withOpacity(0.3)
-            : AppColors.textSecondary.withOpacity(0.3));
+            ? context.appColors.success
+            : colors.onSurfaceVariant);
+    final valueBgColor = valueColor.withValues(alpha: 0.12);
+    final valueBorderColor = valueColor.withValues(alpha: 0.3);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: context.appColors.neutralSurface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
@@ -696,10 +732,10 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
           parameter.name.isNotEmpty
               ? parameter.name
               : 'Параметр ID: ${parameter.id}',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w500,
-            color: AppColors.textPrimary,
+            color: colors.onSurface,
           ),
         ),
         subtitle: Padding(
@@ -709,14 +745,14 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
+                  color: colors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   ParameterUtils.translateParameterType(parameter.valueType),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: AppColors.primary,
+                    color: colors.primary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -725,9 +761,9 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 child: Text(
                   'ID: ${parameter.id}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: AppColors.textSecondary,
+                    color: colors.onSurfaceVariant,
                   ),
                 ),
               ),
@@ -760,7 +796,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
             Icon(
               Icons.trending_up_rounded,
               size: 20,
-              color: AppColors.textSecondary.withOpacity(0.6),
+              color: colors.onSurfaceVariant.withValues(alpha: 0.6),
             ),
           ],
         ),
@@ -808,7 +844,13 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
               final group = allGroupsWithOther[index];
               final parametersCount = _getParametersForGroup(group.id).length;
               final isVisible = _groupVisibility[group.id] ?? true;
-              final groupColor = ParameterUtils.parseGroupColor(group.color);
+              final groupColor = AppTheme.accentOnSurface(
+                ParameterUtils.parseGroupColor(
+                  group.color,
+                  fallback: context.colors.onSurfaceVariant,
+                ),
+                Theme.of(context).brightness,
+              );
 
               return CheckboxListTile(
                 title: Row(
@@ -820,7 +862,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                 ),
                 subtitle: Text('$parametersCount параметров'),
                 value: isVisible,
-                activeColor: AppColors.primary,
+                activeColor: context.colors.primary,
                 onChanged: (value) {
                   setState(() {
                     _groupVisibility[group.id] = value ?? false;
@@ -899,9 +941,9 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                     children: [
                       Text(
                         'Найдено: ${filteredParameters.length}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: AppColors.textSecondary,
+                          color: context.colors.onSurfaceVariant,
                         ),
                       ),
                       if (filteredParameters.isNotEmpty)
@@ -926,10 +968,11 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                   const SizedBox(height: 8),
                   Expanded(
                     child: filteredParameters.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Text(
                               'Параметры не найдены',
-                              style: TextStyle(color: AppColors.textSecondary),
+                              style: TextStyle(
+                                  color: context.colors.onSurfaceVariant),
                             ),
                           )
                         : ListView.builder(
@@ -946,7 +989,7 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                                 subtitle: Text(
                                     'Группа: ${_getGroupName(parameter.groupId)}'),
                                 value: isSelected,
-                                activeColor: AppColors.primary,
+                                activeColor: context.colors.primary,
                                 onChanged: (value) {
                                   setDialogState(() {
                                     _selectedParameters[parameter.id] =
@@ -1005,8 +1048,8 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
                         Navigator.pop(context);
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+                  backgroundColor: context.colors.primary,
+                  foregroundColor: context.colors.onPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -1047,8 +1090,11 @@ class _BoilerDetailScreenState extends State<BoilerDetailScreen>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Группа параметров обновляется...'),
-        backgroundColor: AppColors.primary,
+        content: Text(
+          'Группа параметров обновляется...',
+          style: TextStyle(color: context.colors.onPrimary),
+        ),
+        backgroundColor: context.colors.primary,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),

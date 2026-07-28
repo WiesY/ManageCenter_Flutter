@@ -1,14 +1,15 @@
 // incidents_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:manage_center/bloc/auth_bloc.dart';
 import 'package:manage_center/bloc/boiler_detail_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/bloc/incidents_bloc.dart';
-import 'package:manage_center/constants/app_colors.dart';
 import 'package:manage_center/models/incident_model.dart';
 import 'package:manage_center/screens/Boiler_detail_screen.dart';
+import 'package:manage_center/theme/app_theme.dart';
 
 class IncidentsScreen extends StatelessWidget {
   final String? initialSearchQuery;
@@ -70,7 +71,7 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _buildAppBar(context),
       body: BlocListener<IncidentsBloc, IncidentsState>(
         listener: (context, state) {
@@ -125,13 +126,13 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline,
-                        color: AppColors.error, size: 48),
+                    Icon(Icons.error_outline,
+                        color: context.colors.error, size: 48),
                     const SizedBox(height: 16),
-                    const Text(
+                    Text(
                       'Ошибка загрузки',
                       style: TextStyle(
-                        color: AppColors.error,
+                        color: context.colors.error,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                       ),
@@ -142,7 +143,7 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                       child: Text(
                         state.message,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.textSecondary),
+                        style: TextStyle(color: context.colors.onSurfaceVariant),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -178,15 +179,15 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
         ),
         title: Row(
           children: [
-            const Icon(Icons.error_outline, color: AppColors.error, size: 28),
+            Icon(Icons.error_outline, color: context.colors.error, size: 28),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: context.colors.onSurface,
                 ),
               ),
             ),
@@ -195,9 +196,9 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
         content: body.isNotEmpty
             ? Text(
                 body,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
-                  color: AppColors.textSecondary,
+                  color: context.colors.onSurfaceVariant,
                 ),
               )
             : null,
@@ -218,7 +219,7 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
           //     context.read<IncidentsBloc>().add(IncidentsRefreshEvent());
           //   },
           //   style: ElevatedButton.styleFrom(
-          //     backgroundColor: AppColors.primary,
+          //     backgroundColor: context.colors.primary,
           //     foregroundColor: Colors.white,
           //     shape: RoundedRectangleBorder(
           //       borderRadius: BorderRadius.circular(8),
@@ -249,9 +250,9 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              AppColors.background.withOpacity(0.95),
-              AppColors.background.withOpacity(0.8),
-              AppColors.background.withOpacity(0.0),
+              Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.95),
+              Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.8),
+              Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.0),
             ],
             stops: const [0.0, 0.7, 1.0],
           ),
@@ -267,11 +268,11 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
             },
             decoration: InputDecoration(
               hintText: 'Введите название объекта...',
-              prefixIcon: const Icon(Icons.search, color: AppColors.primary),
+              prefixIcon: Icon(Icons.search, color: context.colors.primary),
               suffixIcon: state.boilerSearchQuery.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear,
-                          color: AppColors.textSecondary),
+                      icon: Icon(Icons.clear,
+                          color: context.colors.onSurfaceVariant),
                       onPressed: () {
                         controller.clear();
                         context
@@ -280,8 +281,8 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                       },
                     )
                   : IconButton(
-                      icon: const Icon(Icons.arrow_upward,
-                          color: AppColors.primary),
+                      icon: Icon(Icons.arrow_upward,
+                          color: context.colors.primary),
                       onPressed: () {
                         _scrollController.animateTo(
                           0,
@@ -291,21 +292,21 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                       },
                     ),
               filled: true,
-              fillColor: AppColors.surface,
+              fillColor: context.colors.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide:
-                    BorderSide(color: AppColors.primary.withOpacity(0.3)),
+                    BorderSide(color: context.colors.primary.withValues(alpha: 0.3)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide:
-                    BorderSide(color: AppColors.primary.withOpacity(0.3)),
+                    BorderSide(color: context.colors.primary.withValues(alpha: 0.3)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide:
-                    const BorderSide(color: AppColors.primary, width: 2),
+                    BorderSide(color: context.colors.primary, width: 2),
               ),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -319,20 +320,26 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
       title: const Text('Журнал аварий'),
+      centerTitle: true,
       automaticallyImplyLeading: false,
-      backgroundColor: const Color.fromARGB(0, 255, 255, 255),
-      foregroundColor: Colors.black,
+      // Шапка окрашена в фон экрана: прозрачная пропускала под себя карточки
+      // при прокрутке. Иконки статус-бара — под яркость фона, а не темы AppBar.
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      foregroundColor: context.colors.onSurface,
       elevation: 0,
+      systemOverlayStyle: context.isDark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
       actions: [
         IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.black),
+          icon: const Icon(Icons.refresh),
           tooltip: 'Обновить',
           onPressed: () {
             context.read<IncidentsBloc>().add(IncidentsRefreshEvent());
           },
         ),
         IconButton(
-          icon: const Icon(Icons.date_range, color: Colors.black),
+          icon: const Icon(Icons.date_range),
           tooltip: 'Фильтр по дате',
           onPressed: () => _selectDateRange(context),
         ),
@@ -347,13 +354,13 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: state.activeIncidentsCount > 0
-            ? AppColors.error.withOpacity(0.1)
-            : AppColors.success.withOpacity(0.1),
+            ? context.colors.error.withValues(alpha: 0.1)
+            : context.appColors.success.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: state.activeIncidentsCount > 0
-              ? AppColors.error.withOpacity(0.2)
-              : AppColors.success.withOpacity(0.2),
+              ? context.colors.error.withValues(alpha: 0.2)
+              : context.appColors.success.withValues(alpha: 0.2),
         ),
       ),
       child: Row(
@@ -363,8 +370,8 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                 ? Icons.warning
                 : Icons.check_circle,
             color: state.activeIncidentsCount > 0
-                ? AppColors.error
-                : AppColors.success,
+                ? context.colors.error
+                : context.appColors.success,
             size: 20,
           ),
           const SizedBox(width: 12),
@@ -372,8 +379,8 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
             'Активных аварий: ${state.activeIncidentsCount}',
             style: TextStyle(
               color: state.activeIncidentsCount > 0
-                  ? AppColors.error
-                  : AppColors.success,
+                  ? context.colors.error
+                  : context.appColors.success,
               fontWeight: FontWeight.w500,
               fontSize: 14,
             ),
@@ -387,14 +394,14 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'Статус',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: context.colors.onSurface,
             ),
           ),
         ),
@@ -414,23 +421,28 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                       Icon(
                         Icons.warning,
                         size: 18,
-                        color:
-                            state.showActive ? Colors.white : AppColors.error,
+                        color: state.showActive
+                            ? context.colors.onError
+                            : context.colors.error,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'Активные',
                         style: TextStyle(
                           fontWeight: FontWeight.w500,
-                          color:
-                              state.showActive ? Colors.white : AppColors.error,
+                          color: state.showActive
+                              ? context.colors.onError
+                              : context.colors.error,
                         ),
                       ),
                     ],
                   ),
                   selected: state.showActive,
-                  selectedColor: AppColors.error,
-                  backgroundColor: AppColors.surface,
+                  selectedColor: context.colors.error,
+                  checkmarkColor: context.colors.onError,
+                  backgroundColor: context.isDark
+                      ? context.colors.surfaceContainerHigh
+                      : context.colors.surface,
                   elevation: state.showActive ? 4 : 2,
                   onSelected: (selected) {
                     if (selected) {
@@ -449,8 +461,8 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                       Icons.archive,
                       size: 18,
                       color: !state.showActive
-                          ? Colors.white
-                          : AppColors.archived,
+                          ? context.appColors.onArchived
+                          : context.appColors.archived,
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -458,15 +470,18 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                       style: TextStyle(
                         fontWeight: FontWeight.w500,
                         color: !state.showActive
-                            ? Colors.white
-                            : AppColors.archived,
+                            ? context.appColors.onArchived
+                            : context.appColors.archived,
                       ),
                     ),
                   ],
                 ),
                 selected: !state.showActive,
-                selectedColor: AppColors.archived,
-                backgroundColor: AppColors.surface,
+                selectedColor: context.appColors.archived,
+                checkmarkColor: context.appColors.onArchived,
+                backgroundColor: context.isDark
+                    ? context.colors.surfaceContainerHigh
+                    : context.colors.surface,
                 elevation: !state.showActive ? 4 : 2,
                 onSelected: (selected) {
                   if (selected) {
@@ -496,14 +511,14 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'Поиск по объекту',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: context.colors.onSurface,
             ),
           ),
         ),
@@ -519,11 +534,11 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
             },
             decoration: InputDecoration(
               hintText: 'Введите название объекта...',
-              prefixIcon: const Icon(Icons.search, color: AppColors.primary),
+              prefixIcon: Icon(Icons.search, color: context.colors.primary),
               suffixIcon: state.boilerSearchQuery.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear,
-                          color: AppColors.textSecondary),
+                      icon: Icon(Icons.clear,
+                          color: context.colors.onSurfaceVariant),
                       onPressed: () {
                         controller.clear();
                         context
@@ -533,21 +548,21 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                     )
                   : null,
               filled: true,
-              fillColor: AppColors.surface,
+              fillColor: context.colors.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide:
-                    BorderSide(color: AppColors.primary.withOpacity(0.3)),
+                    BorderSide(color: context.colors.primary.withValues(alpha: 0.3)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide:
-                    BorderSide(color: AppColors.primary.withOpacity(0.3)),
+                    BorderSide(color: context.colors.primary.withValues(alpha: 0.3)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide:
-                    const BorderSide(color: AppColors.primary, width: 2),
+                    BorderSide(color: context.colors.primary, width: 2),
               ),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -572,11 +587,13 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.isDark
+              ? context.colors.surfaceContainer
+              : context.colors.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: context.appColors.cardShadow,
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -589,7 +606,7 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                   ? Icons.check_circle_outline
                   : Icons.search_off,
               size: 64,
-              color: AppColors.success.withOpacity(0.5),
+              color: context.appColors.success.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(
@@ -598,10 +615,10 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                       ? 'Нет активных аварий'
                       : 'Нет архивных аварий')
                   : 'Ничего не найдено',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: context.colors.onSurface,
               ),
             ),
             const SizedBox(height: 8),
@@ -611,7 +628,7 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                       ? 'Все системы работают в штатном режиме'
                       : 'Архив аварий пуст')
                   : 'Попробуйте изменить поисковый запрос',
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: context.colors.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
           ],
@@ -626,9 +643,9 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
         children: [
           Text(
             'Найдено: ${filteredIncidents.length}',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: AppColors.textSecondary,
+              color: context.colors.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -645,7 +662,7 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
 
   Widget _buildIncidentCard(
       BuildContext context, IncidentModel incident, bool isActive) {
-    final cardColor = isActive ? AppColors.error : AppColors.archived;
+    final cardColor = isActive ? context.colors.error : context.appColors.archived;
 
     final authState = context.read<AuthBloc>().state;
     final int? roleID =
@@ -656,15 +673,17 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.isDark
+            ? context.colors.surfaceContainer
+            : context.colors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: cardColor.withOpacity(0.3),
+          color: cardColor.withValues(alpha: 0.3),
           width: 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: context.appColors.cardShadow,
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -676,7 +695,7 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: cardColor.withOpacity(0.1),
+              color: cardColor.withValues(alpha: 0.1),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(14),
                 topRight: Radius.circular(14),
@@ -687,7 +706,7 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: cardColor.withOpacity(0.2),
+                    color: cardColor.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -703,17 +722,17 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                     children: [
                       Text(
                         incident.boilerName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                          color: context.colors.onSurface,
                         ),
                       ),
                       Text(
                         'ID: ${incident.id}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textSecondary,
+                          color: context.colors.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -728,8 +747,10 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
                   ),
                   child: Text(
                     isActive ? 'АКТИВНА' : 'АРХИВ',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: isActive
+                          ? context.colors.onError
+                          : context.appColors.onArchived,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -788,8 +809,8 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
           icon: const Icon(Icons.archive, size: 18),
           label: const Text('Сбросить'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.success,
-            foregroundColor: Colors.white,
+            backgroundColor: context.appColors.success,
+            foregroundColor: context.appColors.onSuccess,
             padding: const EdgeInsets.symmetric(vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -804,8 +825,8 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
           icon: const Icon(Icons.info_outline, size: 18),
           label: const Text('Подробнее'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
+            backgroundColor: context.colors.primary,
+            foregroundColor: context.colors.onPrimary,
             padding: const EdgeInsets.symmetric(vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -824,8 +845,8 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
       icon: const Icon(Icons.info_outline, size: 18),
       label: const Text('Подробнее'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: context.colors.primary,
+        foregroundColor: context.colors.onPrimary,
         padding: const EdgeInsets.symmetric(vertical: 12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -849,7 +870,7 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
         Icon(
           icon,
           size: 18,
-          color: AppColors.textSecondary,
+          color: context.colors.onSurfaceVariant,
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -858,18 +879,18 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: AppColors.textSecondary,
+                  color: context.colors.onSurfaceVariant,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
-                  color: AppColors.textPrimary,
+                  color: context.colors.onSurface,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -921,8 +942,8 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
           ElevatedButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.success,
-              foregroundColor: Colors.white,
+              backgroundColor: context.appColors.success,
+              foregroundColor: context.appColors.onSuccess,
             ),
             child: const Text('Сбросить'),
           ),
@@ -946,19 +967,6 @@ class _IncidentsScreenContentState extends State<_IncidentsScreenContent> {
       initialDateRange: state.fromDate != null && state.toDate != null
           ? DateTimeRange(start: state.fromDate!, end: state.toDate!)
           : null,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppColors.textPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
 
     if (dateRange != null) {

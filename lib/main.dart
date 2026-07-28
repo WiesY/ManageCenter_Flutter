@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/app_lifecycle_manager.dart';
 import 'package:manage_center/bloc/analytics_bloc.dart';
@@ -22,6 +23,8 @@ import 'package:manage_center/screens/login_screen.dart';
 import 'package:manage_center/screens/navigation/main_navigation_screen.dart';
 import 'package:manage_center/screens/operator_screens/operator_screen.dart';
 import 'package:manage_center/services/signalr_service.dart';
+import 'package:manage_center/theme/app_theme.dart';
+import 'package:manage_center/theme/theme_cubit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/api_service.dart';
 import 'services/push_notification_service.dart';
@@ -53,20 +56,27 @@ void main() async {
   final storageService = StorageService(prefs);
   final apiService = ApiService(storageService: storageService);
 
+  // Режим оформления читаем до первого кадра — иначе приложение мигнёт
+  // светлой темой перед тем, как применится сохранённая тёмная.
+  final initialThemeMode = storageService.getThemeMode();
+
   runApp(MyApp(
     storageService: storageService,
     apiService: apiService,
+    initialThemeMode: initialThemeMode,
   ));
 }
 
 class MyApp extends StatelessWidget {
   final StorageService storageService;
   final ApiService apiService;
+  final ThemeMode initialThemeMode;
 
   const MyApp({
     super.key,
     required this.storageService,
     required this.apiService,
+    this.initialThemeMode = ThemeMode.system,
   });
 
   @override
@@ -154,6 +164,12 @@ class MyApp extends StatelessWidget {
           RepositoryProvider<SignalRService>(
             create: (_) => SignalRService(),
           ),
+          BlocProvider<ThemeCubit>(
+            create: (context) => ThemeCubit(
+              storageService: storageService,
+              initialMode: initialThemeMode,
+            ),
+          ),
         ],
         child: const AppView(),
       ),
@@ -168,6 +184,8 @@ class AppView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeMode = context.watch<ThemeCubit>().state;
+
     return AppLifecycleManager(
       child: MaterialApp(
         navigatorKey: navigatorKey,
@@ -195,22 +213,30 @@ class AppView extends StatelessWidget {
         ],
         locale: const Locale('ru', 'RU'),
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          dividerColor: Colors.transparent,
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blue,
-            brightness: Brightness.light,
-          ),
-        ),
-        darkTheme: ThemeData(
-          dividerColor: Colors.transparent,
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blue,
-            brightness: Brightness.light,
-          ),
-        ),
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: themeMode,
+        // Смена темы проходит плавно, а не рывком в один кадр.
+        themeAnimationDuration: const Duration(milliseconds: 250),
+        themeAnimationCurve: Curves.easeInOut,
+        builder: (context, child) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          // Системные панели красим под тему на экранах без AppBar
+          // (свой стиль AppBar перекрывает этот сам).
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness:
+                  isDark ? Brightness.light : Brightness.dark,
+              statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+              systemNavigationBarColor:
+                  Theme.of(context).scaffoldBackgroundColor,
+              systemNavigationBarIconBrightness:
+                  isDark ? Brightness.light : Brightness.dark,
+            ),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         home: BlocConsumer<AppBloc, AppState>(
           listenWhen: (_, state) => state.sessionExpired,
           listener: (context, state) {

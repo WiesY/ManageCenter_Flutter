@@ -4,24 +4,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:manage_center/bloc/parameter_chart_bloc.dart';
-import 'package:manage_center/constants/app_colors.dart';
 import 'package:manage_center/models/boiler_parameter_model.dart';
 import 'package:manage_center/models/boiler_parameter_value_model.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/signalr_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'dart:math' as math;
-
-const List<Color> _multiColors = [
-  Color(0xFF2E7D32),
-  Color(0xFFFF5722),
-  Color(0xFF2196F3),
-  Color(0xFF9C27B0),
-  Color(0xFFFF9800),
-  Color(0xFF00BCD4),
-  Color(0xFFE91E63),
-  Color(0xFF607D8B),
-];
+import 'package:manage_center/theme/app_theme.dart';
 
 // ==================== МОДЕЛИ ====================
 
@@ -329,19 +318,6 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
               start: DateTime.now().subtract(const Duration(days: 7)),
               end: DateTime.now(),
             ),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
 
     if (picked != null) {
@@ -376,7 +352,7 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                   borderRadius: BorderRadius.circular(16)),
               title: Row(
                 children: [
-                  const Icon(Icons.tune, color: AppColors.primary),
+                  Icon(Icons.tune, color: context.colors.primary),
                   const SizedBox(width: 12),
                   const Text('Настройка интервала',
                       style: TextStyle(fontWeight: FontWeight.w600)),
@@ -390,7 +366,7 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
+                        color: context.colors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
@@ -404,8 +380,8 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                           const SizedBox(height: 4),
                           Text(
                             'Длительность: ${duration.inDays} дн.',
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.textSecondary),
+                            style: TextStyle(
+                                fontSize: 13, color: context.colors.onSurfaceVariant),
                           ),
                         ],
                       ),
@@ -425,18 +401,18 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: isRec
-                                ? AppColors.primary.withOpacity(0.3)
+                                ? context.colors.primary.withValues(alpha: 0.3)
                                 : Colors.transparent,
                           ),
                           color: isRec
-                              ? AppColors.primary.withOpacity(0.05)
+                              ? context.colors.primary.withValues(alpha: 0.05)
                               : null,
                         ),
                         child: RadioListTile<int>(
                           title: Row(
                             children: [
                               Icon(opt.icon,
-                                  size: 18, color: AppColors.primary),
+                                  size: 18, color: context.colors.primary),
                               const SizedBox(width: 8),
                               Text(opt.title),
                               if (isRec) ...[
@@ -445,14 +421,14 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary,
+                                    color: context.colors.primary,
                                     borderRadius: BorderRadius.circular(10),
                                   ),
-                                  child: const Text(
+                                  child: Text(
                                     'Рекомендуется',
                                     style: TextStyle(
                                         fontSize: 10,
-                                        color: Colors.white,
+                                        color: context.colors.onPrimary,
                                         fontWeight: FontWeight.w500),
                                   ),
                                 ),
@@ -461,12 +437,12 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                           ),
                           subtitle: Text(
                             '${opt.subtitle}\n≈ ${_estimateDataPoints(duration, opt.interval)} точек данных',
-                            style: const TextStyle(
-                                fontSize: 12, color: AppColors.textSecondary),
+                            style: TextStyle(
+                                fontSize: 12, color: context.colors.onSurfaceVariant),
                           ),
                           value: opt.interval,
                           groupValue: selected,
-                          activeColor: AppColors.primary,
+                          activeColor: context.colors.primary,
                           onChanged: (v) =>
                               setDialogState(() => selected = v!),
                         ),
@@ -483,8 +459,8 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, selected),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
+                    backgroundColor: context.colors.primary,
+                    foregroundColor: context.colors.onPrimary,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8)),
                   ),
@@ -606,8 +582,13 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
 
   @override
   Widget build(BuildContext context) {
+    // Цвет надписей берём из темы шапки: ночью она тёмная, и жёстко заданный
+    // onPrimary давал тёмный текст на тёмной подложке.
+    final onAppBar = Theme.of(context).appBarTheme.foregroundColor ??
+        context.colors.onSurface;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Column(
           mainAxisSize: MainAxisSize.min,
@@ -616,23 +597,20 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
               widget.parameter.name.isNotEmpty
                   ? widget.parameter.name
                   : 'Параметр ${widget.parameter.id}',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white),
+                  color: onAppBar),
             ),
             Text(
               widget.boilerName,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12,
-                  color: Colors.white70,
+                  color: onAppBar.withValues(alpha: 0.75),
                   fontWeight: FontWeight.w400),
             ),
           ],
         ),
-        centerTitle: true,
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
         actions: [
           AnimatedBuilder(
             animation: _refreshAnimation,
@@ -640,7 +618,7 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
               return IconButton(
                 icon: Transform.rotate(
                   angle: _refreshAnimation.value * 2 * math.pi,
-                  child: const Icon(Icons.refresh, color: Colors.white),
+                  child: const Icon(Icons.refresh),
                 ),
                 onPressed: _loadChartData,
               );
@@ -650,7 +628,7 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
       ),
       body: RefreshIndicator(
         onRefresh: _loadChartData,
-        color: AppColors.primary,
+        color: context.colors.primary,
         child: BlocProvider.value(
           value: _parameterChartBloc,
           child: BlocListener<ParameterChartBloc, ParameterChartState>(
@@ -679,13 +657,13 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                     content: Text(state.isAuthError
                         ? 'Необходима авторизация'
                         : 'Ошибка: ${state.error}'),
-                    backgroundColor: AppColors.error,
+                    backgroundColor: context.colors.error,
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8)),
                     action: SnackBarAction(
                       label: 'Повторить',
-                      textColor: Colors.white,
+                      textColor: context.colors.onError,
                       onPressed: _loadChartData,
                     ),
                   ),
@@ -701,15 +679,15 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
             child: BlocBuilder<ParameterChartBloc, ParameterChartState>(
               builder: (context, state) {
                 if (_isLoading || state is ParameterChartLoadInProgress) {
-                  return const Center(
+                  return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircularProgressIndicator(color: AppColors.primary),
+                        CircularProgressIndicator(color: context.colors.primary),
                         SizedBox(height: 16),
                         Text('Загрузка данных...',
                             style:
-                                TextStyle(color: AppColors.textSecondary)),
+                                TextStyle(color: context.colors.onSurfaceVariant)),
                       ],
                     ),
                   );
@@ -767,12 +745,15 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primary : AppColors.surface,
+                  color: isSelected
+                      ? context.colors.primary
+                      : (context.isDark
+                          ? context.colors.surfaceContainer
+                          : context.colors.surface),
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black
-                          .withOpacity(isSelected ? 0.15 : 0.08),
+                      color: context.appColors.cardShadow,
                       blurRadius: isSelected ? 8 : 4,
                       offset: Offset(0, isSelected ? 4 : 2),
                     ),
@@ -782,16 +763,17 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(period.icon,
-                        color:
-                            isSelected ? Colors.white : AppColors.primary,
+                        color: isSelected
+                            ? context.colors.onPrimary
+                            : context.colors.primary,
                         size: 24),
                     const SizedBox(height: 8),
                     Text(
                       period.displayName,
                       style: TextStyle(
                         color: isSelected
-                            ? Colors.white
-                            : AppColors.textPrimary,
+                            ? context.colors.onPrimary
+                            : context.colors.onSurface,
                         fontWeight: isSelected
                             ? FontWeight.w600
                             : FontWeight.w500,
@@ -806,7 +788,8 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                       Text(
                         '${DateFormat('dd.MM').format(_customStartDate!)} - ${DateFormat('dd.MM').format(_customEndDate!)}',
                         style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
+                            color:
+                                context.colors.onPrimary.withValues(alpha: 0.8),
                             fontSize: 9),
                         textAlign: TextAlign.center,
                       ),
@@ -824,6 +807,7 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
   // ==================== ЛЕГЕНДА ====================
 
   Widget _buildLegend(ParameterChartLoaded state) {
+    final seriesColors = context.appColors.chartSeries;
     int colorIdx = 0;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -831,7 +815,7 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
         spacing: 16,
         runSpacing: 4,
         children: state.parameters.entries.map((entry) {
-          final color = _multiColors[colorIdx % _multiColors.length];
+          final color = seriesColors[colorIdx % seriesColors.length];
           colorIdx++;
           return Row(
             mainAxisSize: MainAxisSize.min,
@@ -844,8 +828,8 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
               ),
               const SizedBox(width: 6),
               Text(entry.value.name,
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.textPrimary)),
+                  style: TextStyle(
+                      fontSize: 12, color: context.colors.onSurface)),
             ],
           );
         }).toList(),
@@ -862,6 +846,7 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
     }
 
     // Собираем линии
+    final seriesColors = context.appColors.chartSeries;
     final lineBars = <LineChartBarData>[];
     double globalMinY = double.infinity;
     double globalMaxY = double.negativeInfinity;
@@ -872,8 +857,8 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
     for (final entry in _processedMultiData.entries) {
       final values = entry.value;
       final color = _isMultiParam
-          ? _multiColors[colorIdx % _multiColors.length]
-          : AppColors.chartPrimary;
+          ? seriesColors[colorIdx % seriesColors.length]
+          : context.appColors.chartSeries[1];
       colorIdx++;
 
       final spots = <FlSpot>[];
@@ -900,7 +885,7 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
           show: _dataType == ChartDataType.boolean || spots.length < 40,
           getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
             radius: 0,
-            color: Colors.white,
+            color: context.colors.surface,
             strokeWidth: 1,
             strokeColor: color,
           ),
@@ -911,8 +896,8 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              AppColors.chartSecondary.withOpacity(0.3),
-              AppColors.chartSecondary.withOpacity(0.05),
+              color.withValues(alpha: 0.3),
+              color.withValues(alpha: 0.05),
             ],
           ),
         ),
@@ -972,11 +957,13 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.fromLTRB(8, 20, 20, 12),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.isDark
+              ? context.colors.surfaceContainer
+              : context.colors.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: context.appColors.cardShadow,
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -995,17 +982,15 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
               drawVerticalLine: false,
               horizontalInterval: _calculateOptimalYInterval(minY, maxY),
               getDrawingHorizontalLine: (value) => FlLine(
-                color: AppColors.textSecondary.withOpacity(0.15),
+                color: context.appColors.chartGrid,
                 strokeWidth: 1,
               ),
             ),
             borderData: FlBorderData(
               show: true,
               border: Border(
-                bottom: BorderSide(
-                    color: AppColors.textSecondary.withOpacity(0.3)),
-                left: BorderSide(
-                    color: AppColors.textSecondary.withOpacity(0.3)),
+                bottom: BorderSide(color: context.appColors.chartAxis),
+                left: BorderSide(color: context.appColors.chartAxis),
               ),
             ),
             titlesData: FlTitlesData(
@@ -1028,9 +1013,9 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         _formatDateLabel(date),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 10,
-                            color: AppColors.textSecondary),
+                            color: context.colors.onSurfaceVariant),
                       ),
                     );
                   },
@@ -1051,9 +1036,9 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                       padding: const EdgeInsets.only(right: 8),
                       child: Text(
                         _formatYLabel(value),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 10,
-                            color: AppColors.textSecondary),
+                            color: context.colors.onSurfaceVariant),
                         textAlign: TextAlign.right,
                       ),
                     );
@@ -1068,14 +1053,14 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                 fitInsideVertically: true,
                 tooltipPadding: const EdgeInsets.symmetric(
                     horizontal: 12, vertical: 8),
-                getTooltipColor: (_) => AppColors.textPrimary,
+                getTooltipColor: (_) => context.appColors.chartTooltipBackground,
                 getTooltipItems: (touchedSpots) {
                   return touchedSpots.map((spot) {
                     final date = DateTime.fromMillisecondsSinceEpoch(
                         spot.x.toInt());
                     final dateStr = DateFormat('dd.MM.yyyy HH:mm')
                         .format(date.toLocal());
-                    final color =Colors.white;
+                    final color = context.appColors.onChartTooltip;
 
                     String prefix = '';
                     if (_isMultiParam) {
@@ -1126,7 +1111,7 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
           icon: const Icon(Icons.zoom_out_map, size: 16),
           label: const Text('Сбросить зум', style: TextStyle(fontSize: 12)),
           style: TextButton.styleFrom(
-            foregroundColor: AppColors.primary,
+            foregroundColor: context.colors.primary,
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           ),
@@ -1140,11 +1125,13 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
       height: 350,
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.isDark
+            ? context.colors.surfaceContainer
+            : context.colors.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: context.appColors.cardShadow,
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1156,18 +1143,18 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
           children: [
             Icon(Icons.show_chart,
                 size: 64,
-                color: AppColors.textSecondary.withOpacity(0.5)),
+                color: context.colors.onSurfaceVariant.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
-            const Text('Нет данных для отображения',
+            Text('Нет данных для отображения',
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary)),
+                    color: context.colors.onSurfaceVariant)),
             const SizedBox(height: 8),
             Text('Попробуйте выбрать другой период',
                 style: TextStyle(
                     fontSize: 14,
-                    color: AppColors.textSecondary.withOpacity(0.7))),
+                    color: context.colors.onSurfaceVariant.withValues(alpha: 0.7))),
           ],
         ),
       ),
@@ -1196,11 +1183,13 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.isDark
+            ? context.colors.surfaceContainer
+            : context.colors.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: context.appColors.cardShadow,
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1211,8 +1200,8 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
         children: [
           Row(
             children: [
-              const Icon(Icons.analytics,
-                  color: AppColors.primary, size: 20),
+              Icon(Icons.analytics,
+                  color: context.colors.primary, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(_getPeriodTitle(),
@@ -1236,8 +1225,8 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text('$paramName: нет данных',
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary)),
+                    style: TextStyle(
+                        fontSize: 12, color: context.colors.onSurfaceVariant)),
               );
             }
 
@@ -1265,19 +1254,19 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                     children: [
                       Expanded(
                           child: _buildStatItem('Мин',
-                              _formatNumericValue(min), AppColors.success, Icons.south)),
+                              _formatNumericValue(min), context.appColors.success, Icons.south)),
                       const SizedBox(width: 8),
                       Expanded(
                           child: _buildStatItem('Макс',
-                              _formatNumericValue(max), AppColors.error, Icons.north)),
+                              _formatNumericValue(max), context.colors.error, Icons.north)),
                       const SizedBox(width: 8),
                       Expanded(
                           child: _buildStatItem('Среднее',
-                              _formatNumericValue(avg), AppColors.warning, Icons.show_chart)),
+                              _formatNumericValue(avg), context.appColors.warning, Icons.show_chart)),
                       const SizedBox(width: 8),
                       Expanded(
                           child: _buildStatItem('Медиана',
-                              _formatNumericValue(median), AppColors.primary, Icons.linear_scale)),
+                              _formatNumericValue(median), context.colors.primary, Icons.linear_scale)),
                     ],
                   ),
                 ],
@@ -1310,11 +1299,13 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.isDark
+            ? context.colors.surfaceContainer
+            : context.colors.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: context.appColors.cardShadow,
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1325,15 +1316,15 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
         children: [
           Row(
             children: [
-              const Icon(Icons.analytics,
-                  color: AppColors.primary, size: 20),
+              Icon(Icons.analytics,
+                  color: context.colors.primary, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(_getPeriodTitle(),
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary)),
+                        color: context.colors.onSurface)),
               ),
             ],
           ),
@@ -1342,11 +1333,11 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
             children: [
               Expanded(
                   child: _buildStatItem('Текущее',
-                      _formatNumericValue(current), AppColors.primary, Icons.trending_up)),
+                      _formatNumericValue(current), context.colors.primary, Icons.trending_up)),
               const SizedBox(width: 12),
               Expanded(
                   child: _buildStatItem('Среднее',
-                      _formatNumericValue(avg), AppColors.warning, Icons.show_chart)),
+                      _formatNumericValue(avg), context.appColors.warning, Icons.show_chart)),
             ],
           ),
           const SizedBox(height: 12),
@@ -1354,11 +1345,11 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
             children: [
               Expanded(
                   child: _buildStatItem('Минимум',
-                      _formatNumericValue(min), AppColors.success, Icons.south)),
+                      _formatNumericValue(min), context.appColors.success, Icons.south)),
               const SizedBox(width: 12),
               Expanded(
                   child: _buildStatItem('Максимум',
-                      _formatNumericValue(max), AppColors.error, Icons.north)),
+                      _formatNumericValue(max), context.colors.error, Icons.north)),
             ],
           ),
           const SizedBox(height: 12),
@@ -1366,11 +1357,11 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
             children: [
               Expanded(
                   child: _buildStatItem('Медиана',
-                      _formatNumericValue(median), AppColors.primary, Icons.linear_scale)),
+                      _formatNumericValue(median), context.colors.primary, Icons.linear_scale)),
               const SizedBox(width: 12),
               Expanded(
                   child: _buildStatItem('Точек',
-                      '${numericValues.length}', AppColors.textSecondary, Icons.data_usage)),
+                      '${numericValues.length}', context.colors.onSurfaceVariant, Icons.data_usage)),
             ],
           ),
         ],
@@ -1392,11 +1383,13 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.isDark
+            ? context.colors.surfaceContainer
+            : context.colors.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: context.appColors.cardShadow,
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1407,15 +1400,15 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
         children: [
           Row(
             children: [
-              const Icon(Icons.analytics,
-                  color: AppColors.primary, size: 20),
+              Icon(Icons.analytics,
+                  color: context.colors.primary, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(_getPeriodTitle(),
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary)),
+                        color: context.colors.onSurface)),
               ),
             ],
           ),
@@ -1424,11 +1417,11 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
             children: [
               Expanded(
                   child: _buildStatItem(
-                      'Текущее', current, AppColors.primary, Icons.info)),
+                      'Текущее', current, context.colors.primary, Icons.info)),
               const SizedBox(width: 12),
               Expanded(
                   child: _buildStatItem('Всего записей',
-                      totalCount.toString(), AppColors.warning, Icons.data_usage)),
+                      totalCount.toString(), context.appColors.warning, Icons.data_usage)),
             ],
           ),
           const SizedBox(height: 12),
@@ -1440,7 +1433,7 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                       totalCount > 0
                           ? '$trueCount (${(trueCount / totalCount * 100).round()}%)'
                           : '0',
-                      AppColors.success,
+                      context.appColors.success,
                       Icons.check_circle)),
               const SizedBox(width: 12),
               Expanded(
@@ -1449,7 +1442,7 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
                       totalCount > 0
                           ? '$falseCount (${(falseCount / totalCount * 100).round()}%)'
                           : '0',
-                      AppColors.error,
+                      context.colors.error,
                       Icons.cancel)),
             ],
           ),
@@ -1472,7 +1465,7 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -1485,9 +1478,9 @@ boilerParamsUpdateNotifier.addListener(_signalRListener);
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.textSecondary,
+                      color: context.colors.onSurfaceVariant,
                       fontWeight: FontWeight.w500),
                 ),
               ),

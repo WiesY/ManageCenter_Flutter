@@ -1,9 +1,9 @@
 // analytics_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:manage_center/bloc/analytics_bloc.dart';
-import 'package:manage_center/constants/app_colors.dart';
 import 'package:manage_center/models/BoilerTypeCompareValues.dart';
 import 'package:manage_center/models/boiler_list_item_model.dart';
 import 'package:manage_center/models/boiler_type_model.dart';
@@ -11,6 +11,7 @@ import 'package:manage_center/models/groups_model.dart';
 import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'dart:math' as math;
+import 'package:manage_center/theme/app_theme.dart';
 
 enum SortDirection { asc, desc, none }
 
@@ -57,7 +58,7 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
   Widget build(BuildContext context) {
     return Scaffold(
       
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _buildAppBar(context),
       body: BlocBuilder<AnalyticsBloc, AnalyticsState>(
         builder: (context, state) {
@@ -86,12 +87,12 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+                  Icon(Icons.error_outline, color: context.colors.error, size: 48),
                   const SizedBox(height: 16),
                   Text(
                     'Ошибка',
                     //style: Theme.of(context).textTheme.headline6?.copyWith(
-                    style: TextStyle(color: AppColors.error,),
+                    style: TextStyle(color: context.colors.error,),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -122,14 +123,16 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
       title: const Text(
         'Аналитика',
       ),
-        automaticallyImplyLeading: false,
-      //centerTitle: true,
-      backgroundColor: const Color.fromARGB(0, 255, 255, 255),
-      foregroundColor: Colors.black,
+      automaticallyImplyLeading: false,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      foregroundColor: context.colors.onSurface,
       elevation: 0,
+      systemOverlayStyle: context.isDark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
       actions: [
         IconButton(
-          icon: const Icon(Icons.calendar_today, color: Colors.black),
+          icon: const Icon(Icons.calendar_today),
           tooltip: 'Выбрать дату',
           onPressed: () => _selectDateTime(context),
         ),
@@ -143,22 +146,22 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: AppColors.primary.withOpacity(0.1),
+          color: context.colors.primary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+          border: Border.all(color: context.colors.primary.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
             Icon(
               Icons.access_time,
-              color: AppColors.primary,
+              color: context.colors.primary,
               size: 20,
             ),
             const SizedBox(width: 12),
             Text(
               'Выбранная дата: ${DateFormat('dd.MM.yyyy HH:mm').format(state.selectedDate.toLocal())}',
-              style: const TextStyle(
-                color: AppColors.primary,
+              style: TextStyle(
+                color: context.colors.primary,
                 fontWeight: FontWeight.w500,
                 fontSize: 14,
               ),
@@ -174,14 +177,14 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             '1. Выбор типа объекта',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: context.colors.onSurface,
             ),
           ),
         ),
@@ -205,21 +208,24 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
                       Icon(
                         Icons.business,
                         size: 18,
-                        color: isSelected ? Colors.white : AppColors.primary,
+                        color: isSelected ? context.colors.onPrimary : context.colors.primary,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         boilerType.name,
                         style: TextStyle(
                           fontWeight: FontWeight.w500,
-                          color: isSelected ? Colors.white : AppColors.primary,
+                          color: isSelected ? context.colors.onPrimary : context.colors.primary,
                         ),
                       ),
                     ],
                   ),
                   selected: isSelected,
-                  selectedColor: AppColors.primary,
-                  backgroundColor: AppColors.surface,
+                  selectedColor: context.colors.primary,
+                  checkmarkColor: context.colors.onPrimary,
+                  backgroundColor: context.isDark
+                      ? context.colors.surfaceContainerHigh
+                      : context.colors.surface,
                   elevation: isSelected ? 4 : 2,
                   onSelected: (selected) {
                     if (selected) {
@@ -241,14 +247,14 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             '2. Выбор группы параметров',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: context.colors.onSurface,
             ),
           ),
         ),
@@ -261,16 +267,16 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppColors.textSecondary.withOpacity(0.1),
+                      color: context.colors.onSurfaceVariant.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(Icons.info_outline, color: AppColors.textSecondary),
+                        Icon(Icons.info_outline, color: context.colors.onSurfaceVariant),
                         SizedBox(width: 12),
                         Text(
                           'Сначала выберите тип объекта',
-                          style: TextStyle(color: AppColors.textSecondary),
+                          style: TextStyle(color: context.colors.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -283,7 +289,8 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
                   itemBuilder: (context, index) {
                     final group = state.parameterGroups[index];
                     final isSelected = state.selectedGroupId == group.id;
-                    final color = _parseGroupColor(group.color ?? '#4CAF50');
+                    final color = AppTheme.solidAccent(
+                        _parseGroupColor(group.color ?? '#4CAF50'));
                     
                     return Padding(
                       padding: const EdgeInsets.only(right: 12),
@@ -294,21 +301,25 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
                             Icon(
                               Icons.folder_rounded,
                               size: 18,
-                              color: isSelected ? Colors.white : color,
+                              color:
+                                  isSelected ? AppTheme.onSolidAccent : color,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               group.name,
                               style: TextStyle(
                                 fontWeight: FontWeight.w500,
-                                color: isSelected ? Colors.white : color,
+                                color: isSelected
+                                    ? AppTheme.onSolidAccent
+                                    : context.colors.onSurface,
                               ),
                             ),
                           ],
                         ),
                         selected: isSelected,
                         selectedColor: color,
-                        backgroundColor: AppColors.surface,
+                        checkmarkColor: AppTheme.onSolidAccent,
+                        backgroundColor: context.colors.surface,
                         elevation: isSelected ? 4 : 2,
                         onSelected: (selected) {
                           if (selected) {
@@ -336,11 +347,13 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.isDark
+              ? context.colors.surfaceContainer
+              : context.colors.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: context.appColors.cardShadow,
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -351,21 +364,21 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
             Icon(
               Icons.table_chart_outlined,
               size: 64,
-              color: AppColors.textSecondary.withOpacity(0.5),
+              color: context.colors.onSurfaceVariant.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Таблица параметров',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: context.colors.onSurface,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Выберите тип объекта и группу параметров для отображения данных',
-              style: TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: context.colors.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
           ],
@@ -394,11 +407,13 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.isDark
+              ? context.colors.surfaceContainer
+              : context.colors.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: context.appColors.cardShadow,
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -409,21 +424,21 @@ class _AnalyticsScreenContentState extends State<_AnalyticsScreenContent> {
             Icon(
               Icons.info_outline,
               size: 64,
-              color: AppColors.textSecondary.withOpacity(0.5),
+              color: context.colors.onSurfaceVariant.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Нет данных',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: context.colors.onSurface,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Для выбранных параметров нет данных на указанную дату',
-              style: TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: context.colors.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
           ],
@@ -694,11 +709,13 @@ for (int i = 0; i < allParameters.length; i++) {
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.isDark
+            ? context.colors.surfaceContainer
+            : context.colors.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: context.appColors.cardShadow,
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -714,12 +731,12 @@ for (int i = 0; i < allParameters.length; i++) {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.success.withOpacity(0.1),
+                    color: context.appColors.success.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.table_rows,
-                    color: AppColors.success,
+                    color: context.appColors.success,
                     size: 20,
                   ),
                 ),
@@ -728,20 +745,20 @@ for (int i = 0; i < allParameters.length; i++) {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Параметры объектов',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                          color: context.colors.onSurface,
                         ),
                       ),
                       Text(
                         'Тип: ${state.boilerTypes.isNotEmpty ? state.boilerTypes.firstWhere((b) => b.id == state.selectedBoilerTypeId, orElse: () => BoilerType(id: 0, name: 'Неизвестно')).name : 'Неизвестно'} • ' +
                         'Группа: ${selectedGroup?.name ?? 'Все'}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: AppColors.textSecondary,
+                          color: context.colors.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -754,7 +771,7 @@ for (int i = 0; i < allParameters.length; i++) {
 //           SingleChildScrollView(
 //   scrollDirection: Axis.horizontal,
 //   child: DataTable(
-//     headingRowColor: MaterialStateProperty.all(AppColors.background),
+//     headingRowColor: MaterialStateProperty.all(Theme.of(context).scaffoldBackgroundColor),
 //     headingRowHeight: 120, // Увеличиваем высоту заголовка
 //     columnSpacing: 16, // Устанавливаем отступ между колонками
 //     horizontalMargin: 16, // Устанавливаем горизонтальный отступ
@@ -780,9 +797,9 @@ for (int i = 0; i < allParameters.length; i++) {
       Container(
         width: fixedColumnWidth,
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.colors.surface,
           border: Border(
-            right: BorderSide(color: AppColors.background, width: 2),
+            right: BorderSide(color: Theme.of(context).scaffoldBackgroundColor, width: 2),
           ),
         ),
         child: Column(
@@ -790,7 +807,7 @@ for (int i = 0; i < allParameters.length; i++) {
             // Заголовок закрепленной колонки
             Container(
               height: headerHeight,
-              color: AppColors.background,
+              color: Theme.of(context).scaffoldBackgroundColor,
               padding: const EdgeInsets.all(16),
               child: InkWell(
                 onTap: () {
@@ -836,7 +853,7 @@ for (int i = 0; i < allParameters.length; i++) {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: AppColors.background, width: 1),
+                  bottom: BorderSide(color: Theme.of(context).scaffoldBackgroundColor, width: 1),
                 ),
               ),
               child: Align(
@@ -862,7 +879,7 @@ for (int i = 0; i < allParameters.length; i++) {
                 // Заголовки параметров
                 Container(
                   height: headerHeight,
-                  color: AppColors.background,
+                  color: Theme.of(context).scaffoldBackgroundColor,
                   child: Row(
                     children: allParameters.asMap().entries.map((entry) {
                       final index = entry.key;
@@ -928,7 +945,7 @@ for (int i = 0; i < allParameters.length; i++) {
                   height: rowHeight,
                   decoration: BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(color: AppColors.background, width: 1),
+                      bottom: BorderSide(color: Theme.of(context).scaffoldBackgroundColor, width: 1),
                     ),
                   ),
                   child: Row(
@@ -982,38 +999,12 @@ for (int i = 0; i < allParameters.length; i++) {
       initialDate: state.selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppColors.textPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
 
     if (date != null) {
       final time = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.fromDateTime(state.selectedDate),
-        builder: (context, child) {
-          return Theme(
-            data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.light(
-                primary: AppColors.primary,
-                onPrimary: Colors.white,
-                surface: Colors.white,
-                onSurface: AppColors.textPrimary,
-              ),
-            ),
-            child: child!,
-          );
-        },
       );
 
       if (time != null) {
@@ -1037,9 +1028,9 @@ for (int i = 0; i < allParameters.length; i++) {
         String hexColor = colorString.substring(1, 7);
         return Color(int.parse(hexColor, radix: 16) + 0xFF000000);
       }
-      return AppColors.textSecondary;
+      return context.colors.onSurfaceVariant;
     } catch (e) {
-      return AppColors.textSecondary;
+      return context.colors.onSurfaceVariant;
     }
   }
 }

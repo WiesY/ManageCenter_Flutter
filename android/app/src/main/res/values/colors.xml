@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Фон окна при запуске: совпадает с scaffoldBackgroundColor светлой темы -->
+    <color name="launch_background">#F5F7FA</color>
+</resources>

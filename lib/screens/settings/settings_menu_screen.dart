@@ -14,6 +14,7 @@ import 'package:manage_center/screens/settings/change_password_screen.dart';
 import 'package:manage_center/widgets/logout_confirmation_dialog.dart';
 import 'package:manage_center/services/app_update_service.dart';
 import 'package:manage_center/widgets/update_dialog.dart';
+import 'package:manage_center/theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -38,11 +39,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
 
         return Scaffold(
-          backgroundColor: Colors.white,
           appBar: AppBar(
             title: const Text('Настройки'),
-            backgroundColor: Colors.white,
-            elevation: 0,
           ),
           body: ListView(
             padding: const EdgeInsets.all(16),
@@ -166,15 +164,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.red.shade50,
+                      color: context.colors.errorContainer,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(Icons.logout, color: Colors.red.shade700),
+                    child: Icon(Icons.logout, color: context.colors.error),
                   ),
-                  title: const Text(
+                  title: Text(
                     'Выйти из аккаунта',
                     style: TextStyle(
-                        color: Colors.red, fontWeight: FontWeight.w500),
+                        color: context.colors.error, fontWeight: FontWeight.w500),
                   ),
                   onTap: () => _showLogoutDialog(context),
                 ),
@@ -200,11 +198,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             CircleAvatar(
               radius: 30,
-              backgroundColor: Colors.blue.shade100,
+              backgroundColor: context.colors.primaryContainer,
               child: Icon(
                 Icons.person,
                 size: 30,
-                color: Colors.blue.shade700,
+                color: context.colors.primary,
               ),
             ),
             const SizedBox(width: 16),
@@ -224,13 +222,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.purple.shade100,
+                      color: context.colors.secondaryContainer,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       roleName,
                       style: TextStyle(
-                        color: Colors.purple.shade700,
+                        color: context.colors.onSecondaryContainer,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -258,7 +256,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(vertical: 12.0),
           child: Row(
             children: [
-              Icon(icon, color: Colors.blue.shade700),
+              Icon(icon, color: context.colors.primary),
               const SizedBox(width: 8),
               Text(
                 title,
@@ -283,7 +281,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   _buildSettingsItem(context, item),
                   if (index < items.length - 1)
-                    Divider(height: 1, color: Colors.grey.shade200),
+                    Divider(height: 1, color: context.colors.outlineVariant),
                 ],
               );
             }).toList(),
@@ -299,10 +297,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.blue.shade50,
+          color: context.colors.primaryContainer,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(item.icon, color: Colors.blue.shade700, size: 20),
+        child: Icon(item.icon, color: context.colors.primary, size: 20),
       ),
       title: Text(item.title),
       trailing: const Icon(Icons.arrow_forward_ios, size: 16),

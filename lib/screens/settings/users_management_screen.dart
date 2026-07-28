@@ -4,6 +4,7 @@ import 'package:manage_center/bloc/roles_bloc.dart';
 import 'package:manage_center/bloc/users_bloc.dart';
 import 'package:manage_center/models/role_model.dart';
 import 'package:manage_center/models/user_info_model.dart';
+import 'package:manage_center/theme/app_theme.dart';
 
 class UsersManagementScreen extends StatefulWidget {
   const UsersManagementScreen({super.key});
@@ -51,18 +52,15 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     if (!_hasManageRights) {
       return Scaffold(
         appBar: AppBar(title: const Text('Управление пользователями')),
-        body: const Center(
+        body: Center(
             child: Text('У вас нет прав на управление пользователями.',
-                style: TextStyle(color: Colors.red))),
+                style: TextStyle(color: context.colors.error))),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Управление пользователями'),
-        foregroundColor: Colors.white,
-        backgroundColor: Colors
-            .blue, // Адаптируй под твою primary color (например, Theme.of(context).primaryColor)
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -125,7 +123,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                                 .red, // Красный для delete, вписывается в warning-гамму
                             alignment: Alignment.centerRight,
                             padding: const EdgeInsets.only(right: 20.0),
-                            child: const Icon(Icons.delete, color: Colors.white),
+                            child: Icon(Icons.delete, color: context.colors.onError),
                           ),
                           confirmDismiss: (direction) =>
                               _confirmDelete(context, user),
@@ -135,15 +133,15 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                             elevation: 2.0,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8.0)),
-                            color: Colors.white, // Белый кард для контраста
+                            color: context.colors.surface, // Белый кард для контраста
                             child: ListTile(
                               title: Text(user.name,
                                   style: const TextStyle(
                                       fontWeight: FontWeight.bold)),
                               subtitle: Text('Роль: ${user.role?.name ?? 'Не назначена'}'),
                               trailing: IconButton(
-                                icon: const Icon(Icons.edit,
-                                    color: Colors.blue), // Синий для edit
+                                icon: Icon(Icons.edit,
+                                    color: context.colors.primary), // Синий для edit
                                 onPressed: () =>
                                     _showUserForm(context, user: user),
                               ),
@@ -155,7 +153,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                   } else if (state is UsersError) {
                     return Center(
                         child: Text('Ошибка: ${state.error}',
-                            style: const TextStyle(color: Colors.red)));
+                            style: TextStyle(color: context.colors.error)));
                   }
                   return const SizedBox.shrink();
                 },
@@ -168,8 +166,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
               padding: const EdgeInsets.only(bottom: 100),
         child: FloatingActionButton(
           onPressed: () => _showUserForm(context),
-          foregroundColor: Colors.white,
-          backgroundColor: Colors.blueAccent,
+            backgroundColor: context.colors.primary,
           child: const Icon(Icons.add),
         ),
       ),
@@ -190,7 +187,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
           TextButton(
               onPressed: () => Navigator.pop(context, true),
               child:
-                  const Text('Удалить', style: TextStyle(color: Colors.red))),
+                  Text('Удалить', style: TextStyle(color: context.colors.error))),
         ],
       ),
     );
@@ -248,13 +245,13 @@ void _showUserForm(BuildContext context, {UserInfo? user}) {
                             padding: const EdgeInsets.all(8.0),
                             margin: const EdgeInsets.only(top: 8.0),
                             decoration: BoxDecoration(
-                              color: Colors.orange.shade100,
+                              color: context.appColors.warningContainer,
                               borderRadius: BorderRadius.circular(4.0),
-                              border: Border.all(color: Colors.orange),
+                              border: Border.all(color: context.appColors.warning),
                             ),
-                            child: const Text(
+                            child: Text(
                               'У пользователя не назначена роль. Выберите роль из списка.',
-                              style: TextStyle(color: Colors.orange, fontSize: 12),
+                              style: TextStyle(color: context.appColors.warning, fontSize: 12),
                             ),
                           ),
                         DropdownButtonFormField<int>(
@@ -273,7 +270,7 @@ void _showUserForm(BuildContext context, {UserInfo? user}) {
                   } else if (state is RolesError) {
                     return Column(
                       children: [
-                        Text('Ошибка: ${state.error}', style: const TextStyle(color: Colors.red)),
+                        Text('Ошибка: ${state.error}', style: TextStyle(color: context.colors.error)),
                         TextButton(
                           onPressed: () => context.read<RolesBloc>().add(FetchRoles()),
                           child: const Text('Повторить загрузку'),

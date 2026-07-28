@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:manage_center/constants/app_colors.dart';
 
 class ParameterUtils {
   static String formatValue(String displayValue, String valueType) {
@@ -29,15 +28,20 @@ class ParameterUtils {
     };
   }
 
-  static Color parseGroupColor(String colorString) {
+  /// Разбирает цвет группы вида `#RRGGBB`.
+  ///
+  /// [fallback] — цвет для групп без заданного цвета; экраны передают сюда
+  /// оттенок текущей темы.
+  static Color parseGroupColor(String colorString, {Color? fallback}) {
+    final defaultColor = fallback ?? const Color(0xFF8A94A6);
     try {
       if (colorString.startsWith('#')) {
         final hexColor = colorString.substring(1, 7);
         return Color(int.parse(hexColor, radix: 16) + 0xFF000000);
       }
-      return AppColors.textSecondary;
+      return defaultColor;
     } catch (e) {
-      return AppColors.textSecondary;
+      return defaultColor;
     }
   }
 }

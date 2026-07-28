@@ -27,6 +27,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:manage_center/models/boiler_list_item_model.dart';
 import 'package:manage_center/services/api_service.dart';
+import 'package:manage_center/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -268,13 +269,32 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
   double get _totalLosses   => _nodes.fold(0, (s, n) => s + n.losses);
   double get _avgLossPct    => _totalPumped > 0 ? _totalLosses / _totalPumped * 100 : 0;
 
+  // ── Оформление сводной панели ─────────────────────────────────────────────
+  /// Сводка остаётся тёмной в обеих темах: белые цифры на ней читаются лучше
+  /// всего, а светлая плашка во весь экран слепит ночью.
+  List<Color> get _panelGradient {
+    final colors = context.colors;
+    return context.isDark
+        ? [colors.surfaceContainer, colors.surfaceContainerLowest]
+        : [
+            Color.lerp(colors.primary, Colors.black, 0.28)!,
+            Color.lerp(colors.primary, Colors.black, 0.55)!,
+          ];
+  }
+
+  /// Цвет надписей поверх [_panelGradient].
+  Color get _onPanel => Colors.white;
+
+  /// Подписи делений у шкал потерь.
+  TextStyle get _scaleLabelStyle =>
+      TextStyle(fontSize: 9, color: context.colors.onSurfaceVariant);
+
   // ══════════════════════════════════════════════════════════════════════════
   // BUILD
   // ══════════════════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4F8),
       appBar: _appBar(),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -284,40 +304,54 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
     );
   }
 
-  PreferredSizeWidget _appBar() => AppBar(
-    title: const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Баланс воды', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-        Text('Потери при транспортировке', style: TextStyle(fontSize: 11, color: Colors.white70)),
-      ],
-    ),
-    automaticallyImplyLeading: false,
-    flexibleSpace: Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue.shade700, Colors.blue.shade900],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+  PreferredSizeWidget _appBar() {
+    final colors = context.colors;
+    // Ночью синяя шапка во весь экран слепит — берём тёмную поверхность.
+    final gradient = context.isDark
+        ? [colors.surfaceContainer, colors.surfaceContainerHigh]
+        : [colors.primary, Color.lerp(colors.primary, Colors.black, 0.25)!];
+    final onHeader = context.isDark ? colors.onSurface : colors.onPrimary;
+
+    return AppBar(
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Баланс воды',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          Text('Потери при транспортировке',
+              style: TextStyle(
+                fontSize: 11,
+                color: onHeader.withValues(alpha: 0.7),
+              )),
+        ],
+      ),
+      automaticallyImplyLeading: false,
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: gradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
         ),
       ),
-    ),
-    backgroundColor: Colors.transparent,
-    foregroundColor: Colors.white,
-    elevation: 0,
-    actions: [
-      IconButton(
-        icon: const Icon(Icons.payments_outlined),
-        tooltip: 'Тариф',
-        onPressed: _dlgTariff,
-      ),
-      IconButton(
-        icon: const Icon(Icons.refresh),
-        tooltip: 'Обновить',
-        onPressed: _loadNodes,
-      ),
-    ],
-  );
+      backgroundColor: Colors.transparent,
+      foregroundColor: onHeader,
+      elevation: 0,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.payments_outlined),
+          tooltip: 'Тариф',
+          onPressed: _dlgTariff,
+        ),
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          tooltip: 'Обновить',
+          onPressed: _loadNodes,
+        ),
+      ],
+    );
+  }
 
   Widget _buildError() => Center(
     child: Padding(
@@ -325,9 +359,11 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 56, color: Colors.red.shade400),
+          Icon(Icons.error_outline, size: 56, color: context.colors.error),
           const SizedBox(height: 12),
-          Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: Colors.red.shade700)),
+          Text(_error!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: context.colors.error)),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: _loadNodes,
@@ -341,7 +377,7 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
 
   Widget _buildBody() {
     return RefreshIndicator(
-      color: Colors.blue.shade600,
+      color: context.colors.primary,
       onRefresh: _loadNodes,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
@@ -363,12 +399,22 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
   Widget _buildPeriodBar() {
     final fmt = DateFormat('dd.MM.yy');
     final r   = _range();
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.isDark ? colors.surfaceContainer : colors.surface,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: Colors.blue.shade100.withOpacity(0.4), blurRadius: 6, offset: const Offset(0, 2))],
+        border: context.isDark
+            ? Border.all(color: colors.outlineVariant)
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: context.appColors.cardShadow,
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -381,10 +427,20 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                 return Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: ChoiceChip(
-                    label: Text(p.label, style: TextStyle(fontSize: 12, color: sel ? Colors.white : Colors.blue.shade700)),
+                    label: Text(
+                      p.label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: sel
+                            ? AppTheme.onSolidAccent
+                            : colors.onPrimaryContainer,
+                      ),
+                    ),
                     selected: sel,
-                    selectedColor: Colors.blue.shade700,
-                    backgroundColor: Colors.blue.shade50,
+                    showCheckmark: false,
+                    selectedColor: AppTheme.solidAccent(colors.primary),
+                    backgroundColor: colors.primaryContainer,
+                    side: BorderSide.none,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     onSelected: (v) async {
                       if (!v) return;
@@ -413,11 +469,15 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
           const SizedBox(height: 4),
           Row(
             children: [
-              Icon(Icons.date_range, size: 13, color: Colors.blue.shade500),
+              Icon(Icons.date_range, size: 13, color: colors.primary),
               const SizedBox(width: 4),
               Text(
                 '${fmt.format(r.start)}  —  ${fmt.format(r.end)}',
-                style: TextStyle(fontSize: 11, color: Colors.blue.shade700, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: colors.primary,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
@@ -438,23 +498,32 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
   Widget _buildSummaryCard() {
     final pct       = _avgLossPct;
     final finLosses = _totalLosses * _tariff;
+    // Сводка — тёмная панель в обеих темах, поэтому статусные цвета берём из
+    // тёмной палитры: светлые варианты на ней не читаются.
+    final accents   = AppSemanticColors.dark;
     final pctColor  = pct <= 15
-        ? Colors.greenAccent.shade400
+        ? accents.success
         : pct <= 25
-            ? Colors.orangeAccent
-            : Colors.redAccent;
+            ? accents.warning
+            : const Color(0xFFEF5350);
     final pctLabel  = pct <= 15 ? '✓ В норме' : pct <= 25 ? '⚠ Повышенные' : '✗ Сверхнормативные';
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.blue.shade800, Colors.indigo.shade900],
+          colors: _panelGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.blue.shade900.withOpacity(0.35), blurRadius: 14, offset: const Offset(0, 5))],
+        boxShadow: [
+          BoxShadow(
+            color: context.appColors.cardShadow,
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -462,11 +531,14 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _sumItem('Поднято',      _fmtM3(_totalPumped),   'м³', Colors.blue.shade200),
+              _sumItem('Поднято', _fmtM3(_totalPumped), 'м³',
+                  const Color(0xFF90CAF9)),
               _vDivider(),
-              _sumItem('Реализовано',  _fmtM3(_totalRealized), 'м³', Colors.green.shade300),
+              _sumItem('Реализовано', _fmtM3(_totalRealized), 'м³',
+                  accents.success),
               _vDivider(),
-              _sumItem('Потери',       _fmtM3(_totalLosses),   'м³', Colors.red.shade300),
+              _sumItem('Потери', _fmtM3(_totalLosses), 'м³',
+                  const Color(0xFFEF9A9A)),
             ],
           ),
           const SizedBox(height: 14),
@@ -474,7 +546,7 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.09),
+              color: _onPanel.withValues(alpha: 0.09),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -486,42 +558,59 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                       '${pct.toStringAsFixed(1)}%',
                       style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: pctColor),
                     ),
-                    Text('Уровень потерь', style: TextStyle(fontSize: 10, color: Colors.white54)),
+                    Text('Уровень потерь',
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: _onPanel.withValues(alpha: 0.55))),
                     const SizedBox(height: 2),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: pctColor.withOpacity(0.2),
+                        color: pctColor.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: pctColor.withOpacity(0.4)),
+                        border: Border.all(color: pctColor.withValues(alpha: 0.4)),
                       ),
                       child: Text(pctLabel, style: TextStyle(fontSize: 10, color: pctColor, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
-                Container(width: 1, height: 56, color: Colors.white12),
+                _panelDivider(56),
                 Column(
                   children: [
                     Text(
                       _tariff > 0 ? '${_fmtRub(finLosses)} ₽' : '— ₽',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orangeAccent),
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: accents.warning),
                     ),
-                    Text('Финансовые потери', style: TextStyle(fontSize: 10, color: Colors.white54)),
+                    Text('Финансовые потери',
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: _onPanel.withValues(alpha: 0.55))),
                     if (_tariff > 0)
                       Text(
                         'тариф: ${_tariff.toStringAsFixed(2)} ₽/м³',
-                        style: TextStyle(fontSize: 9, color: Colors.white38),
+                        style: TextStyle(
+                            fontSize: 9,
+                            color: _onPanel.withValues(alpha: 0.4)),
                       ),
                   ],
                 ),
-                Container(width: 1, height: 56, color: Colors.white12),
+                _panelDivider(56),
                 Column(
                   children: [
                     Text(
                       '${_nodes.length}',
-                      style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: _onPanel),
                     ),
-                    Text('объектов ВЗУ', style: TextStyle(fontSize: 10, color: Colors.white54)),
+                    Text('объектов ВЗУ',
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: _onPanel.withValues(alpha: 0.55))),
                   ],
                 ),
               ],
@@ -535,31 +624,45 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
     );
   }
 
-  Widget _vDivider() => Container(width: 1, height: 40, color: Colors.white12);
+  Widget _panelDivider(double height) =>
+      Container(width: 1, height: height, color: _onPanel.withValues(alpha: 0.12));
+
+  Widget _vDivider() => _panelDivider(40);
 
   Widget _sumItem(String label, String value, String unit, Color color) => Column(
     children: [
       Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-      Text(unit,  style: const TextStyle(fontSize: 10, color: Colors.white38)),
-      Text(label, style: const TextStyle(fontSize: 11, color: Colors.white60)),
+      Text(unit,
+          style: TextStyle(fontSize: 10, color: _onPanel.withValues(alpha: 0.4))),
+      Text(label,
+          style: TextStyle(fontSize: 11, color: _onPanel.withValues(alpha: 0.6))),
     ],
   );
 
   Widget _buildNormBar(double pct) {
+    final accents = AppSemanticColors.dark;
+    const danger = Color(0xFFEF5350);
+    final scaleLabel = TextStyle(
+      color: _onPanel.withValues(alpha: 0.32),
+      fontSize: 9,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Нормативный уровень потерь', style: TextStyle(color: Colors.white38, fontSize: 10)),
-            const Row(
+            Text('Нормативный уровень потерь',
+                style: TextStyle(
+                    color: _onPanel.withValues(alpha: 0.4), fontSize: 10)),
+            Row(
               children: [
-                _NormChip(color: Colors.green,  label: '≤15%'),
-                SizedBox(width: 4),
-                _NormChip(color: Colors.orange, label: '15–25%'),
-                SizedBox(width: 4),
-                _NormChip(color: Colors.red,    label: '>25%'),
+                _NormChip(color: accents.success, label: '≤15%'),
+                const SizedBox(width: 4),
+                _NormChip(color: accents.warning, label: '15–25%'),
+                const SizedBox(width: 4),
+                const _NormChip(color: danger, label: '>25%'),
               ],
             ),
           ],
@@ -571,7 +674,9 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
               height: 8,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(4),
-                gradient: const LinearGradient(colors: [Colors.green, Colors.orange, Colors.red]),
+                gradient: LinearGradient(
+                  colors: [accents.success, accents.warning, danger],
+                ),
               ),
             ),
             // Маркер позиции
@@ -582,23 +687,25 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                 width: 12, height: 12,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white,
-                  border: Border.all(color: Colors.blue.shade900, width: 2),
-                  boxShadow: [const BoxShadow(color: Colors.black26, blurRadius: 3)],
+                  color: _onPanel,
+                  border: Border.all(color: _panelGradient.last, width: 2),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26, blurRadius: 3),
+                  ],
                 ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 2),
-        const Row(
+        Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('0%',  style: TextStyle(color: Colors.white30, fontSize: 9)),
-            Text('10%', style: TextStyle(color: Colors.white30, fontSize: 9)),
-            Text('20%', style: TextStyle(color: Colors.white30, fontSize: 9)),
-            Text('30%', style: TextStyle(color: Colors.white30, fontSize: 9)),
-            Text('40%+', style: TextStyle(color: Colors.white30, fontSize: 9)),
+            Text('0%', style: scaleLabel),
+            Text('10%', style: scaleLabel),
+            Text('20%', style: scaleLabel),
+            Text('30%', style: scaleLabel),
+            Text('40%+', style: scaleLabel),
           ],
         ),
       ],
@@ -608,39 +715,59 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
   // ══════════════════════════════════════════════════════════════════════════
   // БЛОК: подсказка о тарифе
   // ══════════════════════════════════════════════════════════════════════════
-  Widget _buildTariffHint() => InkWell(
-    onTap: _dlgTariff,
-    borderRadius: BorderRadius.circular(10),
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.orange.shade300),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.info_outline, color: Colors.orange.shade700, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Тариф не задан — финансовые потери не рассчитаны. Нажмите, чтобы указать.',
-              style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+  Widget _buildTariffHint() {
+    final appColors = context.appColors;
+    return InkWell(
+      onTap: _dlgTariff,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: appColors.warningContainer,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: appColors.warning.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline,
+                color: appColors.onWarningContainer, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Тариф не задан — финансовые потери не рассчитаны. Нажмите, чтобы указать.',
+                style: TextStyle(
+                    fontSize: 12, color: appColors.onWarningContainer),
+              ),
             ),
-          ),
-          Icon(Icons.chevron_right, color: Colors.orange.shade600),
-        ],
+            Icon(Icons.chevron_right, color: appColors.onWarningContainer),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // БЛОК: карточка одного объекта
   // ══════════════════════════════════════════════════════════════════════════
   Widget _buildNodeCard(_NodeData nd) {
-    final pct      = nd.lossPercent;
-    final lossClr  = pct <= 15 ? Colors.green.shade600 : pct <= 25 ? Colors.orange.shade700 : Colors.red.shade600;
-    final lossBg   = pct <= 15 ? Colors.green.shade50  : pct <= 25 ? Colors.orange.shade50  : Colors.red.shade50;
+    final colors    = context.colors;
+    final appColors = context.appColors;
+    final pct       = nd.lossPercent;
+    final lossClr   = pct <= 15
+        ? appColors.success
+        : pct <= 25
+            ? appColors.warning
+            : colors.error;
+    final lossBg    = pct <= 15
+        ? appColors.successContainer
+        : pct <= 25
+            ? appColors.warningContainer
+            : colors.errorContainer;
+    final onLossBg  = pct <= 15
+        ? appColors.onSuccessContainer
+        : pct <= 25
+            ? appColors.onWarningContainer
+            : colors.onErrorContainer;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -657,10 +784,11 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                 Container(
                   padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade700,
+                    color: AppTheme.solidAccent(colors.primary),
                     borderRadius: BorderRadius.circular(9),
                   ),
-                  child: const Icon(Icons.water, color: Colors.white, size: 18),
+                  child: const Icon(Icons.water,
+                      color: AppTheme.onSolidAccent, size: 18),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -671,28 +799,31 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                       Text(nd.boiler.district.name,
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                          style: TextStyle(
+                              fontSize: 11, color: colors.onSurfaceVariant)),
                     ],
                   ),
                 ),
                 // Статус источника данных
                 if (nd.isLoading)
                   SizedBox(width: 16, height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue.shade400))
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: colors.primary))
                 else if (nd.pumpedFromApi)
                   Tooltip(
                     message: 'Поднято загружено из SCADA',
-                    child: Icon(Icons.cloud_done, color: Colors.blue.shade400, size: 16),
+                    child: Icon(Icons.cloud_done, color: colors.primary, size: 16),
                   )
                 else
                   Tooltip(
                     message: 'Ручной ввод',
-                    child: Icon(Icons.edit_note, color: Colors.grey.shade400, size: 16),
+                    child: Icon(Icons.edit_note,
+                        color: colors.onSurfaceVariant, size: 16),
                   ),
                 // Кнопка настроек
                 IconButton(
                   icon: const Icon(Icons.settings_outlined, size: 20),
-                  color: Colors.grey.shade500,
+                  color: colors.onSurfaceVariant,
                   tooltip: 'Настройка параметров счётчиков',
                   onPressed: () => _dlgSettings(nd),
                   padding: EdgeInsets.zero,
@@ -705,9 +836,11 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, size: 13, color: Colors.orange.shade600),
+                  Icon(Icons.warning_amber_rounded,
+                      size: 13, color: appColors.warning),
                   const SizedBox(width: 4),
-                  Text(nd.loadError!, style: TextStyle(fontSize: 11, color: Colors.orange.shade700)),
+                  Text(nd.loadError!,
+                      style: TextStyle(fontSize: 11, color: appColors.warning)),
                 ],
               ),
             ],
@@ -719,7 +852,7 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
               children: [
                 Expanded(child: _metricTile(
                   icon:  Icons.arrow_circle_up,
-                  color: Colors.blue.shade600,
+                  color: colors.primary,
                   label: nd.config.param1LiftId != null ? 'Поднято (SCADA)' : 'Поднято',
                   value: '${_fmtM3(nd.pumped)} м³',
                   onEdit: nd.config.param1LiftId == null ? () => _dlgEditPumped(nd) : null,
@@ -727,7 +860,7 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                 const SizedBox(width: 8),
                 Expanded(child: _metricTile(
                   icon:  Icons.people_alt_outlined,
-                  color: Colors.green.shade600,
+                  color: appColors.success,
                   label: 'Реализовано',
                   value: '${_fmtM3(nd.realized)} м³',
                   onEdit: () => _dlgEditRealized(nd),
@@ -749,7 +882,7 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                     decoration: BoxDecoration(
                       color: lossBg,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: lossClr.withOpacity(0.25)),
+                      border: Border.all(color: lossClr.withValues(alpha: 0.25)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -757,22 +890,28 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Потери воды', style: TextStyle(fontSize: 10, color: lossClr.withOpacity(0.8))),
+                            Text('Потери воды',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: onLossBg.withValues(alpha: 0.8))),
                             Text(
                               '${_fmtM3(nd.losses)} м³',
-                              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: lossClr),
+                              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: onLossBg),
                             ),
                           ],
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: lossClr,
+                            color: AppTheme.solidAccent(lossClr),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
                             '${pct.toStringAsFixed(1)}%',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                            style: const TextStyle(
+                                color: AppTheme.onSolidAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14),
                           ),
                         ),
                       ],
@@ -786,17 +925,25 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
+                        color: appColors.warningContainer,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.orange.shade200),
+                        border: Border.all(
+                            color: appColors.warning.withValues(alpha: 0.35)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Убыток', style: TextStyle(fontSize: 10, color: Colors.orange.shade700)),
+                          Text('Убыток',
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: appColors.onWarningContainer
+                                      .withValues(alpha: 0.8))),
                           Text(
                             '${_fmtRub(nd.financialLoss(_tariff))} ₽',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.orange.shade800),
+                            style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: appColors.onWarningContainer),
                           ),
                         ],
                       ),
@@ -814,7 +961,7 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
               child: LinearProgressIndicator(
                 value: (pct / 40).clamp(0, 1),
                 minHeight: 5,
-                backgroundColor: Colors.grey.shade200,
+                backgroundColor: colors.surfaceContainerHighest,
                 valueColor: AlwaysStoppedAnimation(lossClr),
               ),
             ),
@@ -822,9 +969,9 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('0%',   style: TextStyle(fontSize: 9, color: Colors.grey.shade400)),
-                Text('20%',  style: TextStyle(fontSize: 9, color: Colors.grey.shade400)),
-                Text('40%+', style: TextStyle(fontSize: 9, color: Colors.grey.shade400)),
+                Text('0%', style: _scaleLabelStyle),
+                Text('20%', style: _scaleLabelStyle),
+                Text('40%+', style: _scaleLabelStyle),
               ],
             ),
           ],
@@ -843,9 +990,9 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
+          color: context.appColors.neutralSurface,
           borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: context.colors.outlineVariant),
         ),
         child: Row(
           children: [
@@ -855,7 +1002,9 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: TextStyle(fontSize: 9, color: Colors.grey.shade600)),
+                  Text(label,
+                      style: TextStyle(
+                          fontSize: 9, color: context.colors.onSurfaceVariant)),
                   Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 ],
               ),
@@ -863,7 +1012,8 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
             if (onEdit != null)
               GestureDetector(
                 onTap: onEdit,
-                child: Icon(Icons.edit_outlined, size: 15, color: color.withOpacity(0.7)),
+                child: Icon(Icons.edit_outlined,
+                    size: 15, color: color.withValues(alpha: 0.7)),
               ),
           ],
         ),
@@ -879,7 +1029,7 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
     _showInputDialog(
       title: 'Тариф на воду',
       icon: Icons.payments_outlined,
-      iconColor: Colors.blue.shade600,
+      iconColor: context.colors.primary,
       field: TextField(
         controller: ctrl,
         autofocus: true,
@@ -908,7 +1058,7 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
       title: 'Поднято воды',
       subtitle: nd.boiler.name,
       icon: Icons.arrow_circle_up,
-      iconColor: Colors.blue.shade600,
+      iconColor: context.colors.primary,
       field: TextField(
         controller: ctrl,
         autofocus: true,
@@ -941,7 +1091,7 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
       title: 'Реализовано абонентам',
       subtitle: nd.boiler.name,
       icon: Icons.people_alt_outlined,
-      iconColor: Colors.green.shade600,
+      iconColor: context.appColors.success,
       extraInfo: '${fmt.format(r.start)} — ${fmt.format(r.end)}',
       field: TextField(
         controller: ctrl,
@@ -957,7 +1107,7 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
         ),
       ),
       saveLabel: 'Сохранить',
-      saveColor: Colors.green.shade600,
+      saveColor: context.appColors.success,
       onSave: () async {
         final v = double.tryParse(ctrl.text.replaceAll(',', '.')) ?? 0;
         nd.config.realized = v;
@@ -977,14 +1127,18 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Row(
           children: [
-            Icon(Icons.settings, color: Colors.blue.shade600),
+            Icon(Icons.settings, color: context.colors.primary),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Параметры счётчиков', style: TextStyle(fontSize: 15)),
-                  Text(nd.boiler.name, style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.normal)),
+                  Text(nd.boiler.name,
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: context.colors.onSurfaceVariant,
+                          fontWeight: FontWeight.normal)),
                 ],
               ),
             ),
@@ -996,18 +1150,22 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: context.colors.primaryContainer,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.blue.shade200),
+                border: Border.all(
+                    color: context.colors.primary.withValues(alpha: 0.35)),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, size: 14, color: Colors.blue.shade700),
+                  Icon(Icons.info_outline,
+                      size: 14, color: context.colors.onPrimaryContainer),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'ID параметра можно найти в разделе\n«Параметры объекта» → нужный счётчик.',
-                      style: TextStyle(fontSize: 11, color: Colors.blue.shade800),
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: context.colors.onPrimaryContainer),
                     ),
                   ),
                 ],
@@ -1051,7 +1209,8 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                 },
                 icon: const Icon(Icons.link_off, size: 14),
                 label: const Text('Отвязать счётчики', style: TextStyle(fontSize: 12)),
-                style: TextButton.styleFrom(foregroundColor: Colors.red.shade600),
+                style: TextButton.styleFrom(
+                    foregroundColor: context.colors.error),
               ),
           ],
         ),
@@ -1059,8 +1218,8 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade700,
-              foregroundColor: Colors.white,
+              backgroundColor: context.colors.primary,
+              foregroundColor: context.colors.onPrimary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
             ),
             onPressed: () async {
@@ -1103,7 +1262,11 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                 children: [
                   Text(title, style: const TextStyle(fontSize: 15)),
                   if (subtitle != null)
-                    Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.normal)),
+                    Text(subtitle,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: context.colors.onSurfaceVariant,
+                            fontWeight: FontWeight.normal)),
                 ],
               ),
             ),
@@ -1117,14 +1280,18 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: context.appColors.neutralSurface,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.date_range, size: 13, color: Colors.grey.shade600),
+                    Icon(Icons.date_range,
+                        size: 13, color: context.colors.onSurfaceVariant),
                     const SizedBox(width: 6),
-                    Text(extraInfo, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                    Text(extraInfo,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: context.colors.onSurfaceVariant)),
                   ],
                 ),
               ),
@@ -1137,8 +1304,8 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: saveColor ?? Colors.blue.shade700,
-              foregroundColor: Colors.white,
+              backgroundColor: saveColor ?? context.colors.primary,
+              foregroundColor: context.colors.onPrimary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
             ),
             onPressed: () async {
@@ -1181,7 +1348,7 @@ class _NormChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.25),
+        color: color.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(label, style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.bold)),

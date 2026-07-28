@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:manage_center/services/app_update_service.dart';
+import 'package:manage_center/theme/app_theme.dart';
 
 class UpdateDialog extends StatefulWidget {
   final UpdateInfo updateInfo;
@@ -49,11 +50,11 @@ class _UpdateDialogState extends State<UpdateDialog> with WidgetsBindingObserver
     return PopScope(
       canPop: !widget.updateInfo.force || !_isDownloading,
       child: AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.system_update, color: Colors.blue, size: 24),
-            SizedBox(width: 8),
-            Expanded(
+            Icon(Icons.system_update, color: context.colors.primary, size: 24),
+            const SizedBox(width: 8),
+            const Expanded(
               child: Text(
                 'Доступно обновление',
                 style: TextStyle(fontSize: 18),
@@ -67,7 +68,10 @@ class _UpdateDialogState extends State<UpdateDialog> with WidgetsBindingObserver
           children: [
             Text(
               'Текущая: ${widget.updateInfo.currentVersion}',
-              style: const TextStyle(color: Colors.grey, fontSize: 14),
+              style: TextStyle(
+                color: context.colors.onSurfaceVariant,
+                fontSize: 14,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -91,7 +95,7 @@ class _UpdateDialogState extends State<UpdateDialog> with WidgetsBindingObserver
               const SizedBox(height: 12),
               Text(
                 _error!,
-                style: const TextStyle(color: Colors.red, fontSize: 13),
+                style: TextStyle(color: context.colors.error, fontSize: 13),
               ),
             ],
           ],

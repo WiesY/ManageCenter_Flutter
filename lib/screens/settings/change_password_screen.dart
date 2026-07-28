@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/change_password_bloc.dart';
+import 'package:manage_center/theme/app_theme.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -30,26 +31,22 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Смена пароля'),
-        foregroundColor: Colors.white,
-        backgroundColor: Colors.blue,
-        elevation: 0,
       ),
       body: BlocListener<ChangePasswordBloc, ChangePasswordState>(
         listener: (context, state) {
           if (state is ChangePasswordSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: const Row(
+                content: Row(
                   children: [
-                    Icon(Icons.check_circle, color: Colors.white),
+                    Icon(Icons.check_circle, color: context.appColors.onSuccess),
                     SizedBox(width: 8),
                     Text('Пароль успешно изменен'),
                   ],
                 ),
-                backgroundColor: Colors.green,
+                backgroundColor: context.appColors.success,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -62,12 +59,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               SnackBar(
                 content: Row(
                   children: [
-                    const Icon(Icons.error, color: Colors.white),
+                    Icon(Icons.error, color: context.colors.onError),
                     const SizedBox(width: 8),
                     Expanded(child: Text(state.error)),
                   ],
                 ),
-                backgroundColor: Colors.red,
+                backgroundColor: context.colors.error,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -96,12 +93,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
+                            color: context.colors.primaryContainer,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
                             Icons.info_outline,
-                            color: Colors.blue.shade700,
+                            color: context.colors.primary,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -147,7 +144,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             });
                           },
                         ),
-                        fillColor: Colors.grey[200],
+                        fillColor: context.colors.surfaceContainerHigh,
                         filled: true,
                       ),
                       validator: (value) {
@@ -191,7 +188,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             });
                           },
                         ),
-                        fillColor: Colors.grey[200],
+                        fillColor: context.colors.surfaceContainerHigh,
                         filled: true,
                       ),
                       validator: (value) {
@@ -238,7 +235,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             });
                           },
                         ),
-                        fillColor: Colors.grey[200],
+                        fillColor: context.colors.surfaceContainerHigh,
                         filled: true,
                       ),
                       validator: (value) {
@@ -264,20 +261,19 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     return ElevatedButton(
                       onPressed: isLoading ? null : _changePassword,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueAccent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: context.colors.primary,
+                                        padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                         elevation: 2,
                       ),
                       child: isLoading
-                          ? const SizedBox(
+                          ? SizedBox(
                               height: 20,
                               width: 20,
                               child: CircularProgressIndicator(
-                                color: Colors.white,
+                                color: context.colors.surface,
                                 strokeWidth: 2,
                               ),
                             )
@@ -301,11 +297,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     
                     return TextButton(
                       onPressed: isLoading ? null : () => Navigator.pop(context),
-                      child: const Text(
+                      child: Text(
                         'Отмена',
                         style: TextStyle(
                           fontSize: 16,
-                          color: Colors.grey,
+                          color: context.colors.onSurfaceVariant,
                         ),
                       ),
                     );
