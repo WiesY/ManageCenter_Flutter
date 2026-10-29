@@ -48,6 +48,7 @@ flutter:
 
   assets:
     - lib/assets/icon/
+    - assets/water_losses/
     - assets/sounds/alarm.wav
     - assets/sounds/beep1.mp3
     - assets/sounds/beep2.mp3

@@ -3,109 +3,99 @@
 // Экран «Баланс воды / Потери»
 // ──────────────────────────────────────────────────────────────────────────────
 // Назначение:
-//   Расчёт небаланса между объёмом поднятой воды (1-й и 2-й подъём ВЗУ)
-//   и объёмом воды, реализованной абонентам.
+//   Небаланс между объёмом поднятой воды и объёмом, реализованным абонентам.
 //   Результат: потери в м³, % потерь, финансовые потери по тарифу.
 //
 // Источники данных:
-//   • «Поднято» — автоматически из API (счётчики расхода, параметры SCADA)
-//                 или ручной ввод, если параметры не подключены.
-//   • «Реализовано» — ручной ввод из данных биллинга / расчётного отдела.
-//   • Тариф — ручной ввод, сохраняется в SharedPreferences.
+//   • Датасет из квартальной выгрузки биллинга — assets/water_losses/*.json,
+//     собирается скриптом tool/generate_water_losses.py. Список объектов
+//     раздела строится ИМЕННО из него, а не из /Dashboard: названия ВЗУ в
+//     выгрузке и в системе автоматически не сходятся, и часть ВЗУ в системе
+//     отсутствует вовсе.
+//   • Ручной ввод оператора — перекрывает выгрузку, хранится в
+//     SharedPreferences per «объект × месяц».
+//   • Тариф — ручной ввод (в выгрузке тарифа нет).
 //
-// Подключение к навигации:
-//   Добавьте пункт в BottomNavigationBar / Drawer, например:
-//     NavigationDestination(icon: Icon(Icons.water_drop), label: 'Баланс воды')
-//   И в соответствующем switch-case:
-//     case 3: return const WaterLossesScreen();
+// Про честность цифр:
+//   Колонка «поднято» заполнена меньше чем у половины объектов, а реализация
+//   местами уходит в минус из-за сторно. Поэтому потери считаются только при
+//   пригодных данных, а иначе карточка показывает причину — см. [WaterBalance].
+//   Сводка суммирует только объекты с посчитанными потерями и подписывает,
+//   по скольким объектам из скольких она получена.
 // ──────────────────────────────────────────────────────────────────────────────
 
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
-import 'package:manage_center/models/boiler_list_item_model.dart';
+import 'package:manage_center/bloc/boiler_detail_bloc.dart';
+import 'package:manage_center/models/water_losses_dataset.dart';
+import 'package:manage_center/screens/Boiler_detail_screen.dart';
 import 'package:manage_center/services/api_service.dart';
+import 'package:manage_center/services/storage_service.dart';
+import 'package:manage_center/services/water_losses_repository.dart';
 import 'package:manage_center/theme/app_theme.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Вспомогательные модели
+// Вспомогательные типы
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Конфигурация одного ВЗУ — хранится в SharedPreferences
-class _NodeConfig {
-  final int boilerId;
-  int? param1LiftId;    // ID параметра «Расход / счётчик 1-й подъём»
-  int? param2LiftId;    // ID параметра «Расход / счётчик 2-й подъём» (необяз.)
-  double manualPumped;  // Ручной ввод «поднято», м³
-  double realized;      // Реализовано абонентам, м³
+/// Порядок карточек в списке.
+enum _SortMode { lossesDesc, name, missingFirst }
 
-  _NodeConfig({
-    required this.boilerId,
-    this.param1LiftId,
-    this.param2LiftId,
-    this.manualPumped = 0,
-    this.realized = 0,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'boilerId': boilerId,
-    'param1LiftId': param1LiftId,
-    'param2LiftId': param2LiftId,
-    'manualPumped': manualPumped,
-    'realized': realized,
-  };
-
-  factory _NodeConfig.fromJson(Map<String, dynamic> j) => _NodeConfig(
-    boilerId: j['boilerId'] as int,
-    param1LiftId: j['param1LiftId'] as int?,
-    param2LiftId: j['param2LiftId'] as int?,
-    manualPumped: (j['manualPumped'] ?? 0).toDouble(),
-    realized: (j['realized'] ?? 0).toDouble(),
-  );
-}
-
-/// Расчётные данные одного ВЗУ — живёт только в памяти
-class _NodeData {
-  final BoilerListItem boiler;
-  final _NodeConfig config;
-  double pumped;
-  bool pumpedFromApi;
-  bool isLoading;
-  String? loadError;
-
-  _NodeData({
-    required this.boiler,
-    required this.config,
-    this.pumped = 0,
-    this.pumpedFromApi = false,
-    this.isLoading = false,
-    this.loadError,
-  });
-
-  double get realized     => config.realized;
-  double get losses       => pumped > realized ? pumped - realized : 0;
-  double get lossPercent  => pumped > 0 ? (losses / pumped * 100) : 0;
-  double financialLoss(double tariff) => losses * tariff;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Перечисление периодов
-// ═══════════════════════════════════════════════════════════════════════════════
-
-enum _Period { currentMonth, previousMonth, currentYear, custom }
-
-extension _PeriodExt on _Period {
+extension _SortModeText on _SortMode {
   String get label {
     switch (this) {
-      case _Period.currentMonth:   return 'Тек. месяц';
-      case _Period.previousMonth:  return 'Пред. месяц';
-      case _Period.currentYear:    return 'Тек. год';
-      case _Period.custom:         return 'Период…';
+      case _SortMode.lossesDesc:
+        return 'По потерям';
+      case _SortMode.name:
+        return 'По названию';
+      case _SortMode.missingFirst:
+        return 'Сначала без данных';
     }
   }
+}
+
+/// Объект + его расчёт за выбранный месяц.
+class _Row {
+  final WaterNode node;
+  final WaterBalance balance;
+
+  /// ID объекта в системе, если название удалось сопоставить.
+  final int? boilerId;
+
+  /// Название объекта в системе (может отличаться от названия в выгрузке).
+  final String? boilerName;
+
+  const _Row({
+    required this.node,
+    required this.balance,
+    this.boilerId,
+    this.boilerName,
+  });
+}
+
+/// Итоги по выборке.
+class _Totals {
+  final double pumped;
+  final double realized;
+  final int valid;
+  final int total;
+  final int needsReview;
+  final int broken;
+  final int noData;
+
+  const _Totals({
+    required this.pumped,
+    required this.realized,
+    required this.valid,
+    required this.total,
+    required this.needsReview,
+    required this.broken,
+    required this.noData,
+  });
+
+  double get losses => pumped - realized;
+  double get lossPercent => pumped > 0 ? losses / pumped * 100 : 0;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -120,154 +110,155 @@ class WaterLossesScreen extends StatefulWidget {
 }
 
 class _WaterLossesScreenState extends State<WaterLossesScreen> {
-  // ── SharedPreferences ключи ────────────────────────────────────────────────
-  static const _kTariff  = 'wl_tariff';
-  static const _kCfgPfx  = 'wl_cfg_';
+  static const _monthNames = [
+    'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+    'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
+  ];
 
-  // ── Состояние ─────────────────────────────────────────────────────────────
-  List<_NodeData> _nodes = [];
-  bool   _loading = true;
+  WaterLossesRepository? _repo;
+  WaterLossesDataset? _dataset;
+
+  bool _loading = true;
   String? _error;
 
-  double _tariff  = 0;
-  _Period _period = _Period.currentMonth;
-  DateTimeRange? _customRange;
+  String? _period;
+  double _tariff = 0;
+  int? _districtFilter;
+  _SortMode _sort = _SortMode.lossesDesc;
 
-  late ApiService     _api;
-  SharedPreferences?  _prefs;
+  /// Сопоставление «нормализованное имя из выгрузки» → объект в системе.
+  /// Заполняется по возможности: если /Dashboard недоступен, раздел работает
+  /// без переходов в карточки объектов.
+  final Map<String, _MatchedBoiler> _matches = {};
 
-  // ── Инициализация ─────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    _api     = context.read<ApiService>();
     _init();
   }
 
   Future<void> _init() async {
-    _prefs  = await SharedPreferences.getInstance();
-    _tariff = _prefs!.getDouble(_kTariff) ?? 0;
-    await _loadNodes();
-  }
-
-  // ── Диапазон дат периода ──────────────────────────────────────────────────
-  DateTimeRange _range() {
-    final n = DateTime.now();
-    switch (_period) {
-      case _Period.currentMonth:
-        return DateTimeRange(
-          start: DateTime(n.year, n.month, 1),
-          end: DateTime(n.year, n.month + 1, 1).subtract(const Duration(seconds: 1)),
-        );
-      case _Period.previousMonth:
-        final pm = n.month == 1 ? 12 : n.month - 1;
-        final py = n.month == 1 ? n.year - 1 : n.year;
-        return DateTimeRange(
-          start: DateTime(py, pm, 1),
-          end: DateTime(py, pm + 1, 1).subtract(const Duration(seconds: 1)),
-        );
-      case _Period.currentYear:
-        return DateTimeRange(
-          start: DateTime(n.year, 1, 1),
-          end: DateTime(n.year, 12, 31, 23, 59, 59),
-        );
-      case _Period.custom:
-        return _customRange ?? DateTimeRange(start: DateTime(n.year, n.month, 1), end: n);
-    }
-  }
-
-  // ── Загрузка списка объектов ──────────────────────────────────────────────
-  Future<void> _loadNodes() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      final boilers = await _api.getBoilers();
-
+      final repo = await WaterLossesRepository.create();
+      final dataset = await repo.loadDataset();
+      if (!mounted) return;
       setState(() {
-        _nodes = boilers.map((b) {
-          final cfg = _loadCfg(b.id);
-          return _NodeData(
-            boiler:       b,
-            config:       cfg,
-            pumped:       cfg.manualPumped,
-            pumpedFromApi: false,
-          );
-        }).toList();
+        _repo = repo;
+        _dataset = dataset;
+        _tariff = repo.tariff;
+        // По умолчанию — последний месяц выгрузки.
+        _period = dataset.periods.isEmpty ? null : dataset.periods.last;
         _loading = false;
       });
-
-      // Авто-загрузка API для настроенных объектов
-      for (final nd in _nodes) {
-        if (nd.config.param1LiftId != null) _fetchApi(nd);
-      }
+      _matchBoilers();
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; });
+      if (!mounted) return;
+      setState(() {
+        _error = 'Не удалось загрузить датасет выгрузки: $e';
+        _loading = false;
+      });
     }
   }
 
-  // ── Загрузка данных из API (счётчик расхода) ──────────────────────────────
-  Future<void> _fetchApi(_NodeData nd) async {
-    setState(() { nd.isLoading = true; nd.loadError = null; });
+  /// Необязательная привязка к объектам системы — только чтобы показать
+  /// иконку перехода в карточку. Ошибки глушим: раздел от API не зависит.
+  Future<void> _matchBoilers() async {
     try {
-      final r     = _range();
-      double v1   = 0, v2 = 0;
-
-      if (nd.config.param1LiftId != null) {
-        final vals = await _api.getParameterHistoryValues(
-          nd.boiler.id, nd.config.param1LiftId!, r.start, r.end, 60,
+      final boilers = await context.read<ApiService>().getBoilers();
+      if (!mounted) return;
+      final byKey = <String, _MatchedBoiler>{};
+      for (final b in boilers) {
+        byKey[normalizeNodeName(b.name)] = _MatchedBoiler(
+          id: b.id,
+          name: b.name,
+          districtName: b.district.name,
         );
-        v1 = _deltaFromHistory(vals);
       }
-      if (nd.config.param2LiftId != null) {
-        final vals = await _api.getParameterHistoryValues(
-          nd.boiler.id, nd.config.param2LiftId!, r.start, r.end, 60,
-        );
-        v2 = _deltaFromHistory(vals);
-      }
-
       setState(() {
-        nd.pumped       = v1 + v2;
-        nd.pumpedFromApi = true;
-        nd.isLoading    = false;
+        _matches
+          ..clear()
+          ..addAll(byKey);
       });
-    } catch (e) {
-      setState(() {
-        nd.isLoading  = false;
-        nd.loadError  = 'Ошибка загрузки данных счётчика';
-      });
+    } catch (_) {
+      // Молча: несопоставленные объекты всё равно показываются.
     }
   }
 
-  /// Разница «последнее − первое» для накопительного счётчика
-  double _deltaFromHistory(List<dynamic> vals) {
-    if (vals.isEmpty) return 0;
-    final first = double.tryParse(vals.first.value?.toString() ?? '') ?? 0;
-    final last  = double.tryParse(vals.last.value?.toString()  ?? '') ?? 0;
-    return (last - first).abs();
-  }
+  // ── Выборка ───────────────────────────────────────────────────────────────
+  List<_Row> get _rows {
+    final dataset = _dataset;
+    final period = _period;
+    if (dataset == null || period == null) return const [];
 
-  // ── SharedPreferences: конфиги ────────────────────────────────────────────
-  _NodeConfig _loadCfg(int id) {
-    final raw = _prefs?.getString('$_kCfgPfx$id');
-    if (raw != null) {
-      try { return _NodeConfig.fromJson(jsonDecode(raw)); } catch (_) {}
+    final rows = <_Row>[];
+    for (final node in dataset.nodes) {
+      if (_districtFilter != null && node.district != _districtFilter) continue;
+      final match = _matches[node.key];
+      rows.add(_Row(
+        node: node,
+        balance: WaterBalance.compute(
+          entry: node.months[period],
+          override: _repo?.readOverride(node.key, period),
+        ),
+        boilerId: match?.id,
+        boilerName: match?.name,
+      ));
     }
-    return _NodeConfig(boilerId: id);
+
+    switch (_sort) {
+      case _SortMode.lossesDesc:
+        // Объекты с цифрами — сверху по убыванию потерь, остальные — в конце.
+        rows.sort((a, b) {
+          final la = a.balance.losses;
+          final lb = b.balance.losses;
+          if (la == null && lb == null) return a.node.name.compareTo(b.node.name);
+          if (la == null) return 1;
+          if (lb == null) return -1;
+          return lb.compareTo(la);
+        });
+      case _SortMode.name:
+        rows.sort((a, b) => a.node.name.compareTo(b.node.name));
+      case _SortMode.missingFirst:
+        rows.sort((a, b) {
+          final va = a.balance.isValid ? 1 : 0;
+          final vb = b.balance.isValid ? 1 : 0;
+          if (va != vb) return va - vb;
+          return a.node.name.compareTo(b.node.name);
+        });
+    }
+    return rows;
   }
 
-  Future<void> _saveCfg(_NodeConfig cfg) async {
-    await _prefs?.setString('$_kCfgPfx${cfg.boilerId}', jsonEncode(cfg.toJson()));
+  _Totals _totalsOf(List<_Row> rows) {
+    double pumped = 0, realized = 0;
+    int valid = 0, needsReview = 0, broken = 0, noData = 0;
+    for (final r in rows) {
+      final b = r.balance;
+      if (b.isValid) {
+        pumped += b.pumped!;
+        realized += b.realized!;
+        valid++;
+        if (b.needsReview) needsReview++;
+      } else if (b.isBroken) {
+        broken++;
+      } else {
+        noData++;
+      }
+    }
+    return _Totals(
+      pumped: pumped,
+      realized: realized,
+      valid: valid,
+      total: rows.length,
+      needsReview: needsReview,
+      broken: broken,
+      noData: noData,
+    );
   }
-
-  Future<void> _saveTariff(double v) async {
-    await _prefs?.setDouble(_kTariff, v);
-    setState(() => _tariff = v);
-  }
-
-  // ── Итоговые значения ─────────────────────────────────────────────────────
-  double get _totalPumped   => _nodes.fold(0, (s, n) => s + n.pumped);
-  double get _totalRealized => _nodes.fold(0, (s, n) => s + n.realized);
-  double get _totalLosses   => _nodes.fold(0, (s, n) => s + n.losses);
-  double get _avgLossPct    => _totalPumped > 0 ? _totalLosses / _totalPumped * 100 : 0;
 
   // ── Оформление сводной панели ─────────────────────────────────────────────
   /// Сводка остаётся тёмной в обеих темах: белые цифры на ней читаются лучше
@@ -288,6 +279,22 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
   /// Подписи делений у шкал потерь.
   TextStyle get _scaleLabelStyle =>
       TextStyle(fontSize: 9, color: context.colors.onSurfaceVariant);
+
+  String _periodLabel(String period) {
+    final parts = period.split('-');
+    if (parts.length != 2) return period;
+    final month = int.tryParse(parts[1]) ?? 0;
+    if (month < 1 || month > 12) return period;
+    return '${_monthNames[month - 1]} ${parts[0]}';
+  }
+
+  String _periodShortLabel(String period) {
+    final parts = period.split('-');
+    if (parts.length != 2) return period;
+    final month = int.tryParse(parts[1]) ?? 0;
+    if (month < 1 || month > 12) return period;
+    return _monthNames[month - 1];
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // BUILD
@@ -344,70 +351,99 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
           tooltip: 'Тариф',
           onPressed: _dlgTariff,
         ),
+        PopupMenuButton<_SortMode>(
+          icon: const Icon(Icons.sort),
+          tooltip: 'Сортировка',
+          initialValue: _sort,
+          onSelected: (v) => setState(() => _sort = v),
+          itemBuilder: (_) => _SortMode.values
+              .map((m) => PopupMenuItem(value: m, child: Text(m.label)))
+              .toList(),
+        ),
         IconButton(
           icon: const Icon(Icons.refresh),
           tooltip: 'Обновить',
-          onPressed: _loadNodes,
+          onPressed: _init,
         ),
       ],
     );
   }
 
   Widget _buildError() => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.error_outline, size: 56, color: context.colors.error),
-          const SizedBox(height: 12),
-          Text(_error!,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: context.colors.error)),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: _loadNodes,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Повторить'),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline, size: 56, color: context.colors.error),
+              const SizedBox(height: 12),
+              Text(_error!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: context.colors.error)),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _init,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Повторить'),
+              ),
+            ],
           ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 
   Widget _buildBody() {
+    final rows = _rows;
+    final totals = _totalsOf(rows);
+
     return RefreshIndicator(
       color: context.colors.primary,
-      onRefresh: _loadNodes,
+      onRefresh: _init,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
         children: [
           _buildPeriodBar(),
           const SizedBox(height: 10),
-          _buildSummaryCard(),
+          _buildFilterBar(),
+          const SizedBox(height: 10),
+          _buildSummaryCard(totals),
           if (_tariff <= 0) ...[const SizedBox(height: 8), _buildTariffHint()],
           const SizedBox(height: 12),
-          ..._nodes.map(_buildNodeCard),
+          if (rows.isEmpty)
+            _buildEmpty()
+          else
+            ...rows.map(_buildNodeCard),
         ],
       ),
     );
   }
 
+  Widget _buildEmpty() => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        child: Column(
+          children: [
+            Icon(Icons.filter_alt_off,
+                size: 44, color: context.colors.onSurfaceVariant),
+            const SizedBox(height: 10),
+            Text('Нет объектов по выбранному фильтру',
+                style: TextStyle(color: context.colors.onSurfaceVariant)),
+          ],
+        ),
+      );
+
   // ══════════════════════════════════════════════════════════════════════════
-  // БЛОК: выбор периода
+  // БЛОК: выбор месяца
   // ══════════════════════════════════════════════════════════════════════════
   Widget _buildPeriodBar() {
-    final fmt = DateFormat('dd.MM.yy');
-    final r   = _range();
     final colors = context.colors;
+    final dataset = _dataset!;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       decoration: BoxDecoration(
         color: context.isDark ? colors.surfaceContainer : colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: context.isDark
-            ? Border.all(color: colors.outlineVariant)
-            : null,
+        border:
+            context.isDark ? Border.all(color: colors.outlineVariant) : null,
         boxShadow: [
           BoxShadow(
             color: context.appColors.cardShadow,
@@ -422,13 +458,16 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: _Period.values.map((p) {
+              // Периоды — только те, что есть в выгрузке. Относительных
+              // «текущий месяц / год» здесь быть не может: выгрузка за
+              // I квартал, и такие периоды давали бы пустой экран.
+              children: dataset.periods.map((p) {
                 final sel = _period == p;
                 return Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: ChoiceChip(
                     label: Text(
-                      p.label,
+                      _periodLabel(p),
                       style: TextStyle(
                         fontSize: 12,
                         color: sel
@@ -442,24 +481,8 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                     backgroundColor: colors.primaryContainer,
                     side: BorderSide.none,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
-                    onSelected: (v) async {
-                      if (!v) return;
-                      if (p == _Period.custom) {
-                        final res = await showDateRangePicker(
-                          context: context,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime.now(),
-                          initialDateRange: _customRange,
-                          locale: const Locale('ru'),
-                        );
-                        if (res != null) {
-                          setState(() { _period = p; _customRange = res; });
-                          _reloadAll();
-                        }
-                      } else {
-                        setState(() => _period = p);
-                        _reloadAll();
-                      }
+                    onSelected: (v) {
+                      if (v) setState(() => _period = p);
                     },
                   ),
                 );
@@ -469,14 +492,21 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
           const SizedBox(height: 4),
           Row(
             children: [
-              Icon(Icons.date_range, size: 13, color: colors.primary),
+              Icon(Icons.insert_drive_file_outlined,
+                  size: 13, color: colors.primary),
               const SizedBox(width: 4),
-              Text(
-                '${fmt.format(r.start)}  —  ${fmt.format(r.end)}',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: colors.primary,
-                  fontWeight: FontWeight.w500,
+              Expanded(
+                child: Text(
+                  dataset.source.isEmpty
+                      ? 'Данные из выгрузки биллинга'
+                      : 'Выгрузка: ${dataset.source}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: colors.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -486,27 +516,83 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
     );
   }
 
-  void _reloadAll() {
-    for (final nd in _nodes) {
-      if (nd.config.param1LiftId != null) _fetchApi(nd);
+  // ══════════════════════════════════════════════════════════════════════════
+  // БЛОК: фильтр по ЭР и сортировка
+  // ══════════════════════════════════════════════════════════════════════════
+  Widget _buildFilterBar() {
+    final colors = context.colors;
+
+    Widget chip(String label, int? district) {
+      final sel = _districtFilter == district;
+      return Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: ChoiceChip(
+          label: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: sel ? AppTheme.onSolidAccent : colors.onSurfaceVariant,
+            ),
+          ),
+          selected: sel,
+          showCheckmark: false,
+          selectedColor: AppTheme.solidAccent(colors.primary),
+          backgroundColor:
+              context.isDark ? colors.surfaceContainerHigh : colors.surface,
+          side: BorderSide(color: colors.outlineVariant),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          onSelected: (v) =>
+              setState(() => _districtFilter = v ? district : null),
+        ),
+      );
     }
+
+    return Row(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                chip('Все ЭР', null),
+                for (var d = 1; d <= 5; d++) chip('ЭР $d', d),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Icon(Icons.sort, size: 14, color: colors.onSurfaceVariant),
+        const SizedBox(width: 3),
+        Text(_sort.label,
+            style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant)),
+      ],
+    );
   }
 
   // ══════════════════════════════════════════════════════════════════════════
   // БЛОК: сводная карточка
   // ══════════════════════════════════════════════════════════════════════════
-  Widget _buildSummaryCard() {
-    final pct       = _avgLossPct;
-    final finLosses = _totalLosses * _tariff;
+  Widget _buildSummaryCard(_Totals t) {
+    final pct = t.lossPercent;
+    final finLosses = t.losses * _tariff;
     // Сводка — тёмная панель в обеих темах, поэтому статусные цвета берём из
     // тёмной палитры: светлые варианты на ней не читаются.
-    final accents   = AppSemanticColors.dark;
-    final pctColor  = pct <= 15
-        ? accents.success
-        : pct <= 25
-            ? accents.warning
-            : const Color(0xFFEF5350);
-    final pctLabel  = pct <= 15 ? '✓ В норме' : pct <= 25 ? '⚠ Повышенные' : '✗ Сверхнормативные';
+    final accents = AppSemanticColors.dark;
+    final hasData = t.valid > 0;
+    final pctColor = !hasData
+        ? _onPanel.withValues(alpha: 0.5)
+        : pct <= 15
+            ? accents.success
+            : pct <= 25
+                ? accents.warning
+                : const Color(0xFFEF5350);
+    final pctLabel = !hasData
+        ? 'нет данных'
+        : pct <= 15
+            ? '✓ В норме'
+            : pct <= 25
+                ? '⚠ Повышенные'
+                : '✗ Сверхнормативные';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -527,17 +613,20 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
       ),
       child: Column(
         children: [
+          // ── Охват данных: без этой строки сводка врёт ────────────────────
+          _buildCoverage(t),
+          const SizedBox(height: 12),
           // ── Три числа: поднято / реализовано / потери
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _sumItem('Поднято', _fmtM3(_totalPumped), 'м³',
+              _sumItem('Поднято', hasData ? _fmtM3(t.pumped) : '—', 'м³',
                   const Color(0xFF90CAF9)),
               _vDivider(),
-              _sumItem('Реализовано', _fmtM3(_totalRealized), 'м³',
+              _sumItem('Реализовано', hasData ? _fmtM3(t.realized) : '—', 'м³',
                   accents.success),
               _vDivider(),
-              _sumItem('Потери', _fmtM3(_totalLosses), 'м³',
+              _sumItem('Потери', hasData ? _fmtM3(t.losses) : '—', 'м³',
                   const Color(0xFFEF9A9A)),
             ],
           ),
@@ -555,8 +644,11 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                 Column(
                   children: [
                     Text(
-                      '${pct.toStringAsFixed(1)}%',
-                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: pctColor),
+                      hasData ? '${pct.toStringAsFixed(1)}%' : '—',
+                      style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: pctColor),
                     ),
                     Text('Уровень потерь',
                         style: TextStyle(
@@ -564,13 +656,19 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                             color: _onPanel.withValues(alpha: 0.55))),
                     const SizedBox(height: 2),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: pctColor.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: pctColor.withValues(alpha: 0.4)),
+                        border:
+                            Border.all(color: pctColor.withValues(alpha: 0.4)),
                       ),
-                      child: Text(pctLabel, style: TextStyle(fontSize: 10, color: pctColor, fontWeight: FontWeight.bold)),
+                      child: Text(pctLabel,
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: pctColor,
+                              fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -578,7 +676,7 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                 Column(
                   children: [
                     Text(
-                      _tariff > 0 ? '${_fmtRub(finLosses)} ₽' : '— ₽',
+                      _tariff > 0 && hasData ? '${_fmtRub(finLosses)} ₽' : '— ₽',
                       style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -601,16 +699,20 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                 Column(
                   children: [
                     Text(
-                      '${_nodes.length}',
+                      '${t.valid}',
                       style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.bold,
                           color: _onPanel),
                     ),
-                    Text('объектов ВЗУ',
+                    Text('объектов в расчёте',
                         style: TextStyle(
                             fontSize: 10,
                             color: _onPanel.withValues(alpha: 0.55))),
+                    Text('из ${t.total}',
+                        style: TextStyle(
+                            fontSize: 9,
+                            color: _onPanel.withValues(alpha: 0.4))),
                   ],
                 ),
               ],
@@ -618,7 +720,59 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
           ),
           const SizedBox(height: 10),
           // ── Шкала норматива
-          _buildNormBar(pct),
+          _buildNormBar(hasData ? pct : null),
+        ],
+      ),
+    );
+  }
+
+  /// Строка охвата: сколько объектов реально попало в сумму и почему остальные
+  /// не попали. Суммировать статусные объекты как нули нельзя, поэтому охват
+  /// обязан быть виден.
+  Widget _buildCoverage(_Totals t) {
+    final accents = AppSemanticColors.dark;
+    final period = _period;
+
+    final notes = <String>[];
+    if (t.noData > 0) notes.add('${t.noData} без данных подъёма');
+    if (t.broken > 0) notes.add('${t.broken} с некорректными цифрами');
+    if (t.needsReview > 0) notes.add('${t.needsReview} требуют проверки');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: _onPanel.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _onPanel.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.fact_check_outlined, size: 14, color: _onPanel),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Данные по ${t.valid} из ${t.total} объектов'
+                  '${period == null ? '' : ' · ${_periodShortLabel(period)}'}',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: _onPanel),
+                ),
+              ),
+            ],
+          ),
+          if (notes.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              notes.join(' · '),
+              style: TextStyle(
+                  fontSize: 10, color: accents.warning.withValues(alpha: 0.9)),
+            ),
+          ],
         ],
       ),
     );
@@ -629,17 +783,23 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
 
   Widget _vDivider() => _panelDivider(40);
 
-  Widget _sumItem(String label, String value, String unit, Color color) => Column(
-    children: [
-      Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-      Text(unit,
-          style: TextStyle(fontSize: 10, color: _onPanel.withValues(alpha: 0.4))),
-      Text(label,
-          style: TextStyle(fontSize: 11, color: _onPanel.withValues(alpha: 0.6))),
-    ],
-  );
+  Widget _sumItem(String label, String value, String unit, Color color) =>
+      Column(
+        children: [
+          Text(value,
+              style: TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+          Text(unit,
+              style:
+                  TextStyle(fontSize: 10, color: _onPanel.withValues(alpha: 0.4))),
+          Text(label,
+              style:
+                  TextStyle(fontSize: 11, color: _onPanel.withValues(alpha: 0.6))),
+        ],
+      );
 
-  Widget _buildNormBar(double pct) {
+  /// [pct] == null — данных для расчёта нет, маркер не показываем.
+  Widget _buildNormBar(double? pct) {
     final accents = AppSemanticColors.dark;
     const danger = Color(0xFFEF5350);
     final scaleLabel = TextStyle(
@@ -680,21 +840,24 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
               ),
             ),
             // Маркер позиции
-            Positioned(
-              left: (MediaQuery.of(context).size.width - 56) * (pct / 40).clamp(0, 1),
-              top: -2,
-              child: Container(
-                width: 12, height: 12,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _onPanel,
-                  border: Border.all(color: _panelGradient.last, width: 2),
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black26, blurRadius: 3),
-                  ],
+            if (pct != null)
+              Positioned(
+                left: (MediaQuery.of(context).size.width - 56) *
+                    (pct / 40).clamp(0, 1),
+                top: -2,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _onPanel,
+                    border: Border.all(color: _panelGradient.last, width: 2),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black26, blurRadius: 3),
+                    ],
+                  ),
                 ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 2),
@@ -735,8 +898,8 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
             Expanded(
               child: Text(
                 'Тариф не задан — финансовые потери не рассчитаны. Нажмите, чтобы указать.',
-                style: TextStyle(
-                    fontSize: 12, color: appColors.onWarningContainer),
+                style:
+                    TextStyle(fontSize: 12, color: appColors.onWarningContainer),
               ),
             ),
             Icon(Icons.chevron_right, color: appColors.onWarningContainer),
@@ -749,25 +912,19 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
   // ══════════════════════════════════════════════════════════════════════════
   // БЛОК: карточка одного объекта
   // ══════════════════════════════════════════════════════════════════════════
-  Widget _buildNodeCard(_NodeData nd) {
-    final colors    = context.colors;
+  Widget _buildNodeCard(_Row row) {
+    final colors = context.colors;
     final appColors = context.appColors;
-    final pct       = nd.lossPercent;
-    final lossClr   = pct <= 15
-        ? appColors.success
-        : pct <= 25
-            ? appColors.warning
-            : colors.error;
-    final lossBg    = pct <= 15
-        ? appColors.successContainer
-        : pct <= 25
-            ? appColors.warningContainer
-            : colors.errorContainer;
-    final onLossBg  = pct <= 15
-        ? appColors.onSuccessContainer
-        : pct <= 25
-            ? appColors.onWarningContainer
-            : colors.onErrorContainer;
+    final b = row.balance;
+    final calculated = b.state == WaterBalanceState.calculated;
+
+    // Объект без пригодных цифр не должен выглядеть «нормальным»: гасим акцент
+    // заголовка, чтобы список читался с первого взгляда.
+    final headerColor = calculated
+        ? AppTheme.solidAccent(colors.primary)
+        : b.isBroken
+            ? AppTheme.solidAccent(colors.error)
+            : AppTheme.solidAccent(appColors.archived);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -784,87 +941,68 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                 Container(
                   padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(
-                    color: AppTheme.solidAccent(colors.primary),
+                    color: headerColor,
                     borderRadius: BorderRadius.circular(9),
                   ),
-                  child: const Icon(Icons.water,
-                      color: AppTheme.onSolidAccent, size: 18),
+                  child: Icon(
+                    calculated
+                        ? Icons.water
+                        : b.isBroken
+                            ? Icons.report_gmailerrorred
+                            : Icons.help_outline,
+                    color: AppTheme.onSolidAccent,
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(nd.boiler.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text(nd.boiler.district.name,
-                          style: TextStyle(
-                              fontSize: 11, color: colors.onSurfaceVariant)),
+                      Text(row.node.name,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
+                      Text(
+                        _nodeSubtitle(row),
+                        style: TextStyle(
+                            fontSize: 11, color: colors.onSurfaceVariant),
+                      ),
                     ],
                   ),
                 ),
-                // Статус источника данных
-                if (nd.isLoading)
-                  SizedBox(width: 16, height: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: colors.primary))
-                else if (nd.pumpedFromApi)
-                  Tooltip(
-                    message: 'Поднято загружено из SCADA',
-                    child: Icon(Icons.cloud_done, color: colors.primary, size: 16),
+                // Переход в карточку объекта — только если название сошлось
+                // с объектом в системе.
+                if (row.boilerId != null)
+                  IconButton(
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    color: colors.primary,
+                    tooltip: 'Открыть объект «${row.boilerName}»',
+                    onPressed: () => _openBoiler(row),
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
                   )
                 else
                   Tooltip(
-                    message: 'Ручной ввод',
-                    child: Icon(Icons.edit_note,
-                        color: colors.onSurfaceVariant, size: 16),
+                    message: 'Объект не сопоставлен с системой',
+                    child: Icon(Icons.link_off,
+                        size: 16,
+                        color: colors.onSurfaceVariant.withValues(alpha: 0.6)),
                   ),
-                // Кнопка настроек
-                IconButton(
-                  icon: const Icon(Icons.settings_outlined, size: 20),
-                  color: colors.onSurfaceVariant,
-                  tooltip: 'Настройка параметров счётчиков',
-                  onPressed: () => _dlgSettings(nd),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                ),
               ],
             ),
-
-            if (nd.loadError != null) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(Icons.warning_amber_rounded,
-                      size: 13, color: appColors.warning),
-                  const SizedBox(width: 4),
-                  Text(nd.loadError!,
-                      style: TextStyle(fontSize: 11, color: appColors.warning)),
-                ],
-              ),
-            ],
 
             const SizedBox(height: 10),
 
             // ── Поднято / Реализовано ─────────────────────────────────────
             Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: _metricTile(
-                  icon:  Icons.arrow_circle_up,
-                  color: colors.primary,
-                  label: nd.config.param1LiftId != null ? 'Поднято (SCADA)' : 'Поднято',
-                  value: '${_fmtM3(nd.pumped)} м³',
-                  onEdit: nd.config.param1LiftId == null ? () => _dlgEditPumped(nd) : null,
-                )),
+                Expanded(child: _pumpedTile(row)),
                 const SizedBox(width: 8),
-                Expanded(child: _metricTile(
-                  icon:  Icons.people_alt_outlined,
-                  color: appColors.success,
-                  label: 'Реализовано',
-                  value: '${_fmtM3(nd.realized)} м³',
-                  onEdit: () => _dlgEditRealized(nd),
-                )),
+                Expanded(child: _realizedTile(row)),
               ],
             ),
 
@@ -872,111 +1010,86 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
             const Divider(height: 1, thickness: 1),
             const SizedBox(height: 10),
 
-            // ── Потери ────────────────────────────────────────────────────
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: lossBg,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: lossClr.withValues(alpha: 0.25)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Потери воды',
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    color: onLossBg.withValues(alpha: 0.8))),
-                            Text(
-                              '${_fmtM3(nd.losses)} м³',
-                              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: onLossBg),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.solidAccent(lossClr),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            '${pct.toStringAsFixed(1)}%',
-                            style: const TextStyle(
-                                color: AppTheme.onSolidAccent,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (_tariff > 0) ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 2,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: appColors.warningContainer,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                            color: appColors.warning.withValues(alpha: 0.35)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Убыток',
-                              style: TextStyle(
-                                  fontSize: 10,
-                                  color: appColors.onWarningContainer
-                                      .withValues(alpha: 0.8))),
-                          Text(
-                            '${_fmtRub(nd.financialLoss(_tariff))} ₽',
-                            style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: appColors.onWarningContainer),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-
-            const SizedBox(height: 8),
-
-            // ── Полоса прогресса ─────────────────────────────────────────
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: (pct / 40).clamp(0, 1),
-                minHeight: 5,
-                backgroundColor: colors.surfaceContainerHighest,
-                valueColor: AlwaysStoppedAnimation(lossClr),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('0%', style: _scaleLabelStyle),
-                Text('20%', style: _scaleLabelStyle),
-                Text('40%+', style: _scaleLabelStyle),
-              ],
-            ),
+            // ── Потери или причина, по которой их нет ─────────────────────
+            if (calculated) ..._lossBlock(row) else _statusBlock(row),
           ],
         ),
       ),
+    );
+  }
+
+  String _nodeSubtitle(_Row row) {
+    final parts = <String>[
+      row.node.district != null ? 'ЭР ${row.node.district}' : 'ЭР не указан',
+    ];
+    final accounts = row.balance.accounts;
+    if (accounts != null) parts.add('$accounts л/с');
+    return parts.join(' · ');
+  }
+
+  void _openBoiler(_Row row) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BlocProvider(
+          create: (ctx) => BoilerDetailBloc(
+            apiService: ctx.read<ApiService>(),
+            storageService: ctx.read<StorageService>(),
+          ),
+          child: BoilerDetailScreen(
+            boilerId: row.boilerId!,
+            boilerName: row.boilerName ?? row.node.name,
+            districtName: _matches[row.node.key]?.districtName,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Плитка «Поднято» ──────────────────────────────────────────────────────
+  Widget _pumpedTile(_Row row) {
+    final b = row.balance;
+    final colors = context.colors;
+    final hasNumber = b.pumped != null && b.pumpedStatus == PumpedStatus.ok;
+
+    return _metricTile(
+      icon: Icons.arrow_circle_up,
+      color: hasNumber ? colors.primary : colors.onSurfaceVariant,
+      label: 'Поднято',
+      value: hasNumber
+          ? '${_fmtM3(b.pumped!)} м³'
+          // Показываем именно то, что стояло в выгрузке: «нет ПУ», «байпас»…
+          : (b.pumpedRaw ?? b.pumpedStatus.shortLabel),
+      valueIsPlaceholder: !hasNumber,
+      isManual: b.pumpedIsManual,
+      onEdit: () => _dlgEditValue(row, isPumped: true),
+      onReset: b.pumpedIsManual ? () => _resetValue(row, isPumped: true) : null,
+    );
+  }
+
+  // ── Плитка «Реализовано» ──────────────────────────────────────────────────
+  Widget _realizedTile(_Row row) {
+    final b = row.balance;
+    final colors = context.colors;
+    final appColors = context.appColors;
+    final v = b.realized;
+    final negative = v != null && v < 0;
+
+    return _metricTile(
+      icon: Icons.people_alt_outlined,
+      color: negative
+          ? colors.error
+          : v == null
+              ? colors.onSurfaceVariant
+              : appColors.success,
+      label: 'Реализовано',
+      value: v == null ? 'не заполнено' : '${_fmtM3(v)} м³',
+      valueIsPlaceholder: v == null,
+      valueColor: negative ? colors.error : null,
+      isManual: b.realizedIsManual,
+      onEdit: () => _dlgEditValue(row, isPumped: false),
+      onReset:
+          b.realizedIsManual ? () => _resetValue(row, isPumped: false) : null,
     );
   }
 
@@ -985,39 +1098,322 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
     required Color color,
     required String label,
     required String value,
-    VoidCallback? onEdit,
-  }) =>
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: context.appColors.neutralSurface,
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: context.colors.outlineVariant),
+    required VoidCallback onEdit,
+    VoidCallback? onReset,
+    bool isManual = false,
+    bool valueIsPlaceholder = false,
+    Color? valueColor,
+  }) {
+    final colors = context.colors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: context.appColors.neutralSurface,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(
+          color: isManual
+              ? colors.primary.withValues(alpha: 0.55)
+              : colors.outlineVariant,
         ),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 7),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(label,
+                        style: TextStyle(
+                            fontSize: 9, color: colors.onSurfaceVariant)),
+                    if (isManual) ...[
+                      const SizedBox(width: 4),
+                      // Ручной ввод перекрывает выгрузку — это обязательно
+                      // должно быть видно, иначе цифру не с чем сверить.
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppTheme.solidAccent(colors.primary),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text('вручную',
+                            style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.onSolidAccent)),
+                      ),
+                    ],
+                  ],
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontWeight:
+                        valueIsPlaceholder ? FontWeight.w500 : FontWeight.w600,
+                    fontSize: valueIsPlaceholder ? 11 : 13,
+                    fontStyle:
+                        valueIsPlaceholder ? FontStyle.italic : FontStyle.normal,
+                    color: valueColor ??
+                        (valueIsPlaceholder ? colors.onSurfaceVariant : null),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          if (onReset != null)
+            GestureDetector(
+              onTap: onReset,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(Icons.restore,
+                    size: 15, color: colors.onSurfaceVariant),
+              ),
+            ),
+          GestureDetector(
+            onTap: onEdit,
+            child: Icon(Icons.edit_outlined,
+                size: 15, color: color.withValues(alpha: 0.7)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Блок посчитанных потерь ───────────────────────────────────────────────
+  List<Widget> _lossBlock(_Row row) {
+    final colors = context.colors;
+    final appColors = context.appColors;
+    final b = row.balance;
+    final pct = b.lossPercent!;
+    final lossClr = pct <= 15
+        ? appColors.success
+        : pct <= 25
+            ? appColors.warning
+            : colors.error;
+    final lossBg = pct <= 15
+        ? appColors.successContainer
+        : pct <= 25
+            ? appColors.warningContainer
+            : colors.errorContainer;
+    final onLossBg = pct <= 15
+        ? appColors.onSuccessContainer
+        : pct <= 25
+            ? appColors.onWarningContainer
+            : colors.onErrorContainer;
+    final fin = b.financialLoss(_tariff);
+
+    return [
+      Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: lossBg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: lossClr.withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(label,
-                      style: TextStyle(
-                          fontSize: 9, color: context.colors.onSurfaceVariant)),
-                  Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Потери воды',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: onLossBg.withValues(alpha: 0.8))),
+                      Text(
+                        '${_fmtM3(b.losses!)} м³',
+                        style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: onLossBg),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.solidAccent(lossClr),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${pct.toStringAsFixed(1)}%',
+                      style: const TextStyle(
+                          color: AppTheme.onSolidAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14),
+                    ),
+                  ),
                 ],
               ),
             ),
-            if (onEdit != null)
-              GestureDetector(
-                onTap: onEdit,
-                child: Icon(Icons.edit_outlined,
-                    size: 15, color: color.withValues(alpha: 0.7)),
+          ),
+          if (fin != null) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: appColors.warningContainer,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: appColors.warning.withValues(alpha: 0.35)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Убыток',
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: appColors.onWarningContainer
+                                .withValues(alpha: 0.8))),
+                    Text(
+                      '${_fmtRub(fin)} ₽',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: appColors.onWarningContainer),
+                    ),
+                  ],
+                ),
               ),
+            ),
           ],
+        ],
+      ),
+
+      // Потери выше 60% — почти всегда дефект источника, а не реальная утечка.
+      // Цифру показываем, но не выдаём её за проверенную.
+      if (b.needsReview) ...[
+        const SizedBox(height: 8),
+        _reviewBadge(
+          'Требует проверки: потери ${pct.toStringAsFixed(0)}% — '
+          'проверьте показания и привязку абонентов',
         ),
-      );
+      ],
+
+      const SizedBox(height: 8),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: LinearProgressIndicator(
+          value: (pct / 40).clamp(0, 1),
+          minHeight: 5,
+          backgroundColor: colors.surfaceContainerHighest,
+          valueColor: AlwaysStoppedAnimation(lossClr),
+        ),
+      ),
+      const SizedBox(height: 2),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('0%', style: _scaleLabelStyle),
+          Text('20%', style: _scaleLabelStyle),
+          Text('40%+', style: _scaleLabelStyle),
+        ],
+      ),
+    ];
+  }
+
+  Widget _reviewBadge(String text) {
+    final appColors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: appColors.warningContainer,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: appColors.warning.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded,
+              size: 14, color: appColors.onWarningContainer),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(text,
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: appColors.onWarningContainer)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Блок «числа нет, вот почему» ──────────────────────────────────────────
+  Widget _statusBlock(_Row row) {
+    final colors = context.colors;
+    final appColors = context.appColors;
+    final b = row.balance;
+
+    // Некорректные данные — красным: это не «нет данных», а сигнал в биллинг.
+    final isError = b.state == WaterBalanceState.negativeRealized;
+    final isWarning = b.state == WaterBalanceState.realizedExceedsPumped;
+
+    final bg = isError
+        ? colors.errorContainer
+        : isWarning
+            ? appColors.warningContainer
+            : appColors.archivedContainer;
+    final fg = isError
+        ? colors.onErrorContainer
+        : isWarning
+            ? appColors.onWarningContainer
+            : appColors.onArchivedContainer;
+    final icon = isError
+        ? Icons.error_outline
+        : isWarning
+            ? Icons.warning_amber_rounded
+            : Icons.do_not_disturb_on_outlined;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: fg.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: fg),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Потери не рассчитаны',
+                    style: TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.bold, color: fg)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(b.message,
+              style: TextStyle(fontSize: 11, color: fg.withValues(alpha: 0.9))),
+          if (b.state == WaterBalanceState.noPumped) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Введите объём подъёма вручную, чтобы объект попал в расчёт.',
+              style: TextStyle(fontSize: 10, color: fg.withValues(alpha: 0.7)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // ДИАЛОГИ
@@ -1025,7 +1421,8 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
 
   /// Ввод / изменение тарифа
   void _dlgTariff() {
-    final ctrl = TextEditingController(text: _tariff > 0 ? _tariff.toStringAsFixed(2) : '');
+    final ctrl = TextEditingController(
+        text: _tariff > 0 ? _tariff.toStringAsFixed(2) : '');
     _showInputDialog(
       title: 'Тариф на воду',
       icon: Icons.payments_outlined,
@@ -1045,195 +1442,92 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
       ),
       onSave: () async {
         final v = double.tryParse(ctrl.text.replaceAll(',', '.')) ?? 0;
-        await _saveTariff(v);
+        await _repo?.saveTariff(v);
+        if (mounted) setState(() => _tariff = v);
       },
     );
   }
 
-  /// Ручной ввод «поднято» (если не подключены счётчики SCADA)
-  void _dlgEditPumped(_NodeData nd) {
+  /// Ручной ввод «поднято» / «реализовано» за выбранный месяц.
+  void _dlgEditValue(_Row row, {required bool isPumped}) {
+    final period = _period;
+    if (period == null) return;
+
+    final b = row.balance;
+    final current = isPumped ? b.pumped : b.realized;
+    final imported = isPumped
+        ? row.node.months[period]?.pumped
+        : row.node.months[period]?.realized;
     final ctrl = TextEditingController(
-        text: nd.pumped > 0 ? nd.pumped.toStringAsFixed(1) : '');
+        text: current == null ? '' : _plain(current));
+
+    final importedNote = imported != null
+        ? 'В выгрузке: ${_plain(imported)} м³'
+        : isPumped
+            ? 'В выгрузке: ${b.pumpedRaw ?? b.pumpedStatus.shortLabel}'
+            : 'В выгрузке значения нет';
+
     _showInputDialog(
-      title: 'Поднято воды',
-      subtitle: nd.boiler.name,
-      icon: Icons.arrow_circle_up,
-      iconColor: context.colors.primary,
+      title: isPumped ? 'Поднято воды' : 'Реализовано абонентам',
+      subtitle: row.node.name,
+      icon: isPumped ? Icons.arrow_circle_up : Icons.people_alt_outlined,
+      iconColor:
+          isPumped ? context.colors.primary : context.appColors.success,
+      extraInfo: '${_periodLabel(period)} · $importedNote',
       field: TextField(
         controller: ctrl,
         autofocus: true,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.,]'))],
-        decoration: InputDecoration(
-          labelText: 'Объём поднятой воды, м³',
-          suffixText: 'м³',
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          prefixIcon: const Icon(Icons.arrow_upward),
-          helperText: 'Суммарный объём за выбранный период (1-й + 2-й подъём)',
-        ),
-      ),
-      onSave: () async {
-        final v = double.tryParse(ctrl.text.replaceAll(',', '.')) ?? 0;
-        nd.config.manualPumped = v;
-        await _saveCfg(nd.config);
-        setState(() => nd.pumped = v);
-      },
-    );
-  }
-
-  /// Ввод «реализовано» (из биллинга)
-  void _dlgEditRealized(_NodeData nd) {
-    final ctrl = TextEditingController(
-        text: nd.realized > 0 ? nd.realized.toStringAsFixed(1) : '');
-    final r   = _range();
-    final fmt = DateFormat('dd.MM.yy');
-    _showInputDialog(
-      title: 'Реализовано абонентам',
-      subtitle: nd.boiler.name,
-      icon: Icons.people_alt_outlined,
-      iconColor: context.appColors.success,
-      extraInfo: '${fmt.format(r.start)} — ${fmt.format(r.end)}',
-      field: TextField(
-        controller: ctrl,
-        autofocus: true,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.,]'))],
-        decoration: InputDecoration(
-          labelText: 'Реализовано, м³',
-          suffixText: 'м³',
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          prefixIcon: const Icon(Icons.people_outlined),
-          helperText: 'Данные из расчётного отдела / биллинговой системы',
-        ),
-      ),
-      saveLabel: 'Сохранить',
-      saveColor: context.appColors.success,
-      onSave: () async {
-        final v = double.tryParse(ctrl.text.replaceAll(',', '.')) ?? 0;
-        nd.config.realized = v;
-        await _saveCfg(nd.config);
-        setState(() {});
-      },
-    );
-  }
-
-  /// Настройка ID параметров счётчиков (SCADA)
-  void _dlgSettings(_NodeData nd) {
-    final ctrl1 = TextEditingController(text: nd.config.param1LiftId?.toString() ?? '');
-    final ctrl2 = TextEditingController(text: nd.config.param2LiftId?.toString() ?? '');
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Row(
-          children: [
-            Icon(Icons.settings, color: context.colors.primary),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Параметры счётчиков', style: TextStyle(fontSize: 15)),
-                  Text(nd.boiler.name,
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: context.colors.onSurfaceVariant,
-                          fontWeight: FontWeight.normal)),
-                ],
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: context.colors.primaryContainer,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: context.colors.primary.withValues(alpha: 0.35)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline,
-                      size: 14, color: context.colors.onPrimaryContainer),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'ID параметра можно найти в разделе\n«Параметры объекта» → нужный счётчик.',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: context.colors.onPrimaryContainer),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: ctrl1,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(
-                labelText: 'ID счётчика  «1-й подъём»',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                prefixIcon: const Icon(Icons.looks_one_outlined),
-                helperText: 'Суммарный расход насосов 1-го подъёма',
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: ctrl2,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(
-                labelText: 'ID счётчика «2-й подъём» (необяз.)',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                prefixIcon: const Icon(Icons.looks_two_outlined),
-                helperText: 'Суммарный расход насосов 2-го подъёма',
-              ),
-            ),
-            const SizedBox(height: 6),
-            // Если параметры заданы — показываем кнопку сброса
-            if (nd.config.param1LiftId != null)
-              TextButton.icon(
-                onPressed: () async {
-                  nd.config.param1LiftId = null;
-                  nd.config.param2LiftId = null;
-                  nd.pumpedFromApi = false;
-                  await _saveCfg(nd.config);
-                  setState(() {});
-                  Navigator.pop(ctx);
-                },
-                icon: const Icon(Icons.link_off, size: 14),
-                label: const Text('Отвязать счётчики', style: TextStyle(fontSize: 12)),
-                style: TextButton.styleFrom(
-                    foregroundColor: context.colors.error),
-              ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: context.colors.primary,
-              foregroundColor: context.colors.onPrimary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
-            ),
-            onPressed: () async {
-              nd.config.param1LiftId = int.tryParse(ctrl1.text);
-              nd.config.param2LiftId = int.tryParse(ctrl2.text);
-              await _saveCfg(nd.config);
-              Navigator.pop(ctx);
-              if (nd.config.param1LiftId != null) _fetchApi(nd);
-            },
-            child: const Text('Сохранить'),
-          ),
+        keyboardType: const TextInputType.numberWithOptions(
+            decimal: true, signed: true),
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'[\d.,-]'))
         ],
+        decoration: InputDecoration(
+          labelText: isPumped ? 'Поднято, м³' : 'Реализовано, м³',
+          suffixText: 'м³',
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          prefixIcon: Icon(
+              isPumped ? Icons.arrow_upward : Icons.people_outlined),
+          helperText: isPumped
+              ? 'Суммарный объём за месяц (1-й + 2-й подъём)'
+              : 'Данные расчётного отдела / биллинга',
+        ),
       ),
+      saveColor:
+          isPumped ? context.colors.primary : context.appColors.success,
+      onSave: () async {
+        final v = double.tryParse(ctrl.text.replaceAll(',', '.'));
+        await _writeOverride(row, period, isPumped: isPumped, value: v);
+      },
     );
+  }
+
+  /// Сброс ручной правки к значению из выгрузки.
+  Future<void> _resetValue(_Row row, {required bool isPumped}) async {
+    final period = _period;
+    if (period == null) return;
+    await _writeOverride(row, period, isPumped: isPumped, value: null);
+  }
+
+  Future<void> _writeOverride(
+    _Row row,
+    String period, {
+    required bool isPumped,
+    required double? value,
+  }) async {
+    final repo = _repo;
+    if (repo == null) return;
+    final existing = repo.readOverride(row.node.key, period) ??
+        const WaterOverride();
+    final updated = isPumped
+        ? (value == null
+            ? existing.copyWith(dropPumped: true)
+            : existing.copyWith(pumped: value))
+        : (value == null
+            ? existing.copyWith(dropRealized: true)
+            : existing.copyWith(realized: value));
+    await repo.writeOverride(row.node.key, period, updated);
+    if (mounted) setState(() {});
   }
 
   /// Универсальный шаблон простого диалога с одним полем ввода
@@ -1278,7 +1572,8 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
             if (extraInfo != null) ...[
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: context.appColors.neutralSurface,
                   borderRadius: BorderRadius.circular(8),
@@ -1288,10 +1583,12 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
                     Icon(Icons.date_range,
                         size: 13, color: context.colors.onSurfaceVariant),
                     const SizedBox(width: 6),
-                    Text(extraInfo,
-                        style: TextStyle(
-                            fontSize: 11,
-                            color: context.colors.onSurfaceVariant)),
+                    Expanded(
+                      child: Text(extraInfo,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: context.colors.onSurfaceVariant)),
+                    ),
                   ],
                 ),
               ),
@@ -1301,12 +1598,16 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Отмена')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: saveColor ?? context.colors.primary,
-              foregroundColor: context.colors.onPrimary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+              backgroundColor: AppTheme.solidAccent(
+                  saveColor ?? context.colors.primary),
+              foregroundColor: AppTheme.onSolidAccent,
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
             ),
             onPressed: () async {
               await onSave();
@@ -1323,16 +1624,35 @@ class _WaterLossesScreenState extends State<WaterLossesScreen> {
   // ФОРМАТИРОВАНИЕ ЧИСЕЛ
   // ══════════════════════════════════════════════════════════════════════════
   String _fmtM3(double v) {
-    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(2)} млн';
-    if (v >= 1000)    return '${(v / 1000).toStringAsFixed(1)} тыс';
+    final a = v.abs();
+    if (a >= 1000000) return '${(v / 1000000).toStringAsFixed(2)} млн';
+    if (a >= 1000) return '${(v / 1000).toStringAsFixed(1)} тыс';
     return v.toStringAsFixed(1);
   }
 
   String _fmtRub(double v) {
-    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(2)} млн';
-    if (v >= 1000)    return '${(v / 1000).toStringAsFixed(1)} тыс';
+    final a = v.abs();
+    if (a >= 1000000) return '${(v / 1000000).toStringAsFixed(2)} млн';
+    if (a >= 1000) return '${(v / 1000).toStringAsFixed(1)} тыс';
     return v.toStringAsFixed(0);
   }
+
+  /// Число без сокращений — для полей ввода и подписей «в выгрузке».
+  String _plain(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
+}
+
+/// Объект системы, с которым сошлось название из выгрузки.
+class _MatchedBoiler {
+  final int id;
+  final String name;
+  final String districtName;
+
+  const _MatchedBoiler({
+    required this.id,
+    required this.name,
+    required this.districtName,
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1351,7 +1671,9 @@ class _NormChip extends StatelessWidget {
         color: color.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(label, style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.bold)),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 9, color: color, fontWeight: FontWeight.bold)),
     );
   }
 }

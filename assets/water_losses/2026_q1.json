@@ -1,0 +1,1372 @@
+{
+  "source": "ОБЩАЯ 2-2.xlsx",
+  "periods": [
+    "2026-01",
+    "2026-02",
+    "2026-03"
+  ],
+  "nodes": [
+    {
+      "name": "ВЗУ АО \"Санаторий Истра\" (покупная вода)",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 153,
+          "realized": 707.91,
+          "pumped": 1151.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 153,
+          "realized": 619.33,
+          "pumped": 1072.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 153,
+          "realized": 1407.0,
+          "pumped": 1695.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ АО НИИЭМ (покупная вода)",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 36,
+          "realized": 298.49,
+          "pumped": 1125.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 36,
+          "realized": 292.33,
+          "pumped": 876.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 36,
+          "realized": 383.34,
+          "pumped": 1002.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Алексино",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "faulty",
+          "accounts": 83,
+          "realized": 870.21,
+          "pumpedRaw": "неиспр"
+        },
+        "2026-02": {
+          "pumpedStatus": "faulty",
+          "accounts": 83,
+          "realized": 625.46,
+          "pumpedRaw": "неиспр"
+        },
+        "2026-03": {
+          "pumpedStatus": "faulty",
+          "accounts": 83,
+          "realized": 847.46,
+          "pumpedRaw": "неиспр"
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Алехново",
+      "district": 4,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 213,
+          "realized": 1383.35
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 213,
+          "realized": 1496.89
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 213,
+          "realized": 1372.52
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Андреевское",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 79,
+          "realized": 551.46,
+          "pumped": 1240.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 79,
+          "realized": 392.56,
+          "pumped": 1064.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 79,
+          "realized": 782.02,
+          "pumped": 1178.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Аносино",
+      "district": 3,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 226,
+          "realized": 1171.53,
+          "pumped": 2302.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 226,
+          "realized": 1216.41,
+          "pumped": 2080.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 226,
+          "realized": 1074.07,
+          "pumped": 2302.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Бужарово",
+      "district": 4,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 151,
+          "realized": 971.91
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 151,
+          "realized": 1038.91
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 151,
+          "realized": 1171.54
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Буньково",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 169,
+          "realized": 885.86,
+          "pumped": 1705.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 169,
+          "realized": 864.22,
+          "pumped": 1456.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 169,
+          "realized": 761.89,
+          "pumped": 1612.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Веледниково",
+      "district": 3,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "bypass",
+          "accounts": 205,
+          "realized": 7991.85,
+          "pumpedRaw": "байпас"
+        },
+        "2026-02": {
+          "pumpedStatus": "bypass",
+          "accounts": 205,
+          "realized": 8667.85,
+          "pumpedRaw": "байпас"
+        },
+        "2026-03": {
+          "pumpedStatus": "bypass",
+          "accounts": 205,
+          "realized": 8339.6,
+          "pumpedRaw": "байпас"
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Вельяминово",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 90,
+          "realized": 347.54,
+          "pumped": 5282.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 90,
+          "realized": 566.17,
+          "pumped": 4643.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 92,
+          "realized": 627.58,
+          "pumped": 5318.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Глебово-Избище",
+      "district": 4,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 143,
+          "realized": 1314.55,
+          "pumped": 8165.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 143,
+          "realized": 1392.02,
+          "pumped": 8060.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 143,
+          "realized": 1252.47,
+          "pumped": 8365.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Граворново",
+      "district": 5,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "noDevice",
+          "accounts": 121,
+          "realized": 700.81,
+          "pumpedRaw": "нет ПУ"
+        },
+        "2026-02": {
+          "pumpedStatus": "noDevice",
+          "accounts": 121,
+          "realized": 618.88,
+          "pumpedRaw": "нет ПУ"
+        },
+        "2026-03": {
+          "pumpedStatus": "noDevice",
+          "accounts": 121,
+          "realized": 589.82,
+          "pumpedRaw": "нет ПУ"
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Давыдовское",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 71,
+          "realized": 143.8,
+          "pumped": 902.0
+        },
+        "2026-02": {
+          "pumpedStatus": "bypass",
+          "accounts": 71,
+          "realized": 416.89,
+          "pumpedRaw": "50 байпас?"
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 71,
+          "realized": 301.6,
+          "pumped": 417.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Дарна",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "noDevice",
+          "accounts": 91,
+          "realized": 789.38,
+          "pumpedRaw": "нет ПУ"
+        },
+        "2026-02": {
+          "pumpedStatus": "noDevice",
+          "accounts": 91,
+          "realized": 763.14,
+          "pumpedRaw": "нет ПУ"
+        },
+        "2026-03": {
+          "pumpedStatus": "noDevice",
+          "accounts": 91,
+          "realized": 736.01,
+          "pumpedRaw": "нет ПУ"
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Духанино",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "stopped",
+          "accounts": 131,
+          "realized": 964.68,
+          "pumpedRaw": "останов"
+        },
+        "2026-02": {
+          "pumpedStatus": "stopped",
+          "accounts": 131,
+          "realized": 1093.85,
+          "pumpedRaw": "останов"
+        },
+        "2026-03": {
+          "pumpedStatus": "stopped",
+          "accounts": 131,
+          "realized": 967.17,
+          "pumpedRaw": "останов"
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Дьяково",
+      "district": 4,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 98,
+          "realized": 5614.53,
+          "pumped": 620.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 98,
+          "realized": -4463.39,
+          "pumped": 504.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 98,
+          "realized": 604.82,
+          "pumped": 558.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Ефимоново",
+      "district": 4,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "faulty",
+          "accounts": 275,
+          "realized": 211.79,
+          "pumpedRaw": "неиспр"
+        },
+        "2026-02": {
+          "pumpedStatus": "faulty",
+          "accounts": 275,
+          "realized": 4548.77,
+          "pumpedRaw": "неиспр"
+        },
+        "2026-03": {
+          "pumpedStatus": "faulty",
+          "accounts": 275,
+          "realized": 450.46,
+          "pumpedRaw": "неиспр"
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Карцево",
+      "district": 5,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 65,
+          "realized": 107.36,
+          "pumped": 465.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 65,
+          "realized": 240.51,
+          "pumped": 420.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 65,
+          "realized": 274.41,
+          "pumped": 465.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Кострово",
+      "district": 5,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "faulty",
+          "accounts": 98,
+          "realized": 1021.1,
+          "pumpedRaw": "неиспр"
+        },
+        "2026-02": {
+          "pumpedStatus": "faulty",
+          "accounts": 98,
+          "realized": 1784.4,
+          "pumpedRaw": "неиспр"
+        },
+        "2026-03": {
+          "pumpedStatus": "faulty",
+          "accounts": 98,
+          "realized": 274.12,
+          "pumpedRaw": "неиспр"
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Красный поселок",
+      "district": 3,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 79,
+          "realized": 617.57,
+          "pumped": 461.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 79,
+          "realized": 562.85,
+          "pumped": 416.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 79,
+          "realized": 556.61,
+          "pumped": 420.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Курово",
+      "district": 5,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "notWorking",
+          "accounts": 12,
+          "realized": 56.73,
+          "pumpedRaw": "нераб"
+        },
+        "2026-02": {
+          "pumpedStatus": "notWorking",
+          "accounts": 12,
+          "realized": 41.64,
+          "pumpedRaw": "нераб"
+        },
+        "2026-03": {
+          "pumpedStatus": "notWorking",
+          "accounts": 12,
+          "realized": 113.57,
+          "pumpedRaw": "нераб"
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Куртниково",
+      "district": 4,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "noDevice",
+          "accounts": 61,
+          "realized": 257.09,
+          "pumpedRaw": "нет ПУ"
+        },
+        "2026-02": {
+          "pumpedStatus": "noDevice",
+          "accounts": 61,
+          "realized": 261.69,
+          "pumpedRaw": "нет ПУ"
+        },
+        "2026-03": {
+          "pumpedStatus": "noDevice",
+          "accounts": 61,
+          "realized": 239.36,
+          "pumpedRaw": "нет ПУ"
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Лечищево",
+      "district": 4,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 92,
+          "realized": 924.22
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 92,
+          "realized": 558.01
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 92,
+          "realized": 541.23
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Мартюшино",
+      "district": 4,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 61,
+          "realized": 348.86
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 61,
+          "realized": 342.67
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 61,
+          "realized": 2546.72
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Никулино .не работает. Вода от ВЗУ 4 Истра",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 190,
+          "realized": 1515.37,
+          "pumped": 0.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 190,
+          "realized": 1562.96,
+          "pumped": 0.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 190,
+          "realized": 1471.53,
+          "pumped": 0.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Новинки (ООО\"Истра-Девелопмент\")",
+      "district": 3,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 41,
+          "realized": 309.03,
+          "pumped": 4096.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 41,
+          "realized": -51.04,
+          "pumped": 3701.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 41,
+          "realized": 343.45,
+          "pumped": 4076.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Новинки (Регион-Индустия)",
+      "district": 3,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 484,
+          "realized": 6857.63,
+          "pumped": 14635.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 484,
+          "realized": 4805.11,
+          "pumped": 13270.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 485,
+          "realized": 8424.2,
+          "pumped": 14585.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Обушково",
+      "district": 3,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 338,
+          "realized": 2121.21,
+          "pumped": 7329.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 338,
+          "realized": 2119.34,
+          "pumped": 6642.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 338,
+          "realized": 2136.43,
+          "pumped": 7279.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Падиково",
+      "district": 3,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 96,
+          "realized": 755.11,
+          "pumped": 1093.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 96,
+          "realized": 717.88,
+          "pumped": 991.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 96,
+          "realized": 787.49,
+          "pumped": 1089.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Покровское",
+      "district": 3,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 208,
+          "realized": 1844.72,
+          "pumped": 20036.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 208,
+          "realized": 4474.37,
+          "pumped": 18097.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 208,
+          "realized": 1643.14,
+          "pumped": 20036.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Пречистое",
+      "district": 5,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 80,
+          "realized": 346.18
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 80,
+          "realized": 323.43
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 80,
+          "realized": 339.83
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Рождествено",
+      "district": 4,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 74,
+          "realized": 568.85
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 74,
+          "realized": 432.94
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 74,
+          "realized": 453.18
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Рычково В/Ч, ул. Военная",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 8,
+          "realized": 43.32,
+          "pumped": 1466.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 8,
+          "realized": 62.93,
+          "pumped": 1324.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 8,
+          "realized": 49.6,
+          "pumped": 1466.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Савельево",
+      "district": 5,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 24,
+          "realized": 236.9
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 24,
+          "realized": -226.96
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 24,
+          "realized": 203.45
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Синево",
+      "district": 4,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 56,
+          "realized": 224.07
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 56,
+          "realized": 488.02
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 56,
+          "realized": 419.22
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Хуторки",
+      "district": 5,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 51,
+          "realized": 335.43,
+          "pumped": 4772.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 51,
+          "realized": 370.02,
+          "pumped": 1650.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 51,
+          "realized": 363.57,
+          "pumped": 2121.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д. Якунино",
+      "district": 4,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "noDevice",
+          "accounts": 70,
+          "realized": 462.03,
+          "pumpedRaw": "нет ПУ"
+        },
+        "2026-02": {
+          "pumpedStatus": "noDevice",
+          "accounts": 70,
+          "realized": 366.75,
+          "pumpedRaw": "нет ПУ"
+        },
+        "2026-03": {
+          "pumpedStatus": "noDevice",
+          "accounts": 70,
+          "realized": 405.74,
+          "pumpedRaw": "нет ПУ"
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д.Черная, ул. Европейская",
+      "district": 3,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 1,
+          "realized": 14.0,
+          "pumped": 12164.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 1,
+          "realized": 13.0,
+          "pumped": 11145.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 1,
+          "realized": 11.0,
+          "pumped": 9020.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ д\\о Снегири (покупная вода)",
+      "district": 2,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 18,
+          "realized": 241.52,
+          "pumped": 14754.9
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 18,
+          "realized": 226.77,
+          "pumped": 12854.9
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 18,
+          "realized": 236.31,
+          "pumped": 14004.9
+        }
+      }
+    },
+    {
+      "name": "ВЗУ Дедовск(N1, N2 )",
+      "district": 2,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 2986,
+          "realized": 24568.66
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 2986,
+          "realized": 31904.39
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 2987,
+          "realized": 26679.19
+        }
+      }
+    },
+    {
+      "name": "ВЗУ Истра (N1, N4, N5, N3, Никулино)",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 2670,
+          "realized": 25706.62
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 2670,
+          "realized": 30546.23
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 2670,
+          "realized": 11555.62
+        }
+      }
+    },
+    {
+      "name": "ВЗУ Красновидово",
+      "district": 3,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 79,
+          "realized": 443.03,
+          "pumped": 1052.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 79,
+          "realized": 491.11,
+          "pumped": 960.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 79,
+          "realized": 416.02,
+          "pumped": 1032.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ мкр Песочный",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 151,
+          "realized": 1469.57
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 151,
+          "realized": 1214.84
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 151,
+          "realized": 1501.35
+        }
+      }
+    },
+    {
+      "name": "ВЗУ Новопетровское(N1, N2)",
+      "district": 5,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 473,
+          "realized": 2698.02,
+          "pumped": 34689.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 473,
+          "realized": 1142.6,
+          "pumped": 31332.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 473,
+          "realized": 2357.17,
+          "pumped": 34689.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ ОПХ МАНИХИНО",
+      "district": 3,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 129,
+          "realized": 1903.78
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 129,
+          "realized": 1822.77
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 129,
+          "realized": 1855.48
+        }
+      }
+    },
+    {
+      "name": "ВЗУ п. Агрогородок",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 153,
+          "realized": 1682.32,
+          "pumped": 13461.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 153,
+          "realized": 1664.56,
+          "pumped": 11991.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 153,
+          "realized": 1635.6,
+          "pumped": 12332.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ п. Глебовский",
+      "district": 4,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 189,
+          "realized": 2064.86
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 189,
+          "realized": 2149.68
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 189,
+          "realized": 1984.8
+        }
+      }
+    },
+    {
+      "name": "ВЗУ п. Котово",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 75,
+          "realized": 619.3,
+          "pumped": 17701.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 75,
+          "realized": 544.29,
+          "pumped": 15456.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 75,
+          "realized": 1306.75,
+          "pumped": 16926.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ п. Курсаково",
+      "district": 5,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "noDevice",
+          "accounts": 70,
+          "realized": 706.28,
+          "pumpedRaw": "нет ПУ"
+        },
+        "2026-02": {
+          "pumpedStatus": "noDevice",
+          "accounts": 70,
+          "realized": 635.79,
+          "pumpedRaw": "нет ПУ"
+        },
+        "2026-03": {
+          "pumpedStatus": "noDevice",
+          "accounts": 70,
+          "realized": -677.33,
+          "pumpedRaw": "нет ПУ"
+        }
+      }
+    },
+    {
+      "name": "ВЗУ п. Первомайский (Кирпичный завод)",
+      "district": 4,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "faulty",
+          "accounts": 69,
+          "realized": 524.15,
+          "pumpedRaw": "неиспр"
+        },
+        "2026-02": {
+          "pumpedStatus": "faulty",
+          "accounts": 69,
+          "realized": 483.37,
+          "pumpedRaw": "неиспр"
+        },
+        "2026-03": {
+          "pumpedStatus": "faulty",
+          "accounts": 69,
+          "realized": 765.95,
+          "pumpedRaw": "неиспр"
+        }
+      }
+    },
+    {
+      "name": "ВЗУ п. Северный",
+      "district": 4,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "incorrect",
+          "accounts": 451,
+          "realized": 3595.92,
+          "pumpedRaw": "некор"
+        },
+        "2026-02": {
+          "pumpedStatus": "incorrect",
+          "accounts": 451,
+          "realized": 3557.54,
+          "pumpedRaw": "некор"
+        },
+        "2026-03": {
+          "pumpedStatus": "incorrect",
+          "accounts": 451,
+          "realized": 3166.28,
+          "pumpedRaw": "некор"
+        }
+      }
+    },
+    {
+      "name": "ВЗУ п.Румянцево(ул.Садовая, ул.Красная Горка)",
+      "district": 5,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 141,
+          "realized": 650.78,
+          "pumped": 1612.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 141,
+          "realized": 422.67,
+          "pumped": 1456.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 141,
+          "realized": 537.65,
+          "pumped": 1612.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ Павловское (N1, N2)",
+      "district": 1,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 272,
+          "realized": 2117.66
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 272,
+          "realized": 1905.16
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 272,
+          "realized": 1722.49
+        }
+      }
+    },
+    {
+      "name": "ВЗУ пос. Гидроузла им. Куйбышева",
+      "district": 4,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "noDevice",
+          "accounts": 296,
+          "realized": 2110.53,
+          "pumpedRaw": "нет ПУ"
+        },
+        "2026-02": {
+          "pumpedStatus": "noDevice",
+          "accounts": 296,
+          "realized": 990.52,
+          "pumpedRaw": "нет ПУ"
+        },
+        "2026-03": {
+          "pumpedStatus": "noDevice",
+          "accounts": 296,
+          "realized": 1193.42,
+          "pumpedRaw": "нет ПУ"
+        }
+      }
+    },
+    {
+      "name": "ВЗУ с. Онуфриево",
+      "district": 5,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 91,
+          "realized": 711.77
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 91,
+          "realized": 560.42
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 91,
+          "realized": 336.53
+        }
+      }
+    },
+    {
+      "name": "ВЗУ с. Рождествено(N1, N2)",
+      "district": 2,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 488,
+          "realized": 4112.67,
+          "pumped": 51150.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 488,
+          "realized": 3862.0,
+          "pumped": 44520.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 488,
+          "realized": 17638.03,
+          "pumped": 49321.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ с.Павловская Слобода(N1, N2)",
+      "district": 3,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "accounts": 770,
+          "realized": 9017.41,
+          "pumped": 78213.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "accounts": 770,
+          "realized": 11768.1,
+          "pumped": 78213.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "accounts": 770,
+          "realized": 8242.47,
+          "pumped": 78213.0
+        }
+      }
+    },
+    {
+      "name": "ВЗУ Снегири(N1, N2)",
+      "district": 2,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "missing",
+          "accounts": 2226,
+          "realized": 20883.36
+        },
+        "2026-02": {
+          "pumpedStatus": "missing",
+          "accounts": 2226,
+          "realized": 15948.18
+        },
+        "2026-03": {
+          "pumpedStatus": "missing",
+          "accounts": 2226,
+          "realized": 20911.18
+        }
+      }
+    },
+    {
+      "name": "ВЗУ ДедШК Интернат",
+      "district": 2,
+      "months": {
+        "2026-01": {
+          "pumpedStatus": "ok",
+          "pumped": 1240.0
+        },
+        "2026-02": {
+          "pumpedStatus": "ok",
+          "pumped": 1120.0
+        },
+        "2026-03": {
+          "pumpedStatus": "ok",
+          "pumped": 1240.0
+        }
+      }
+    }
+  ]
+}
