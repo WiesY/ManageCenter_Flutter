@@ -22,7 +22,9 @@ class CustomBottomNavigation extends StatelessWidget {
 
     return SafeArea(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
+        // С пятой вкладкой («Потери») на узких экранах подписи упирались в
+        // края — поле по бокам уменьшено, чтобы им хватало места.
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
         decoration: BoxDecoration(
           color: (isDark ? colors.surfaceContainerHigh : colors.surface)
               .withValues(alpha: 0.92),
@@ -66,19 +68,19 @@ class CustomBottomNavigation extends StatelessWidget {
                 index: 2,
                 badgeCount: activeIncidentsCount,
               ),
-//               _buildNavItem(
-//                 context,
-//   icon: Icons.water_drop_outlined,
-//   selectedIcon: Icons.water_drop,
-//   label: 'Потери',
-//   index: 3,
-// ),
+              _buildNavItem(
+                context,
+                icon: Icons.water_drop_outlined,
+                selectedIcon: Icons.water_drop,
+                label: 'Потери',
+                index: 3,
+              ),
               _buildNavItem(
                 context,
                 icon: Icons.settings_outlined,
                 selectedIcon: Icons.settings,
                 label: 'Настройки',
-                index: 3,
+                index: 4,
               ),
             ],
           ),
@@ -138,7 +140,7 @@ class CustomBottomNavigation extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w800,
                   color: itemColor,
                 ),

@@ -73,9 +73,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           event.password,
         );
 
-        if (event.rememberMe) {
-          await _storageService.saveToken(tokenResponse.token);
-        }
+        // Без «запомнить меня» токен живёт только до закрытия приложения,
+        // но на время сессии он нужен всем запросам и SignalR.
+        await _storageService.saveToken(
+          tokenResponse.token,
+          persist: event.rememberMe,
+        );
 
         if (event.enableBiometric) {
           await _storageService.saveTokenType(true);

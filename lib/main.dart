@@ -7,9 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/app_lifecycle_manager.dart';
-import 'package:manage_center/bloc/analytics_bloc.dart';
 import 'package:manage_center/bloc/app_bloc.dart';
-import 'package:manage_center/bloc/boiler_detail_bloc.dart';
 import 'package:manage_center/bloc/boiler_types_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/bloc/change_password_bloc.dart';
@@ -94,20 +92,8 @@ class MyApp extends StatelessWidget {
               storageService: storageService,
             ),
           ),
-          BlocProvider<BoilerDetailBloc>(
-            create: (context) => BoilerDetailBloc(
-              apiService: apiService,
-              storageService: storageService,
-            ),
-          ),
           BlocProvider<ParameterGroupsBloc>(
             create: (context) => ParameterGroupsBloc(
-              apiService: context.read<ApiService>(),
-              storageService: context.read<StorageService>(),
-            ),
-          ),
-          BlocProvider<AnalyticsBloc>(
-            create: (context) => AnalyticsBloc(
               apiService: context.read<ApiService>(),
               storageService: context.read<StorageService>(),
             ),
@@ -154,12 +140,6 @@ class MyApp extends StatelessWidget {
               apiService: context.read<ApiService>(),
               storageService: context.read<StorageService>(),
             ),
-          ),
-          BlocProvider<IncidentsBloc>(
-            create: (context) => IncidentsBloc(
-              apiService: context.read<ApiService>(),
-              storageService: context.read<StorageService>(),
-            )..add(IncidentsInitEvent()),
           ),
           RepositoryProvider<SignalRService>(
             create: (_) => SignalRService(),
@@ -256,11 +236,23 @@ class AppView extends StatelessWidget {
                   authState.userInfo.role?.name == 'Оператор') {
                 return const OperatorScreen();
               }
-              return BlocProvider<BoilersBloc>(
-                create: (context) => BoilersBloc(
-                  apiService: context.read<ApiService>(),
-                  storageService: context.read<StorageService>(),
-                )..add(FetchBoilers()),
+              // Блоки сессии: по одному экземпляру на вход, их же наполняет
+              // SignalR в MainNavigationScreen и читают все вкладки.
+              return MultiBlocProvider(
+                providers: [
+                  BlocProvider<BoilersBloc>(
+                    create: (context) => BoilersBloc(
+                      apiService: context.read<ApiService>(),
+                      storageService: context.read<StorageService>(),
+                    )..add(FetchBoilers()),
+                  ),
+                  BlocProvider<IncidentsBloc>(
+                    create: (context) => IncidentsBloc(
+                      apiService: context.read<ApiService>(),
+                      storageService: context.read<StorageService>(),
+                    )..add(IncidentsInitEvent()),
+                  ),
+                ],
                 child: const MainNavigationScreen(),
               );
             }

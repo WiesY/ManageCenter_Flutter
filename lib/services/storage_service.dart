@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:manage_center/utils/app_logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class StorageService {
@@ -32,15 +33,62 @@ class StorageService {
 
   // ==================== ТОКЕН ====================
 
-  Future<void> saveToken(String token) async {
-    await _prefs.setString(tokenKey, token);
+  /// Токен текущей сессии. Живёт в памяти всегда, даже без «запомнить меня»:
+  /// иначе запросам после входа неоткуда было бы его взять.
+  String? _sessionToken;
+
+  /// Сохраняет токен сессии. С [persist] он переживает перезапуск приложения
+  /// и лежит в защищённом хранилище; без него — только в памяти.
+  Future<void> saveToken(String token, {bool persist = true}) async {
+    _sessionToken = token;
+    if (persist) {
+      await _writePersistedToken(token);
+    } else {
+      await _deletePersistedToken();
+    }
   }
 
   Future<String?> getToken() async {
-    return _prefs.getString(tokenKey);
+    return _sessionToken ??= await _readPersistedToken();
   }
 
   Future<void> deleteToken() async {
+    _sessionToken = null;
+    await _deletePersistedToken();
+  }
+
+  Future<String?> _readPersistedToken() async {
+    try {
+      final token = await _secureStorage.read(key: tokenKey);
+      if (token != null) return token;
+    } catch (e) {
+      logError('Защищённое хранилище недоступно', error: e, name: 'storage');
+    }
+
+    // Старые версии хранили токен открытым текстом — переносим его один раз.
+    final legacy = _prefs.getString(tokenKey);
+    if (legacy != null) await _writePersistedToken(legacy);
+    return legacy;
+  }
+
+  Future<void> _writePersistedToken(String token) async {
+    try {
+      await _secureStorage.write(key: tokenKey, value: token);
+      await _prefs.remove(tokenKey);
+    } catch (e) {
+      // Там, где защищённого хранилища нет (десктоп без связки ключей),
+      // остаёмся на прежнем поведении, чтобы вход не пропадал.
+      logError('Токен сохранён без шифрования', error: e, name: 'storage');
+      await _prefs.setString(tokenKey, token);
+    }
+  }
+
+  Future<void> _deletePersistedToken() async {
+    try {
+      await _secureStorage.delete(key: tokenKey);
+    } catch (e) {
+      logError('Не удалось удалить токен', error: e, name: 'storage');
+    }
     await _prefs.remove(tokenKey);
   }
 

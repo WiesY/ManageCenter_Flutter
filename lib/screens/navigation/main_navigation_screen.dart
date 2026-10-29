@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manage_center/bloc/boilers_bloc.dart';
 import 'package:manage_center/bloc/incidents_bloc.dart';
@@ -8,10 +9,10 @@ import 'package:manage_center/screens/dashboard_screen.dart';
 import 'package:manage_center/screens/incidents_screen.dart';
 import 'package:manage_center/screens/settings/settings_menu_screen.dart';
 import 'package:manage_center/screens/water_losses_screen.dart';
-import 'package:manage_center/services/api_service.dart';
 import 'package:manage_center/services/signalr_service.dart';
 import 'package:manage_center/services/storage_service.dart';
 import 'package:manage_center/theme/app_theme.dart';
+import 'package:manage_center/utils/app_logger.dart';
 import 'package:manage_center/widgets/custom_bottom_navigation.dart';
 import 'package:manage_center/services/app_update_service.dart';
 import 'package:manage_center/widgets/notification_toast.dart';
@@ -40,27 +41,27 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
-    //GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
   ];
+
+  /// Вкладки, которые уже открывали. Остальные не строим, чтобы на старте
+  /// не грузить аналитику и настройки, которые могут и не понадобиться.
+  final Set<int> _visitedTabs = {0};
 
   @override
   void initState() {
     super.initState();
-    _boilersBloc = BoilersBloc(
-      apiService: context.read<ApiService>(),
-      storageService: context.read<StorageService>(),
-    )..add(FetchBoilers());
-
-    _incidentsBloc = IncidentsBloc(
-      apiService: context.read<ApiService>(),
-      storageService: context.read<StorageService>(),
-    )..add(IncidentsInitEvent());
+    // Блоки сессии создаются в main.dart — здесь те же экземпляры, что видят
+    // экраны во вкладках, иначе события SignalR уходили бы мимо них.
+    _boilersBloc = context.read<BoilersBloc>();
+    _incidentsBloc = context.read<IncidentsBloc>();
 
     switchTabNotifier.addListener(_onSwitchTab);
 
     if (switchTabNotifier.value != null) {
       _currentIndex = switchTabNotifier.value!;
+      _visitedTabs.add(_currentIndex);
       switchTabNotifier.value = null;
     }
     _initSignalR();
@@ -85,8 +86,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     _signalRService.disconnect();
 
     switchTabNotifier.removeListener(_onSwitchTab);
-    _incidentsBloc.close();
-    _boilersBloc.close();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -94,9 +93,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void _onSwitchTab() {
     final tabIndex = switchTabNotifier.value;
     if (tabIndex != null) {
-      setState(() {
-        _currentIndex = tabIndex;
-      });
+      _selectTab(tabIndex);
       switchTabNotifier.value = null;
     }
   }
@@ -105,9 +102,27 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (_currentIndex == index) {
       _navigatorKeys[index].currentState?.popUntil((route) => route.isFirst);
     } else {
-      setState(() {
-        _currentIndex = index;
-      });
+      _selectTab(index);
+    }
+  }
+
+  void _selectTab(int index) {
+    setState(() {
+      _currentIndex = index;
+      _visitedTabs.add(index);
+    });
+  }
+
+  /// Системная «Назад»: сначала закрываем экраны внутри вкладки, потом
+  /// возвращаемся на главную и только с неё выходим из приложения.
+  void _onBackPressed() {
+    final tabNavigator = _navigatorKeys[_currentIndex].currentState;
+    if (tabNavigator != null && tabNavigator.canPop()) {
+      tabNavigator.pop();
+    } else if (_currentIndex != 0) {
+      _selectTab(0);
+    } else {
+      SystemNavigator.pop();
     }
   }
 
@@ -121,22 +136,23 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   Future<void> _initSignalR() async {
     _signalRService = context.read<SignalRService>();
-    final token = await context.read<StorageService>().getToken();
+    final storage = context.read<StorageService>();
+    final token = await storage.getToken();
     if (token != null) {
       // 1. Параметры котельных
       _signalRService.onNewBoilerParametersData = (boilerId, newData) {
         if (!mounted || _boilersBloc.isClosed) return;
-        //print('[SignalR] Котельная $boilerId: $newData');
+        //logDebug('Котельная $boilerId: $newData', name: 'signalr');
         _boilersBloc.add(BoilerParametersUpdatedEvent(boilerId, newData));
       };
 
       // 2. Новая авария
       _signalRService.onNewAlarm = (alarmData) {
-        print('[SignalR] Новая авария в UI: $alarmData');
+        logDebug('Новая авария в UI: $alarmData', name: 'signalr');
         _incidentsBloc.add(IncidentsNewAlarmReceivedEvent(alarmData));
 
         final boilerId = _asInt(alarmData['boilerId']);
-        print('[Main] onNewAlarm parsed boilerId=$boilerId');
+        logDebug('onNewAlarm parsed boilerId=$boilerId', name: 'signalr');
         if (boilerId != null) {
           _boilersBloc.add(BoilerEmergencyStatusChangedEvent(boilerId, true));
         }
@@ -159,13 +175,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
       // 3. Изменение статуса связи
       _signalRService.onDeviceStatusChanged = (statusData) {
-        print('[SignalR] Статус изменился в UI: $statusData');
+        logDebug('Статус изменился в UI: $statusData', name: 'signalr');
 
         final boilerId = _asInt(statusData['boilerId']);
         final status = statusData['status']?.toString().toLowerCase() ?? '';
         final hasConnection = status != 'offline';
-        print(
-            '[Main] onDeviceStatusChanged boilerId=$boilerId hasConnection=$hasConnection');
+        logDebug('onDeviceStatusChanged boilerId=$boilerId hasConnection=$hasConnection', name: 'signalr');
 
         if (boilerId != null) {
           _boilersBloc.add(
@@ -186,13 +201,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
       // 4. Авария закрыта
       _signalRService.onAlarmResolved = (resolvedData) {
-        print('[SignalR] Авария закрыта в UI: $resolvedData');
+        logDebug('Авария закрыта в UI: $resolvedData', name: 'signalr');
         _incidentsBloc.add(IncidentsAlarmResolvedEvent(resolvedData));
 
         final boilerId = _asInt(resolvedData['boilerId']);
         final hasActiveAlarms = resolvedData['hasActiveAlarms'] == true;
-        print(
-            '[Main] onAlarmResolved boilerId=$boilerId hasActiveAlarms=$hasActiveAlarms');
+        logDebug('onAlarmResolved boilerId=$boilerId hasActiveAlarms=$hasActiveAlarms', name: 'signalr');
 
         if (boilerId != null) {
           _boilersBloc.add(
@@ -217,7 +231,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         }
       };
 
-      await _signalRService.connect(token);
+      await _signalRService.connect(storage.getToken);
     }
   }
 
@@ -228,14 +242,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }) async {
     if (!mounted) return;
 
-    // 🔊 Звук только для аварий
-if (type == _NotificationType.alarm) {
-  final storage = context.read<StorageService>();
-  final volume = await storage.getAlarmVolume();
-  final sound = await storage.getAlarmSound();
-  await _audioPlayer.setVolume(volume);
-  await _audioPlayer.play(AssetSource(sound));
-}
+    // 🔊 Звук только для аварий и только если он не выключен в настройках
+    if (type == _NotificationType.alarm) {
+      final storage = context.read<StorageService>();
+      if (await storage.isAlarmSoundEnabled()) {
+        final volume = await storage.getAlarmVolume();
+        final sound = await storage.getAlarmSound();
+        await _audioPlayer.setVolume(volume);
+        await _audioPlayer.play(AssetSource(sound));
+      }
+    }
 
     if (!mounted) return;
 
@@ -292,11 +308,28 @@ if (type == _NotificationType.alarm) {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _onBackPressed();
+      },
+      child: Scaffold(
         extendBody: true,
-        body: _getCurrentScreen(),
+        // Все открытые вкладки остаются в дереве: при переключении не теряются
+        // ни прокрутка, ни открытые внутри вкладки экраны.
+        body: IndexedStack(
+          index: _currentIndex,
+          children: [
+            for (var i = 0; i < _navigatorKeys.length; i++)
+              _visitedTabs.contains(i)
+                  ? TickerMode(
+                      enabled: i == _currentIndex,
+                      child: _buildTabNavigator(i, _buildTab(i)),
+                    )
+                  : const SizedBox.shrink(),
+          ],
+        ),
         bottomNavigationBar: BlocBuilder<IncidentsBloc, IncidentsState>(
-          bloc: _incidentsBloc,
           builder: (context, state) {
             final count =
                 state is IncidentsLoadedState ? state.activeIncidentsCount : 0;
@@ -308,23 +341,22 @@ if (type == _NotificationType.alarm) {
             );
           },
         ),
-      );
+      ),
+    );
   }
 
-  Widget _getCurrentScreen() {
-    switch (_currentIndex) {
-      case 0:
-        return _buildTabNavigator(0, _buildHomeTab());
+  Widget _buildTab(int index) {
+    switch (index) {
       case 1:
-        return _buildTabNavigator(1, _buildUploadTab());
+        return const AnalyticsScreen();
       case 2:
-        return _buildTabNavigator(2, _buildIncidentsTab());
-      // case 3:
-      //   return _buildTabNavigator(3, _buildWaterLoosesTab());
+        return const IncidentsScreen();
       case 3:
-        return _buildTabNavigator(3, _buildSettingsTab());
+        return const WaterLossesScreen();
+      case 4:
+        return const SettingsScreen();
       default:
-        return _buildTabNavigator(0, _buildHomeTab());
+        return const DashboardScreen();
     }
   }
 
@@ -336,27 +368,4 @@ if (type == _NotificationType.alarm) {
       },
     );
   }
-
-  Widget _buildHomeTab() {
-    return BlocProvider.value(
-      value: _boilersBloc,
-      child: const DashboardScreen(),
-    );
-  }
-
-  Widget _buildUploadTab() => const AnalyticsScreen();
-
-Widget _buildIncidentsTab() {
-  return MultiBlocProvider(
-    providers: [
-      BlocProvider.value(value: _incidentsBloc),
-      BlocProvider.value(value: _boilersBloc), // добавить
-    ],
-    child: const IncidentsScreen(),
-  );
-}
-
-  //Widget _buildWaterLoosesTab() => const WaterLossesScreen();
-
-  Widget _buildSettingsTab() => const SettingsScreen();
 }

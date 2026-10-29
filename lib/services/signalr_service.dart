@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:manage_center/utils/app_logger.dart';
 import 'package:signalr_netcore/signalr_client.dart';
 
 /// Глобальный нотифаер: уведомляет подписчиков о приходе новых данных
@@ -10,21 +13,40 @@ final ValueNotifier<int?> boilerParamsUpdateNotifier = ValueNotifier<int?>(null)
 class SignalRService {
   static const String _hubUrl = 'https://boiler-v2.nwwork.site/notifications';
 
+  /// Паузы между попытками поднять соединение заново. После последней
+  /// пытаемся с ней же, пока сервис не остановят через [disconnect].
+  static const List<Duration> _retryDelays = [
+    Duration(seconds: 2),
+    Duration(seconds: 5),
+    Duration(seconds: 10),
+    Duration(seconds: 30),
+    Duration(minutes: 1),
+  ];
+
   HubConnection? _hubConnection;
+  Timer? _retryTimer;
+  int _retryAttempt = 0;
+
+  /// Сервис остановлен явно — переподключаться больше не нужно.
+  bool _stopped = true;
 
   Function(int boilerId, Map<String, dynamic> newData)? onNewBoilerParametersData;
   Function(Map<String, dynamic> alarmData)? onNewAlarm;
   Function(Map<String, dynamic> statusData)? onDeviceStatusChanged;
   Function(Map<String, dynamic> resolvedData)? onAlarmResolved;
 
-  Future<void> connect(String token) async {
-    print('[SignalR] Попытка подключения с токеном: ${token.substring(0, 20)}...');
+  /// Подключается к хабу. Токен запрашивается у [tokenProvider] на каждой
+  /// попытке, поэтому переподключение идёт с актуальным токеном сессии.
+  Future<void> connect(Future<String?> Function() tokenProvider) async {
+    _stopped = false;
+    _retryAttempt = 0;
+    _retryTimer?.cancel();
 
     _hubConnection = HubConnectionBuilder()
         .withUrl(
           _hubUrl,
           options: HttpConnectionOptions(
-            accessTokenFactory: () async => token,
+            accessTokenFactory: () async => await tokenProvider() ?? '',
             // НЕ указываем transport и skipNegotiation — пусть клиент договорится с сервером сам
           ),
         )
@@ -46,7 +68,7 @@ class SignalRService {
         // Сброс — чтобы следующее событие с тем же boilerId тоже сработало
         boilerParamsUpdateNotifier.value = null;
       } catch (e) {
-        print('[SignalR] Ошибка OnNewBoilerParametersData: $e');
+        logError('Ошибка OnNewBoilerParametersData', error: e, name: 'signalr');
       }
     });
 
@@ -55,10 +77,10 @@ class SignalRService {
       if (args == null || args.isEmpty) return;
       try {
         final alarmData = Map<String, dynamic>.from(args[0] as Map);
-        print('[SignalR] Получена живая авария: $alarmData');
+        logDebug('Получена живая авария: $alarmData', name: 'signalr');
         onNewAlarm?.call(alarmData);
       } catch (e) {
-        print('[SignalR] Ошибка ReceiveNewAlarm: $e');
+        logError('Ошибка ReceiveNewAlarm', error: e, name: 'signalr');
       }
     });
 
@@ -67,10 +89,10 @@ class SignalRService {
       if (args == null || args.isEmpty) return;
       try {
         final statusData = Map<String, dynamic>.from(args[0] as Map);
-        print('[SignalR] Статус объекта изменился: $statusData');
+        logDebug('Статус объекта изменился: $statusData', name: 'signalr');
         onDeviceStatusChanged?.call(statusData);
       } catch (e) {
-        print('[SignalR] Ошибка DeviceStatusChanged: $e');
+        logError('Ошибка DeviceStatusChanged', error: e, name: 'signalr');
       }
     });
 
@@ -79,30 +101,58 @@ class SignalRService {
       if (args == null || args.isEmpty) return;
       try {
         final resolvedData = Map<String, dynamic>.from(args[0] as Map);
-        print('[SignalR] Авария закрыта: $resolvedData');
+        logDebug('Авария закрыта: $resolvedData', name: 'signalr');
         onAlarmResolved?.call(resolvedData);
       } catch (e) {
-        print('[SignalR] Ошибка AlarmResolved: $e');
+        logError('Ошибка AlarmResolved', error: e, name: 'signalr');
       }
     });
 
     _hubConnection!.onreconnected(({connectionId}) {
-      print('[SignalR] Reconnected: $connectionId');
+      logDebug('Соединение восстановлено: $connectionId', name: 'signalr');
     });
 
+    // Сюда попадаем, когда встроенное переподключение исчерпало попытки
+    // (или сервер закрыл соединение). Без этого живые обновления пропадали
+    // до перезапуска приложения.
     _hubConnection!.onclose(({error}) {
-      print('[SignalR] Соединение закрыто: $error');
+      logError('Соединение закрыто', error: error, name: 'signalr');
+      _scheduleRetry();
     });
+
+    await _start();
+  }
+
+  Future<void> _start() async {
+    final connection = _hubConnection;
+    if (_stopped || connection == null) return;
+    if (connection.state != HubConnectionState.Disconnected) return;
 
     try {
-      await _hubConnection!.start();
-      print('[SignalR] Подключён к хабу. State=${_hubConnection!.state}');
+      await connection.start();
+      _retryAttempt = 0;
+      logDebug('Подключён к хабу', name: 'signalr');
     } catch (e) {
-      print('[SignalR] Ошибка подключения: $e');
+      logError('Ошибка подключения', error: e, name: 'signalr');
+      _scheduleRetry();
     }
   }
 
+  void _scheduleRetry() {
+    if (_stopped || _retryTimer?.isActive == true) return;
+    final delay =
+        _retryDelays[_retryAttempt.clamp(0, _retryDelays.length - 1)];
+    _retryAttempt++;
+    logDebug('Повтор подключения через ${delay.inSeconds} с', name: 'signalr');
+    _retryTimer = Timer(delay, _start);
+  }
+
 Future<void> disconnect() async {
+  // 0) запретить переподключение — stop() вызовет onclose
+  _stopped = true;
+  _retryTimer?.cancel();
+  _retryTimer = null;
+
   // 1) убрать слушателей на хабе
   try {
     _hubConnection?.off('OnNewBoilerParametersData');
@@ -117,11 +167,13 @@ Future<void> disconnect() async {
   onDeviceStatusChanged = null;
   onAlarmResolved = null;
 
-  // 3) остановить соединение
-  try {
-    await _hubConnection?.stop();
-  } catch (_) {}
+  // 3) остановить соединение. Ссылку снимаем сразу: пока идёт stop(),
+  // новый вход мог уже вызвать connect(), и его соединение трогать нельзя.
+  final connection = _hubConnection;
   _hubConnection = null;
+  try {
+    await connection?.stop();
+  } catch (_) {}
 }
 
   bool get isConnected =>
